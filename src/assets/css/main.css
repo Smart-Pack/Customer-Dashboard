@@ -1,0 +1,241 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;700&display=swap');
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Fonts */
+  --font-sans: 'Poppins', 'Inter', system-ui, sans-serif;
+  --font-poppins: 'Poppins', sans-serif;
+  --font-montserrat: 'Montserrat', sans-serif;
+
+  /* Font sizes */
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.8;
+
+  /* Background images */
+  --background-image-auth-gradient: linear-gradient(180deg, #4c8a6c 0%, #0b1c14 100%);
+  --background-image-auth-gradient-dark: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  --background-image-auth-right: url('/src/assets/img/auth-right-bg.svg');
+  --background-image-auth-right-dark: url('/src/assets/img/auth-right-bg-purple.svg');
+
+  /* Shadows */
+  --shadow-card-light: 0 10px 25px -10px rgba(0, 0, 0, 0.25);
+  --shadow-card-dark: 0 20px 35px -15px rgba(0, 0, 0, 0.65);
+  --shadow-primary-focus: 0 0 0 3px rgba(78, 141, 110, 0.3);
+  --shadow-primary-focus-dark: 0 0 0 3px rgba(168, 85, 247, 0.35);
+
+  /* Colors */
+  --color-page: #f1f5f9;
+  --color-page-light: #ffffff;
+  --color-page-dark: #0f172a;
+
+  --color-card: #ffffff;
+  --color-card-hover: #f4f6fb;
+  --color-card-border: #e5e7eb;
+  --color-card-borderHover: #cbd5f5;
+  --color-card-dark: #020617;
+  --color-card-darkHover: #1f2937;
+  --color-card-darkBorder: #1f2937;
+  --color-card-darkBorderHover: #374151;
+
+  --color-icon: #94a3b8;
+  --color-icon-dark: #d8b4fe;
+
+  --color-primary: #047857;
+  --color-primary-iconBg: #d1fae5;
+  --color-primary-hover: #03543b;
+  --color-primary-dark: #a855f7;
+  --color-primary-darkIconBg: #f3e8ff;
+  --color-primary-darkHover: #8b3ee0;
+
+  --color-secondary: #000000;
+  --color-secondary-hover: #1f2937;
+  --color-secondary-dark: #ffffff;
+  --color-secondary-darkHover: #e5e7eb;
+
+  --color-secondaryLight: #f97316;
+  --color-secondaryLight-hover: #ea580c;
+  --color-secondaryLight-dark: #60a5fa;
+  --color-secondaryLight-darkHover: #3b82f6;
+
+  --color-tableStatus-active: #3b82f6;
+  --color-tableStatus-activeDark: #60a5fa;
+  --color-tableStatus-inactive: #f97316;
+  --color-tableStatus-inactiveDark: #fb923c;
+  --color-tableStatus-error: #ef4444;
+  --color-tableStatus-errorDark: #f87171;
+
+  --color-error: #ef4444;
+  --color-error-hover: #c53030;
+  --color-error-bg: #fef2f2;
+
+  --color-pwhite: #ffffff;
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/**
+ * These classes are promoted from @layer components to @utility because
+ * other component classes @apply them. In Tailwind v4, @apply can only
+ * consume registered utilities (core utilities or @utility-defined ones) —
+ * plain @layer components classes are no longer "visible" to @apply.
+ */
+@utility primary-text {
+  @apply font-poppins text-primary dark:text-primary-dark;
+}
+@utility secondary-text {
+  @apply text-secondary dark:text-secondary-dark;
+}
+@utility base-border {
+  @apply border border-card-border shadow-card-light dark:border-card-darkBorder dark:shadow-card-dark rounded-xl;
+}
+@utility focus-ring {
+  @apply focus:outline-none focus:border-primary focus:ring-primary-hover focus:ring-2 focus-visible:shadow-primary-focus dark:focus:border-primary-dark dark:focus:ring-primary-darkHover dark:focus-visible:shadow-primary-focus-dark;
+}
+@utility card-base {
+  @apply base-border bg-card dark:bg-card-dark;
+}
+@utility main-card {
+  @apply card-base dark:border-4;
+}
+@utility field-placeholder {
+  @apply placeholder-icon dark:placeholder-icon-dark;
+}
+@utility field-input {
+  @apply card-base focus-ring secondary-text field-placeholder leading-none font-normal disabled:cursor-not-allowed;
+}
+@utility form-submit-light {
+  @apply bg-primary hover:bg-primary-hover focus-visible:ring-primary focus-visible:ring-offset-pwhite;
+}
+@utility form-submit-dark {
+  @apply dark:bg-primary-dark dark:hover:bg-primary-darkHover dark:focus-visible:ring-primary-dark dark:focus-visible:ring-offset-card-dark;
+}
+@utility form-submit {
+  @apply bg-primary hover:bg-primary-hover
+    dark:bg-primary-dark dark:hover:bg-primary-darkHover
+    rounded-xl font-poppins font-medium text-white transition duration-200
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+    disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility error-btn {
+  @apply form-submit bg-error dark:bg-error hover:bg-error-hover dark:hover:bg-error-hover;
+}
+
+@utility primary-bg {
+  @apply bg-primary dark:bg-primary-dark text-white font-poppins;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-size: 16px;
+}
+
+@layer components {
+  .auth-link {
+    @apply primary-text font-medium text-sm;
+  }
+  .dashboard-card {
+    @apply card-base border-t-4 border-primary dark:border-primary-dark;
+  }
+  .card-description {
+    @apply secondary-text font-medium;
+  }
+  .main-heading {
+    @apply secondary-text font-bold text-xl lg:text-2xl;
+  }
+  .sub-heading {
+    @apply primary-text font-normal text-lg tracking-[0.3em] lg:font-bold lg:text-xl;
+  }
+  .dashboard-icon {
+    @apply primary-text bg-primary-iconBg dark:bg-primary-darkIconBg rounded-full;
+  }
+  .field-icon {
+    @apply text-icon dark:text-icon-dark;
+  }
+  .field-error {
+    @apply text-error text-sm text-left;
+  }
+  .form-submit-secondary {
+    @apply rounded-xl font-poppins font-medium text-white transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-secondaryLight hover:bg-secondaryLight-hover focus-visible:ring-secondaryLight focus-visible:ring-offset-pwhite dark:bg-secondaryLight-dark dark:hover:bg-secondaryLight-darkHover dark:focus-visible:ring-secondaryLight-dark dark:focus-visible:ring-offset-card-dark;
+  }
+  .submit-spinner {
+    @apply w-4 h-4 border-4 border-card-border dark:border-card-darkBorder border-t-secondary dark:border-t-secondary-dark rounded-full animate-spin;
+  }
+  .link-spinner {
+    @apply w-4 h-4 border-4 border-primary dark:border-primary-dark border-t-secondary dark:border-t-secondary-dark rounded-full animate-spin;
+  }
+  .nav-tab {
+    @apply border-b border-b-2 border-card-border dark:border-card-darkBorder secondary-text;
+  }
+  .nav-tab-active {
+    @apply form-submit rounded-t-xl rounded-b-none;
+  }
+  .loading-animation {
+    @apply rounded-lg bg-card-border dark:bg-page-dark animate-pulse secondary-text;
+  }
+  .table-body {
+    @apply border-b border-card-border hover:bg-card-hover hover:border-card-borderHover dark:hover:bg-card-darkHover secondary-text text-base;
+  }
+  .table-status-active {
+    @apply bg-tableStatus-active text-white dark:bg-tableStatus-activeDark rounded-lg;
+  }
+  .table-status-inactive {
+    @apply bg-tableStatus-inactive text-white dark:bg-tableStatus-inactiveDark rounded-lg;
+  }
+  .table-status-error {
+    @apply bg-tableStatus-error text-white dark:bg-tableStatus-errorDark rounded-lg;
+  }
+  .center-flex-col {
+    @apply flex flex-col items-center justify-center;
+  }
+  .center-flex {
+    @apply flex items-center justify-center;
+  }
+
+  .swal2-popup.swal-tailwind-popup {
+    @apply !main-card !secondary-text;
+  }
+  .swal-toast-popup {
+    @apply !bg-card !text-secondary !border !border-card-border !shadow-lg dark:!bg-card-dark dark:!text-secondary-dark
+    dark:!border-card-darkBorder dark:!shadow-2xl;
+  }
+  .swal2-timer-progress-bar.swal-toast-progress {
+    @apply !bg-primary-dark dark:!bg-primary;
+  }
+  .swal-tailwind-confirm {
+    @apply form-submit secondary-text !rounded-lg px-5 py-2.5;
+  }
+  .swal-tailwind-delete {
+    @apply error-btn secondary-text !rounded-lg px-5 py-2.5 focus:outline-none focus-visible:ring-0;
+  }
+
+  .vue-tel-input .vti__dropdown {
+    @apply !field-input;
+  }
+  .vue-tel-input .vti__input {
+    @apply overflow-y-auto;
+  }
+  .vue-tel-input .vti__dropdown-list {
+    @apply !field-input;
+  }
+  .vue-tel-input .vti__dropdown-item {
+    @apply !field-input !rounded-none hover:!bg-card-hover dark:hover:!bg-card-darkHover;
+  }
+}

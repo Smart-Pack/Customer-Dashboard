@@ -1,13 +1,82 @@
-<!DOCTYPE html>
-<html lang="">
+<!doctype html>
+
+<html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="SmartPack Admin Dashboard – Administrative interface for managing SmartPack devices, users, and monitoring data."
+    />
+
+    <meta name="author" content="Trevor Gituru" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="SmartPack Admin Dashboard" />
+    <meta
+      property="og:description"
+      content="SmartPack Admin Dashboard – Administrative interface for managing SmartPack devices, users, and monitoring data."
+    />
+    <meta property="og:url" content="https://admin.smartpack.razaoul.co.ke/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/smartpack-og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SmartPack Admin Dashboard" />
+    <meta
+      name="twitter:description"
+      content="SmartPack Admin Dashboard – Administrative interface for managing SmartPack devices, users, and monitoring data."
+    />
+    <meta name="twitter:image" content="/smartpack-og.png" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://admin.smartpack.razaoul.co.ke/" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "SmartPack Admin Dashboard",
+        "url": "https://admin.smartpack.razaoul.co.ke/",
+        "description": "SmartPack Admin Dashboard – Administrative interface for managing SmartPack devices, users, and monitoring data.",
+        "contributor": [
+          {
+            "@type": "Person",
+            "name": "Trevor Gituru",
+            "jobTitle": "Full Stack Developer",
+            "description": "Contributed to the development and build process of the SmartPack Admin Dashboard.",
+            "alumniOf": {
+              "@type": "CollegeOrUniversity",
+              "name": "Jomo Kenyatta University of Agriculture and Technology (JKUAT)"
+            },
+            "sameAs": ["https://github.com/trevor-gituru", "https://trevor-gituru.vercel.app"]
+          }
+        ]
+      }
+    </script>
+
+    <title>SmartPack Admin Dashboard</title>
   </head>
+
   <body>
+    <noscript>
+      <strong>
+        We're sorry, but SmartPack Admin Dashboard requires JavaScript to work properly. Please
+        enable JavaScript to continue.
+      </strong>
+    </noscript>
+
     <div id="app"></div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
