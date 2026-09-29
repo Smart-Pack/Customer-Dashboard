@@ -1,5 +1,5 @@
 {
-  "name": "customer-dashboard",
+  "name": "admin-dashboard",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,14 +13,28 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "lint:oxlint:check": "oxlint .",
+    "lint:eslint:check": "eslint . --cache",
+    "lint:check": "run-s lint:oxlint:check lint:eslint:check",
+    "format": "prettier --write --experimental-cli src/",
+    "format:check": "prettier --check src/",
+    "prepare": "husky"
   },
   "dependencies": {
+    "@vee-validate/rules": "^4.15.1",
+    "axios": "^1.20.0",
+    "jwt-decode": "^4.0.0",
     "pinia": "^4.0.2",
+    "qrcode-vue3": "^1.7.1",
+    "sweetalert2": "^11.26.25",
+    "tailwindcss": "^4.3.3",
+    "vee-validate": "^4.15.1",
     "vue": "^3.5.40",
-    "vue-router": "^5.2.0"
+    "vue-router": "^5.2.0",
+    "vue-tel-input": "^6.0.5"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/node24": "^24.0.4",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^24.13.3",
@@ -33,6 +47,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.73.0",
     "eslint-plugin-vue": "~10.9.2",
+    "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "jsdom": "^29.1.1",
     "npm-run-all2": "^9.0.2",
@@ -46,6 +61,7 @@
     "vue-tsc": "^3.3.7"
   },
   "engines": {
-    "node": "^22.18.0 || >=24.12.0"
-  }
+    "node": "24.x"
+  },
+  "packageManager": "pnpm@12.3.4+sha512.961aa41fb077da3a04a441d9f8e15ebc0c96da8ef710b2eb67bf9ee7cb0610eabd48f1fd85f51cffe73846785fa0f87c56a3a872a1d893f8446741b5cce45457"
 }
