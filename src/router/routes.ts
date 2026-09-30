@@ -51,6 +51,13 @@ const routes: RouteRecordRaw[] = [
         name: 'login',
         component: () => import('@/views/Auth/Login.vue'),
       },
+      // SignUp page
+      {
+        path: 'signup',
+        name: 'signup',
+        component: () => import('@/views/Auth/SignUp.vue'),
+        meta: { title: 'Sign Up' },
+      },
       // 2FA page
       {
         path: '2FA',
