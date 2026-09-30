@@ -28,7 +28,7 @@ src/components/Base/AuthCard.vue
 | Prop               | Type                      | Required | Description                                                                                |
 | ------------------ | ------------------------- | -------: | ------------------------------------------------------------------------------------------ |
 | `heading`          | `string`                  |      Yes | Main heading displayed on the card.                                                        |
-| `subtitle`         | `string`                  |       No | Secondary heading. Defaults to `SMARTPACK ADMIN PLATFORM`.                                 |
+| `subtitle`         | `string`                  |       No | Secondary heading. Defaults to `SMARTPACK PLATFORM`.                                 |
 | `description`      | `string`                  |       No | Optional description displayed below the subtitle.                                         |
 | `btnText`          | `string \| ButtonText`    |       No | Submit button text or separate normal/loading text.                                        |
 | `formFields`       | `AuthFormField[]`         |      Yes | Defines the fields rendered by the form.                                                   |
@@ -227,7 +227,7 @@ If an authentication error contains a `reload` property set to `true`, the user 
 ```vue
 <AuthCard
   heading="Welcome Back"
-  subtitle="SMARTPACK ADMIN PLATFORM"
+  subtitle="SMARTPACK PLATFORM"
   btn-text="Login"
   :form-fields="formFields"
   :auth-fn="login"
