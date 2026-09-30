@@ -1,5 +1,5 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick, markRaw } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuthCard from '../AuthCard.vue'
 
@@ -58,9 +58,10 @@ const InputFieldStub = defineComponent({
     icon: { type: [Object, Function], default: null },
   },
   emits: ['update:modelValue'],
-  setup(props, { emit }) {
+  setup(props, { emit, attrs }) {
     return () =>
       h('input', {
+        ...attrs,
         class: 'input-field-stub',
         name: props.name,
         placeholder: props.placeholder,
@@ -226,7 +227,7 @@ describe('AuthCard', () => {
     })
     it('renders the bottom component when provided', () => {
       const wrapper = wrapperFactory({
-        bottomComponent: BottomComponentStub,
+        bottomComponent: markRaw(BottomComponentStub),
       })
 
       expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(true)
@@ -234,7 +235,7 @@ describe('AuthCard', () => {
 
     it('passes props to the bottom component', () => {
       const wrapper = wrapperFactory({
-        bottomComponent: BottomComponentStub,
+        bottomComponent: markRaw(BottomComponentStub),
         bottomComponentProps: { mode: 'create' },
       })
 
@@ -247,6 +248,49 @@ describe('AuthCard', () => {
       const wrapper = wrapperFactory()
 
       expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(false)
+    })
+    it('focuses the first field marked with autofocus after mounting', async () => {
+      const formFields = [
+        {
+          key: 'email',
+          label: 'Email Address',
+          specificType: 'email',
+          extraAttrs: {
+            autofocus: true,
+          },
+        },
+        {
+          key: 'password',
+          label: 'Password',
+          specificType: 'password',
+        },
+      ]
+
+      const wrapper = mount(AuthCard, {
+        props: {
+          heading: 'Welcome Back',
+          formFields,
+          authFn: vi.fn<AuthFn>().mockResolvedValue('Success message'),
+          currentRoutes,
+        },
+        attachTo: document.body,
+        global: {
+          stubs: {
+            InputField: InputFieldStub,
+            BaseButton: BaseButtonStub,
+            RouterLink: RouterLinkStub,
+          },
+        },
+      })
+
+      await nextTick()
+
+      const autofocusInput = wrapper.find('input[name="email"]')
+
+      expect(autofocusInput.exists()).toBe(true)
+      expect(document.activeElement).toBe(autofocusInput.element)
+
+      wrapper.unmount()
     })
   })
 

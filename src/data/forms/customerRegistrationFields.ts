@@ -18,6 +18,9 @@ export function getCustomerRegistrationFields() {
       key: 'first_name',
       label: 'First Name',
       specificType: 'fname',
+      extraAttrs: {
+        autofocus: true,
+      },
     },
     {
       key: 'last_name',

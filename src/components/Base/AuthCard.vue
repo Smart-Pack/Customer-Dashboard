@@ -10,7 +10,7 @@
       {{ description }}
     </p>
     <!-- form -->
-    <form class="mt-10 flex flex-col gap-5 lg:p-4" @submit.prevent="auth">
+    <form ref="authForm" class="mt-10 flex flex-col gap-5 lg:p-4" @submit.prevent="auth">
       <div v-for="field in formFields" :key="field.key" class="space-y-2">
         <label class="secondary-text font-semibold text-left block pl-2 text-sm">{{
           field.label
@@ -57,6 +57,7 @@ import { useForm } from 'vee-validate'
 import { reactive, ref } from 'vue'
 import type { PropType } from 'vue'
 import { useGlobals } from '@/composables/useGlobals'
+import { nextTick } from 'vue'
 
 /**
  * @typedef {Object} FormField
@@ -249,6 +250,19 @@ export default {
       }
       return this.submitting ? 'Loading...' : 'Authenticate'
     },
+  },
+
+  /**
+   * Focuses the first form field marked with the `autofocus` attribute
+   * after the authentication form has been mounted.
+   */
+  mounted() {
+    nextTick(() => {
+      const form = this.$refs.authForm as HTMLFormElement | undefined
+      const autofocusField = form?.querySelector<HTMLElement>('[autofocus]')
+
+      autofocusField?.focus()
+    })
   },
   /**
    * Initializes the reactive form state using VeeValidate's `useForm`.
