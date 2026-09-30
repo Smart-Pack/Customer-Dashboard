@@ -5,6 +5,8 @@
     :auth-fn="authStore.logIn"
     :form-fields="formFields"
     :current-routes="currentRoutes"
+    :bottom-component="AuthCardBottomLink"
+    :bottom-component-props="{ mode: 'signIn' }"
   />
 </template>
 
@@ -13,6 +15,7 @@ defineOptions({
   name: 'LoginView',
 })
 
+import AuthCardBottomLink from '@/components/Auth/BottomLink.vue'
 import AuthCard from '@/components/Base/AuthCard.vue'
 import { useAuthStore } from '@/stores/modules/auth'
 
