@@ -9,7 +9,7 @@ export const mockUser: User = {
   email: 'john@example.com',
   phone: '+254712345678',
   profile_pic: null,
-  account_type: 'internal',
+  account_type: 'customer',
   role: 'staff',
   date_of_birth: '2000-01-01',
   gender: 'male',

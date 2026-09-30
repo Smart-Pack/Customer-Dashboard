@@ -94,7 +94,7 @@ export const actions: AuthActions = {
 
       throw new Error(
         dashboard
-          ? `Your credentials are for accessing the ${dashboard} dashboard. Accessing the Admin dashboard is restricted for your account type.`
+          ? `Your credentials are for accessing the ${dashboard} dashboard. Accessing the SmartPack dashboard is restricted for your account type.`
           : 'The provided credentials are not supposed to be used for this dashboard.',
       )
     }
