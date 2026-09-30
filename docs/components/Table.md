@@ -1,6 +1,6 @@
 # Base Table
 
-A reusable and configurable table component for displaying collections of data in the SmartPack Admin Dashboard.
+A reusable and configurable table component for displaying collections of data in the SmartPack Customer Dashboard.
 
 The table is composed of three sub-components:
 

@@ -119,7 +119,7 @@ describe('TopBar', () => {
     it('renders the dashboard title', () => {
       const wrapper = mountTopBar()
 
-      expect(wrapper.text()).toContain('SMARTPACK ADMIN DASHBOARD')
+      expect(wrapper.text()).toContain('SMARTPACK')
     })
 
     it('renders the welcome message with the authenticated user first name', () => {

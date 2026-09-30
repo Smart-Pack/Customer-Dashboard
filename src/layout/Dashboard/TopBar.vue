@@ -11,7 +11,7 @@
         :to="{ name: 'dashboard' }"
         class="form-submit text-sm lg:text-lg !rounded-lg py-1 px-2 lg:!px-8 hover:text-white"
       >
-        SMARTPACK ADMIN DASHBOARD
+        SMARTPACK
       </router-link>
     </h1>
 

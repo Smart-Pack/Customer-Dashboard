@@ -127,11 +127,11 @@ export default {
     /**
      * The subtitle text displayed below the main heading.
      * @type {String}
-     * @default 'SMARTPACK ADMINISTRATOR PLATFORM'
+     * @default 'SMARTPACK PLATFORM'
      */
     subtitle: {
       type: String,
-      default: 'SMARTPACK ADMIN PLATFORM',
+      default: 'SMARTPACK PLATFORM',
     },
     /**
      * An optional, smaller description text displayed below the subtitle.

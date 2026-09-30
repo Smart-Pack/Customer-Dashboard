@@ -1,6 +1,6 @@
 # API
 
-This section documents the API integration used by the SmartPack Admin Dashboard. It provides guidance on API configuration, client usage, authentication, and communication with the SmartPack backend.
+This section documents the API integration used by the SmartPack Customer Dashboard. It provides guidance on API configuration, client usage, authentication, and communication with the SmartPack backend.
 
 ## API Client
 

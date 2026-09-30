@@ -1,6 +1,6 @@
 # Layouts
 
-This directory contains documentation for the layouts used by the SmartPack Admin Dashboard.
+This directory contains documentation for the layouts used by the SmartPack Customer Dashboard.
 
 ## Documentation
 

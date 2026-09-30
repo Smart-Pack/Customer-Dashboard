@@ -4,7 +4,7 @@ Here is a high-level `docs/layouts/auth.md` matching the style of your store doc
 
 ## Overview
 
-The authentication layout provides the shared structure for authentication-related pages in the SmartPack Admin Dashboard.
+The authentication layout provides the shared structure for authentication-related pages in the SmartPack Customer Dashboard.
 
 It provides a consistent layout for pages such as login, two-factor authentication, password recovery, and password reset.
 

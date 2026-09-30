@@ -89,10 +89,10 @@ export function setupRouterGuard(router: Router, pinia: Pinia): void {
     updateBreadcrumbs(toRoute, uiStore)
 
     document.title = toRoute.meta.title
-      ? `${toRoute.meta.title} - SmartPack Admin`
+      ? `${toRoute.meta.title} - SmartPack Platform`
       : toRoute.name
-        ? `${formatTitle(String(toRoute.name))} - SmartPack Admin`
-        : 'SmartPack Admin Dashboard'
+        ? `${formatTitle(String(toRoute.name))} - SmartPack Platform`
+        : 'SmartPack Platform Dashboard'
 
     if (!authStore.isFullyAuthenticated) {
       if (!toRoute.meta.requiresAuth) {

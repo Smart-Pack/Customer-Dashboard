@@ -1,6 +1,6 @@
 # Development Usage
 
-This guide covers the common commands used when developing the SmartPack Admin Dashboard.
+This guide covers the common commands used when developing the SmartPack Customer Dashboard.
 
 ## Start Development Server
 

@@ -1,6 +1,6 @@
 # Development Setup
 
-This guide explains how to set up the SmartPack Admin Dashboard for local development.
+This guide explains how to set up the SmartPack Customer Dashboard for local development.
 
 ## Prerequisites
 

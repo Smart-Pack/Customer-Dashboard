@@ -1,6 +1,6 @@
 # Components
 
-The `src/components` directory contains reusable Vue components used throughout the SmartPack Admin Dashboard.
+The `src/components` directory contains reusable Vue components used throughout the SmartPack Customer Dashboard.
 
 ## Base Components
 
