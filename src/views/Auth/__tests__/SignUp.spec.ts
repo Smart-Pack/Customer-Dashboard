@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import SignUpView from '../SignUp.vue'
 import AuthCard from '@/components/Base/AuthCard.vue'
@@ -115,5 +116,32 @@ describe('SignUpView', () => {
     })
 
     expect(authCard.props('showErrors')).toBe(true)
+  })
+  it('enables scrolling on mount', async () => {
+    const wrapper = mount(SignUpView, {
+      global: {
+        stubs: {
+          AuthCard: true,
+        },
+      },
+    })
+
+    await nextTick()
+
+    expect(wrapper.emitted('scroll-main')).toEqual([[true]])
+  })
+
+  it('disables scrolling before unmount', () => {
+    const wrapper = mount(SignUpView, {
+      global: {
+        stubs: {
+          AuthCard: true,
+        },
+      },
+    })
+
+    wrapper.unmount()
+
+    expect(wrapper.emitted('scroll-main')).toContainEqual([false])
   })
 })

@@ -6,7 +6,7 @@ import AuthLayout from '../AuthLayout.vue'
 
 const RouterViewStub = {
   template: '<div data-testid="router-view"></div>',
-  emits: ['change-size'],
+  emits: ['change-size', 'scroll-main'],
 }
 
 const SmartPackAuthLogoIconStub = {
@@ -84,7 +84,28 @@ describe('AuthLayout', () => {
     await wrapper.vm.$nextTick()
 
     expect(layout.classes()).toContain('h-[120%]')
-    expect(layout.classes()).toContain('overflow-y-auto')
+    expect(layout.classes()).not.toContain('overflow-y-auto')
+  })
+  it('enables scrolling on the main content when scrollMain is true', async () => {
+    const wrapper = mountLayout()
+    const main = wrapper.find('main')
+    const layout = wrapper.get('[data-testid="auth-layout"]')
+
+    wrapper.vm.handleScrollMain(true)
+    await wrapper.vm.$nextTick()
+
+    expect(main.classes()).toContain('overflow-y-auto')
+    expect(layout.classes()).not.toContain('overflow-y-auto')
+  })
+
+  it('hides the footer when scrollMain is true', async () => {
+    const wrapper = mountLayout()
+    const footer = wrapper.find('footer')
+
+    wrapper.vm.handleScrollMain(true)
+    await wrapper.vm.$nextTick()
+
+    expect(footer.classes()).toContain('hidden')
   })
 
   it('updates screenSize when handleChangeSize is called', () => {
@@ -178,5 +199,41 @@ describe('AuthLayout', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.vm.screenSize).toBe(false)
+  })
+  it('enables main scrolling when scroll-main is emitted', async () => {
+    const wrapper = mount(AuthLayout, {
+      global: {
+        stubs: {
+          RouterView: RouterViewStub,
+        },
+      },
+    })
+
+    const routerView = wrapper.findComponent(RouterViewStub)
+
+    routerView.vm.$emit('scroll-main', true)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('main').classes()).toContain('overflow-y-auto')
+    expect(wrapper.find('footer').classes()).toContain('hidden')
+  })
+
+  it('disables main scrolling when scroll-main is emitted with false', async () => {
+    const wrapper = mount(AuthLayout, {
+      global: {
+        stubs: {
+          RouterView: RouterViewStub,
+        },
+      },
+    })
+
+    const routerView = wrapper.findComponent(RouterViewStub)
+
+    routerView.vm.$emit('scroll-main', true)
+    routerView.vm.$emit('scroll-main', false)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('main').classes()).not.toContain('overflow-y-auto')
+    expect(wrapper.find('footer').classes()).not.toContain('hidden')
   })
 })

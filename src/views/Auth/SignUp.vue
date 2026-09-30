@@ -22,6 +22,7 @@
  * field error display.
  */
 
+import { onBeforeUnmount, onMounted } from 'vue'
 import { registerCustomer } from '@/api/modules/users'
 import AuthCard from '@/components/Base/AuthCard.vue'
 import AuthCardBottomLink from '@/components/Auth/BottomLink.vue'
@@ -30,6 +31,10 @@ import { getCustomerRegistrationFields } from '@/data/forms/customerRegistration
 defineOptions({
   name: 'SignUpView',
 })
+
+const emit = defineEmits<{
+  'scroll-main': [value: boolean]
+}>()
 
 /**
  * Submit button labels displayed during the registration process.
@@ -52,4 +57,12 @@ const currentRoutes = {
  * Form field configuration used by the customer registration form.
  */
 const formFields = getCustomerRegistrationFields()
+
+onMounted(() => {
+  emit('scroll-main', true)
+})
+
+onBeforeUnmount(() => {
+  emit('scroll-main', false)
+})
 </script>
