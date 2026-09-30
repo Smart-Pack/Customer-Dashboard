@@ -1,6 +1,6 @@
 # Helpers
 
-The `src/helpers` directory contains reusable application utilities that support common functionality across the SmartPack Admin Dashboard.
+The `src/helpers` directory contains reusable application utilities that support common functionality across the SmartPack Customer Dashboard.
 
 ## Available Helpers
 

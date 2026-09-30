@@ -1,6 +1,6 @@
 # Development Documentation
 
-This directory contains documentation covering the development workflow for the SmartPack Admin Dashboard.
+This directory contains documentation covering the development workflow for the SmartPack Customer Dashboard.
 
 ## Documentation
 

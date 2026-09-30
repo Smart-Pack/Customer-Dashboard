@@ -1,6 +1,6 @@
 # Stores
 
-This directory contains documentation for the Pinia stores used by the SmartPack Admin Dashboard.
+This directory contains documentation for the Pinia stores used by the SmartPack Customer Dashboard.
 
 ## Documentation
 

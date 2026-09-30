@@ -10,9 +10,9 @@ The title is determined in the following order:
 
 1. The route's configured `meta.title`.
 2. The route name, formatted as a readable title.
-3. The default application title: `SmartPack Admin Dashboard`.
+3. The default application title: `SmartPack Customer Dashboard`.
 
-The application suffix `- SmartPack Admin` is appended to route-specific titles.
+The application suffix `- SmartPack Customer` is appended to route-specific titles.
 
 ## Authentication
 

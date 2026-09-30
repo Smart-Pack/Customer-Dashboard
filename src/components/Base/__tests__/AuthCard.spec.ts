@@ -160,7 +160,7 @@ describe('AuthCard', () => {
       const wrapper = wrapperFactory()
 
       expect(wrapper.find('h1').text()).toBe('Welcome Back')
-      expect(wrapper.find('h2').text()).toBe('SMARTPACK ADMIN PLATFORM')
+      expect(wrapper.find('h2').text()).toBe('SMARTPACK PLATFORM')
     })
 
     it('renders a custom subtitle when provided', () => {

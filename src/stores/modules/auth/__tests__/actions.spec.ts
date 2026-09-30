@@ -155,11 +155,11 @@ describe('auth store actions', () => {
     it('throws when the account type is not allowed', async () => {
       store.loggedInUser = {
         ...mockUser,
-        account_type: 'customer',
+        account_type: 'internal',
       }
 
       await expect(store.createTwoFaToken()).rejects.toThrow(
-        'Your credentials are for accessing the Customer dashboard. Accessing the Admin dashboard is restricted for your account type.',
+        'Your credentials are for accessing the Admin dashboard. Accessing the SmartPack dashboard is restricted for your account type.',
       )
 
       expect(twoFactor.request).not.toHaveBeenCalled()

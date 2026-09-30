@@ -32,13 +32,13 @@ describe('Router Guard', () => {
     it('sets the title from route metadata', async () => {
       await router.push('/auth/login')
 
-      expect(document.title).toBe('Login - SmartPack Admin')
+      expect(document.title).toBe('Login - SmartPack Platform')
     })
 
     it('formats the route name when metadata title is unavailable', async () => {
       await router.push('/auth/forgot-password')
 
-      expect(document.title).toBe('Forgot Password - SmartPack Admin')
+      expect(document.title).toBe('Forgot Password - SmartPack Platform')
     })
 
     it('uses the default title when no metadata title or route name exists', async () => {
@@ -49,7 +49,7 @@ describe('Router Guard', () => {
 
       await router.push('/untitled')
 
-      expect(document.title).toBe('SmartPack Admin Dashboard')
+      expect(document.title).toBe('SmartPack Platform Dashboard')
     })
   })
 
