@@ -542,9 +542,7 @@ describe('Users API', () => {
       expect(apiClient.post).toHaveBeenCalledTimes(1)
       expect(apiClient.post).toHaveBeenCalledWith(USERS.REGISTER, payload)
 
-      expect(response).toEqual({
-        message,
-      })
+      expect(response).toEqual(message)
     })
 
     it('registers a customer without an optional date of birth', async () => {
@@ -569,9 +567,7 @@ describe('Users API', () => {
 
       expect(apiClient.post).toHaveBeenCalledWith(USERS.REGISTER, payload)
 
-      expect(response).toEqual({
-        message,
-      })
+      expect(response).toEqual(message)
     })
   })
 })

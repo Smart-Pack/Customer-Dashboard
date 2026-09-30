@@ -312,15 +312,11 @@ export const edit = async (
  * @param payload.gender - The customer's gender.
  * @returns A promise resolving with the registration success message.
  */
-export const registerCustomer = async (
-  payload: RegisterCustomerPayload,
-): Promise<{ message: string }> => {
-  const response = await apiClient.post<{ detail: string }>(USERS.REGISTER, {
+export const registerCustomer = async (payload: RegisterCustomerPayload): Promise<string> => {
+  const response = await apiClient.post<{ detail?: string }>(USERS.REGISTER, {
     ...payload,
     phone: payload.phone.replace(/\s+/g, ''),
   })
 
-  return {
-    message: response.data.detail,
-  }
+  return response.data.detail ?? 'Registration successful'
 }
