@@ -1,6 +1,6 @@
 # Form Validation
 
-The SmartPack Admin Dashboard uses [VeeValidate](https://vee-validate.logaretm.com/v4/) for form validation and field state management.
+The SmartPack Customer Dashboard uses [VeeValidate](https://vee-validate.logaretm.com/v4/) for form validation and field state management.
 
 Validation is centralized in `src/helpers/validation.ts`, which configures VeeValidate and defines the validation rules used throughout the application.
 

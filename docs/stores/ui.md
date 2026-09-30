@@ -2,7 +2,7 @@
 
 ## Overview
 
-The UI store manages global user-interface state shared across the SmartPack Admin Dashboard.
+The UI store manages global user-interface state shared across the SmartPack Customer Dashboard.
 
 It provides a centralized way for components and layouts to access and update common UI state using Pinia.
 

@@ -1,6 +1,6 @@
 # Getting Started
 
-This directory contains guides for setting up and working with the SmartPack Admin Dashboard.
+This directory contains guides for setting up and working with the SmartPack Customer Dashboard.
 
 ## Documentation
 

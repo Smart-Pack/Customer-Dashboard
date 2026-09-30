@@ -1,6 +1,6 @@
 # Authentication API
 
-This document provides a high-level overview of the authentication APIs used by the SmartPack Admin Dashboard.
+This document provides a high-level overview of the authentication APIs used by the SmartPack Customer Dashboard.
 
 ## Authentication
 

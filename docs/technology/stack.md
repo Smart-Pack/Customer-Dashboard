@@ -2,7 +2,7 @@ Based on those dependencies, I’d structure the Admin Dashboard stack like this
 
 # Technology Stack
 
-This document describes the technologies and tools used to develop and operate the SmartPack Admin Dashboard.
+This document describes the technologies and tools used to develop and operate the SmartPack Customer Dashboard.
 
 ## Frontend
 

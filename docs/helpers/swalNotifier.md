@@ -67,7 +67,7 @@ SweetAlert2's default stylesheet is loaded globally in `src/main.ts`:
 import 'sweetalert2/dist/sweetalert2.min.css'
 ```
 
-The notification helpers provide application-specific classes for consistent styling with the SmartPack Admin Dashboard.
+The notification helpers provide application-specific classes for consistent styling with the SmartPack Customer Dashboard.
 
 ## Testing
 

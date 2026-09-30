@@ -2,7 +2,7 @@
 
 ## Overview
 
-The dashboard layout provides the shared application shell for authenticated SmartPack Admin Dashboard pages.
+The dashboard layout provides the shared application shell for authenticated SmartPack Customer Dashboard pages.
 
 It coordinates the:
 

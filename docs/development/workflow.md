@@ -1,6 +1,6 @@
-# SmartPack Admin Dashboard Development Workflow
+# SmartPack Customer Dashboard Development Workflow
 
-This document defines the development workflow, quality standards, and Definition of Done for the SmartPack Admin Dashboard.
+This document defines the development workflow, quality standards, and Definition of Done for the SmartPack Customer Dashboard.
 
 > **NB:** Some practices described in this document are currently planned but not yet implemented. These areas are marked accordingly and should be introduced as the project matures.
 
