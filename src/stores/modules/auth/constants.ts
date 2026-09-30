@@ -1,7 +1,7 @@
 // stores/modules/auth/constants.ts
 
 /**
- * Account Types that are allowed to access the admin dashboard and protected routes.
+ * Account Types that are allowed to access the smartpack customer dashboard and protected routes.
  *
  * @type {string[]}
  * @constant
@@ -11,4 +11,4 @@
  *   // user is authorized
  * }
  */
-export const ALLOWED_ACCOUNT_TYPES = ['internal']
+export const ALLOWED_ACCOUNT_TYPES = ['customer']
