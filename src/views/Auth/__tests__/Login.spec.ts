@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import LoginView from '../Login.vue'
 import AuthCard from '@/components/Base/AuthCard.vue'
+import AuthCardBottomLink from '@/components/Auth/BottomLink.vue'
 
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: vi.fn<
@@ -31,6 +32,10 @@ describe('LoginView', () => {
     expect(authCard.props('heading')).toBe('Sign In')
     expect(authCard.props('btnText')).toBe('Log In')
     expect(authCard.props('authFn')).toEqual(expect.any(Function))
+    expect(authCard.props('bottomComponent')).toBe(AuthCardBottomLink)
+    expect(authCard.props('bottomComponentProps')).toEqual({
+      mode: 'signIn',
+    })
 
     expect(authCard.props('formFields')).toEqual([
       {

@@ -12,6 +12,7 @@ import {
   getById,
   initialPassword,
   list,
+  registerCustomer,
   setPassword,
   type User,
   type UserListResult,
@@ -514,6 +515,59 @@ describe('Users API', () => {
       vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
 
       await expect(edit(user)).rejects.toThrow('Internal server error')
+    })
+  })
+  describe('registerCustomer', () => {
+    it('registers a new customer successfully', async () => {
+      const payload = {
+        first_name: 'Jane',
+        last_name: 'Doe',
+        email: 'jane@example.com',
+        phone: '+254712345678',
+        gender: 'female' as const,
+        date_of_birth: '2000-01-01',
+      }
+
+      const message =
+        'Customer account created successfully. Please check your email for your initial password.'
+
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: {
+          detail: message,
+        },
+      } as never)
+
+      const response = await registerCustomer(payload)
+
+      expect(apiClient.post).toHaveBeenCalledTimes(1)
+      expect(apiClient.post).toHaveBeenCalledWith(USERS.REGISTER, payload)
+
+      expect(response).toEqual(message)
+    })
+
+    it('registers a customer without an optional date of birth', async () => {
+      const payload = {
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john@example.com',
+        phone: '+254712345678',
+        gender: 'male' as const,
+      }
+
+      const message =
+        'Customer account created successfully. Please check your email for your initial password.'
+
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: {
+          detail: message,
+        },
+      } as never)
+
+      const response = await registerCustomer(payload)
+
+      expect(apiClient.post).toHaveBeenCalledWith(USERS.REGISTER, payload)
+
+      expect(response).toEqual(message)
     })
   })
 })

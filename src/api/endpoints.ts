@@ -22,6 +22,7 @@ export const USERS = {
   SET_PASSWORD: 'v1/users/set_password/',
   ME: 'v1/users/me/',
   COLLECTION: 'v1/users/',
+  REGISTER: 'v1/users/register/',
   collectionWithQuery: (params?: object) => {
     if (!params) return USERS.COLLECTION
 

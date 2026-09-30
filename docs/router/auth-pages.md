@@ -21,3 +21,8 @@ Allows users to verify their identity using the OTP sent to their email address 
 ## Finalize Account
 
 Allows users who have not yet finalized their account to set a new password and accept the SmartPack terms and conditions before accessing the dashboard. Users are redirected to this page when account finalization is required. After successfully changing their password and accepting the terms and conditions, the user's account information is refreshed and they are redirected to the dashboard.
+
+## Sign Up
+
+Allows new customers to register using their personal information, including their name, email address, phone number, gender, and date of birth. The registration request is submitted to the customer registration API, with backend validation errors displayed directly on the
+

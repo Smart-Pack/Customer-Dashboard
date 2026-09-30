@@ -1,5 +1,5 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick, markRaw } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuthCard from '../AuthCard.vue'
 
@@ -58,9 +58,10 @@ const InputFieldStub = defineComponent({
     icon: { type: [Object, Function], default: null },
   },
   emits: ['update:modelValue'],
-  setup(props, { emit }) {
+  setup(props, { emit, attrs }) {
     return () =>
       h('input', {
+        ...attrs,
         class: 'input-field-stub',
         name: props.name,
         placeholder: props.placeholder,
@@ -89,6 +90,14 @@ const BaseButtonStub = defineComponent({
         slots.default?.(),
       )
   },
+})
+
+const BottomComponentStub = defineComponent({
+  name: 'BottomComponent',
+  props: {
+    mode: { type: String, default: '' },
+  },
+  template: '<div data-testid="bottom-component">{{ mode }}</div>',
 })
 
 const RouterLinkStub = defineComponent({
@@ -215,6 +224,73 @@ describe('AuthCard', () => {
       })
 
       expect(wrapper.find('button[type="submit"]').text()).toContain('Log In')
+    })
+    it('renders the bottom component when provided', () => {
+      const wrapper = wrapperFactory({
+        bottomComponent: markRaw(BottomComponentStub),
+      })
+
+      expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(true)
+    })
+
+    it('passes props to the bottom component', () => {
+      const wrapper = wrapperFactory({
+        bottomComponent: markRaw(BottomComponentStub),
+        bottomComponentProps: { mode: 'create' },
+      })
+
+      const bottomComponent = wrapper.findComponent(BottomComponentStub)
+
+      expect(bottomComponent.exists()).toBe(true)
+      expect(bottomComponent.props('mode')).toBe('create')
+    })
+    it('does not render a bottom component when not provided', () => {
+      const wrapper = wrapperFactory()
+
+      expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(false)
+    })
+    it('focuses the first field marked with autofocus after mounting', async () => {
+      const formFields = [
+        {
+          key: 'email',
+          label: 'Email Address',
+          specificType: 'email',
+          extraAttrs: {
+            autofocus: true,
+          },
+        },
+        {
+          key: 'password',
+          label: 'Password',
+          specificType: 'password',
+        },
+      ]
+
+      const wrapper = mount(AuthCard, {
+        props: {
+          heading: 'Welcome Back',
+          formFields,
+          authFn: vi.fn<AuthFn>().mockResolvedValue('Success message'),
+          currentRoutes,
+        },
+        attachTo: document.body,
+        global: {
+          stubs: {
+            InputField: InputFieldStub,
+            BaseButton: BaseButtonStub,
+            RouterLink: RouterLinkStub,
+          },
+        },
+      })
+
+      await nextTick()
+
+      const autofocusInput = wrapper.find('input[name="email"]')
+
+      expect(autofocusInput.exists()).toBe(true)
+      expect(document.activeElement).toBe(autofocusInput.element)
+
+      wrapper.unmount()
     })
   })
 
@@ -361,6 +437,34 @@ describe('AuthCard', () => {
       await mockHandleSubmit({ email: 'a@b.com', password: 'wrong' })
 
       expect(mockRouterPush).not.toHaveBeenCalled()
+    })
+    it('sets field errors from backend validation errors when showErrors is enabled', async () => {
+      const authFn = vi
+        .fn<(payload: Record<string, unknown>) => Promise<string>>()
+        .mockRejectedValue({
+          response: {
+            data: {
+              email: ['Enter a valid email address.'],
+              password: ['Password is incorrect.'],
+              non_form_field: ['This should be ignored.'],
+            },
+          },
+        })
+
+      const wrapper = wrapperFactory({
+        authFn,
+        showErrors: true,
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await mockHandleSubmit({ email: 'invalid', password: 'wrong' })
+
+      expect(mockSetFieldError).toHaveBeenCalledWith('email', 'Enter a valid email address.')
+      expect(mockSetFieldError).toHaveBeenCalledWith('password', 'Password is incorrect.')
+      expect(mockSetFieldError).not.toHaveBeenCalledWith(
+        'non_form_field',
+        'This should be ignored.',
+      )
     })
   })
 
