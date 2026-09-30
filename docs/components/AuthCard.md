@@ -37,6 +37,9 @@ src/components/Base/AuthCard.vue
 | `extraParams`      | `Record<string, unknown>` |       No | Additional parameters merged into the authentication payload.                              |
 | `customValidator`  | `Function`                |       No | Optional custom validation function executed before authentication.                        |
 | `resolveNextRoute` | `Function`                |       No | Optional function that determines whether navigation should continue after authentication. |
+| `bottomComponent`      | `Object \| Function`        |       No | Optional component rendered at the bottom of the authentication card. |
+| `bottomComponentProps` | `Record<string, unknown>`   |       No | Props passed to the `bottomComponent`. Defaults to an empty object. |
+| `showErrors`           | `boolean`                   |       No | Controls whether backend VeeValidate field errors are displayed. Defaults to `false`. |
 
 ## Form Fields
 
@@ -220,7 +223,28 @@ The submission process follows these steps:
 
 Authentication errors are displayed using `$notifyError`.
 
+When `showErrors` is enabled, backend validation errors returned through `error.response.data` are mapped to matching form fields and displayed using VeeValidate's `setFieldError`. Only fields defined in `formFields` receive backend field errors.
+
+For example, a backend response such as:
+
+```ts
+{
+  email: ['Enter a valid email address.'],
+  password: ['Password is incorrect.'],
+}
+```
+
+will display the corresponding messages on the matching form fields when:
+
+```vue
+<AuthCard
+  ...
+  show-errors
+/>
+```
+
 If an authentication error contains a `reload` property set to `true`, the user is redirected to the `forgot-password` route.
+
 
 ## Example
 

@@ -44,11 +44,13 @@
           <div v-if="submitting" class="ml-4 submit-spinner"></div>
         </div>
       </BaseButton>
+      <component :is="bottomComponent" v-bind="bottomComponentProps" />
     </form>
   </div>
 </template>
 
 <script lang="ts">
+import type { AxiosError } from 'axios'
 import BaseButton from '@/components/Base/Button.vue'
 import InputField from '@/components/Base/InputField.vue'
 import { useForm } from 'vee-validate'
@@ -210,6 +212,28 @@ export default {
       type: Function,
       required: false,
     },
+    /**
+     * Component rendered at the bottom of the authentication card.
+     */
+    bottomComponent: {
+      type: [Object, Function],
+      required: false,
+    },
+
+    /**
+     * Props passed to the bottom authentication card component.
+     */
+    bottomComponentProps: {
+      type: Object,
+      default: () => ({}),
+    },
+    /**
+     * Controls whether VeeValidate field errors are displayed.
+     */
+    showErrors: {
+      type: Boolean,
+      default: false,
+    },
   },
   computed: {
     /**
@@ -278,6 +302,20 @@ export default {
       } catch (e) {
         const err = isAuthError(e) ? e : { message: 'Something went wrong' }
         $notifyError(err.message)
+        // Show backend field errors in the form
+        if (props.showErrors) {
+          const error = e as AxiosError
+
+          if (error.response?.data) {
+            const allowedFields = new Set(props.formFields.map((f) => f.key))
+
+            Object.entries(error.response.data).forEach(([field, messages]) => {
+              if (allowedFields.has(field)) {
+                setFieldError(field, messages[0])
+              }
+            })
+          }
+        }
 
         // Token expire for reset password page
         if (isAuthError(e) && e.reload) {

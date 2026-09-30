@@ -91,6 +91,14 @@ const BaseButtonStub = defineComponent({
   },
 })
 
+const BottomComponentStub = defineComponent({
+  name: 'BottomComponent',
+  props: {
+    mode: { type: String, default: '' },
+  },
+  template: '<div data-testid="bottom-component">{{ mode }}</div>',
+})
+
 const RouterLinkStub = defineComponent({
   name: 'RouterLink',
   props: {
@@ -215,6 +223,30 @@ describe('AuthCard', () => {
       })
 
       expect(wrapper.find('button[type="submit"]').text()).toContain('Log In')
+    })
+    it('renders the bottom component when provided', () => {
+      const wrapper = wrapperFactory({
+        bottomComponent: BottomComponentStub,
+      })
+
+      expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(true)
+    })
+
+    it('passes props to the bottom component', () => {
+      const wrapper = wrapperFactory({
+        bottomComponent: BottomComponentStub,
+        bottomComponentProps: { mode: 'create' },
+      })
+
+      const bottomComponent = wrapper.findComponent(BottomComponentStub)
+
+      expect(bottomComponent.exists()).toBe(true)
+      expect(bottomComponent.props('mode')).toBe('create')
+    })
+    it('does not render a bottom component when not provided', () => {
+      const wrapper = wrapperFactory()
+
+      expect(wrapper.find('[data-testid="bottom-component"]').exists()).toBe(false)
     })
   })
 
@@ -361,6 +393,34 @@ describe('AuthCard', () => {
       await mockHandleSubmit({ email: 'a@b.com', password: 'wrong' })
 
       expect(mockRouterPush).not.toHaveBeenCalled()
+    })
+    it('sets field errors from backend validation errors when showErrors is enabled', async () => {
+      const authFn = vi
+        .fn<(payload: Record<string, unknown>) => Promise<string>>()
+        .mockRejectedValue({
+          response: {
+            data: {
+              email: ['Enter a valid email address.'],
+              password: ['Password is incorrect.'],
+              non_form_field: ['This should be ignored.'],
+            },
+          },
+        })
+
+      const wrapper = wrapperFactory({
+        authFn,
+        showErrors: true,
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await mockHandleSubmit({ email: 'invalid', password: 'wrong' })
+
+      expect(mockSetFieldError).toHaveBeenCalledWith('email', 'Enter a valid email address.')
+      expect(mockSetFieldError).toHaveBeenCalledWith('password', 'Password is incorrect.')
+      expect(mockSetFieldError).not.toHaveBeenCalledWith(
+        'non_form_field',
+        'This should be ignored.',
+      )
     })
   })
 
