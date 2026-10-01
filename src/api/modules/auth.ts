@@ -7,6 +7,10 @@ export interface ForgotPasswordRequest {
   email: string
 }
 
+export interface GoogleLoginRequest {
+  credential: string
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -43,6 +47,30 @@ export interface VerifyRequest {
 export const login = async (data: LoginRequest) => {
   try {
     const response = await apiClient.post<LoginResponse>(AUTH.LOGIN, data)
+    return response.data
+  } catch (error: unknown) {
+    const detail = getApiErrorDetail(error)
+
+    if (detail) {
+      throw new Error(detail)
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Authenticates a user with Google Sign-In.
+ *
+ * The API verifies the Google ID token and returns access and refresh
+ * tokens while setting the corresponding authentication cookies.
+ *
+ * @param data - Google Sign-In credential.
+ * @returns Authentication tokens.
+ */
+export const googleLogin = async (data: GoogleLoginRequest) => {
+  try {
+    const response = await apiClient.post<LoginResponse>(AUTH.GOOGLE_LOGIN, data)
     return response.data
   } catch (error: unknown) {
     const detail = getApiErrorDetail(error)
