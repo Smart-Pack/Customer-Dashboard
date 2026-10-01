@@ -349,7 +349,7 @@ describe('auth store actions', () => {
       })
 
       await expect(store.googleLogIn('google-credential')).rejects.toThrow(
-        'The provided credentials are not supposed to be used for this dashboard.',
+        'Your credentials are for accessing the Admin dashboard. Accessing the SmartPack dashboard is restricted for your account type.',
       )
 
       expect(store.accessToken).toBeNull()
