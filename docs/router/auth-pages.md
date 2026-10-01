@@ -12,7 +12,14 @@ Allows users to set a new password using the password reset link received by ema
 
 ## Login
 
-Allows users to authenticate using their email address and password. After successful authentication, the user's account information is retrieved and their account type is validated. An OTP is then sent to the user's email, and the user is redirected to the Two-Factor Authentication page to complete verification. If authentication fails, the appropriate error message is displayed.
+Allows users to authenticate using either their email address and password or Google Sign-In.
+
+For password authentication, the user's credentials are verified, their account information is retrieved, and their account type is validated. An OTP is then sent to the user's email, and the user is redirected to the Two-Factor Authentication page to complete verification.
+
+For Google Sign-In, the Google credential is verified by the backend before the user's account information is retrieved and their account type is validated. The user then proceeds through the same authentication flow.
+
+If authentication fails, the appropriate error message is displayed.
+
 
 ## Two-Factor Authentication
 
@@ -24,5 +31,5 @@ Allows users who have not yet finalized their account to set a new password and 
 
 ## Sign Up
 
-Allows new customers to register using their personal information, including their name, email address, phone number, gender, and date of birth. The registration request is submitted to the customer registration API, with backend validation errors displayed directly on the
+Allows new customers to register using their personal information, including their name, email address, phone number, gender, and date of birth. Customers can register using either their email and password or their Google account. Google Sign-Up retrieves the customer's verified Google profile information and allows them to complete any remaining registration details before the registration request is submitted to the customer registration API. Backend validation errors are displayed directly on the registration form.
 

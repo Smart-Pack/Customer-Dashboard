@@ -1,13 +1,21 @@
 <template>
-  <span class="secondary-text opacity-70 text-sm lg:text-base">
-    {{ accountPrompt }}
-    <router-link :to="{ name: routeName }" class="auth-link">
-      {{ actionText }}
-    </router-link>
-  </span>
+  <div>
+    <span class="secondary-text opacity-70 text-sm lg:text-base block">
+      {{ accountPrompt }}
+      <router-link :to="{ name: routeName }" class="auth-link">
+        {{ actionText }}
+      </router-link>
+    </span>
+
+    <GoogleLoginButton v-if="mode === 'signIn'" />
+    <GoogleSignupButton v-if="mode === 'create'" />
+  </div>
 </template>
 
 <script lang="ts">
+import GoogleLoginButton from './GoogleLoginButton.vue'
+import GoogleSignupButton from './GoogleSignupButton.vue'
+
 /**
  * @module components/Base/AuthCard
  * @description A highly reusable component that provides the account
@@ -15,6 +23,11 @@
  */
 export default {
   name: 'AuthCardBottomLink',
+
+  components: {
+    GoogleLoginButton,
+    GoogleSignupButton,
+  },
 
   props: {
     /**

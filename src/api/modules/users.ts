@@ -22,6 +22,7 @@ export type RegisterCustomerPayload = {
   profile_pic?: string
   date_of_birth?: string
   gender: 'male' | 'female' | 'other'
+  credential?: string
 }
 
 type UpdatePasswordPayload = {

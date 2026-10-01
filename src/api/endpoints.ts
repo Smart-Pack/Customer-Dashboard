@@ -6,6 +6,7 @@
 export const AUTH = {
   FORGOT: '/v1/users/reset_password/request/',
   RESET: '/v1/users/reset_password/confirm/',
+  GOOGLE_LOGIN: 'v1/users/auth/google-login/',
   LOGIN: 'v1/users/auth/login/',
   LOGOUT: 'v1/users/auth/logout/',
   REFRESH: 'v1/users/auth/refresh/',
