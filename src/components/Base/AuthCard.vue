@@ -10,7 +10,7 @@
       {{ description }}
     </p>
     <!-- form -->
-    <form ref="authForm" class="mt-10 flex flex-col gap-5 lg:p-4" @submit.prevent="auth">
+    <form ref="authForm" class="mt-8 flex flex-col gap-5 lg:p-4" @submit.prevent="auth">
       <div v-for="field in formFields" :key="field.key" class="space-y-2">
         <label class="secondary-text font-semibold text-left block pl-2 text-sm">{{
           field.label
