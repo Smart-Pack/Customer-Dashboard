@@ -15,7 +15,6 @@
 <script lang="ts">
 import { GoogleSignInButton, type CredentialResponse } from 'vue3-google-signin'
 import { ref } from 'vue'
-import { googleLogin } from '@/api/modules/auth'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore } from '@/stores/modules/auth'
 
@@ -49,11 +48,7 @@ export default {
 
         submitting.value = true
 
-        await googleLogin({
-          credential: response.credential,
-        })
-
-        await authStore.fetchUser()
+        await authStore.googleLogIn(response.credential)
 
         $notifySuccess('Google Sign-In successful.')
 
