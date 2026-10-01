@@ -14,6 +14,17 @@ export type CreateUserPayload = {
   gender: 'male' | 'female' | 'other'
 }
 
+export type RegisterCustomerPayload = {
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  profile_pic?: string
+  date_of_birth?: string
+  gender: 'male' | 'female' | 'other'
+  credential?: string
+}
+
 type UpdatePasswordPayload = {
   current_password: string
   new_password: string
@@ -287,4 +298,26 @@ export const edit = async (
 
     throw axiosError
   }
+}
+
+/**
+ * Registers a new customer.
+ *
+ * @param payload - The customer registration data.
+ * @param payload.first_name - The customer's first name.
+ * @param payload.last_name - The customer's last name.
+ * @param payload.email - The customer's email address.
+ * @param payload.phone - The customer's phone number.
+ * @param payload.profile_pic - Optional profile picture URL.
+ * @param payload.date_of_birth - Optional date of birth.
+ * @param payload.gender - The customer's gender.
+ * @returns A promise resolving with the registration success message.
+ */
+export const registerCustomer = async (payload: RegisterCustomerPayload): Promise<string> => {
+  const response = await apiClient.post<{ detail?: string }>(USERS.REGISTER, {
+    ...payload,
+    phone: payload.phone.replace(/\s+/g, ''),
+  })
+
+  return response.data.detail ?? 'Registration successful'
 }

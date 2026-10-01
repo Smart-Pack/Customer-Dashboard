@@ -99,6 +99,12 @@ Selecting **Cancel Editing** exits edit mode and restores the last saved profile
 
 Selecting **Save Changes** submits the updated information and updates the authenticated user's profile in the application state.
 
+### Email Address
+
+- The email address is displayed as read-only on the My Profile page.
+- Users cannot change their email address through profile editing.
+- The email address is indicated as locked in the profile form.
+
 ## Password Management
 
 The **Update Password** tab provides authenticated users with a dedicated password update form.

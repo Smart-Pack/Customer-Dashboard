@@ -16,9 +16,11 @@ export interface AuthActions {
   createTwoFaToken(): Promise<void>
   fetchUser(): Promise<void>
   initializeAuth(): Promise<void>
+  googleLogIn(credential: string): Promise<string>
   logIn(payload: LoginRequest): Promise<string>
   refreshToken(skipAuthRedirect?: boolean): Promise<void>
   setLoggedInUser(user: User): void
+  validateAccountType(): void
   verifyTwoFaToken(payload: TwoFactorVerifyRequest): Promise<string>
 }
 
@@ -34,6 +36,33 @@ export const actions: AuthActions = {
   clearStore(this: AuthStoreContext) {
     this.accessToken = null
     this.loggedInUser = null
+  },
+  /**
+   * Validates that the logged-in user can access the SmartPack dashboard.
+   *
+   * @throws {Error} If the user is not authenticated or has an invalid account type.
+   */
+  validateAccountType(this: AuthStoreContext): void {
+    const accountType = this.loggedInUser?.account_type
+
+    if (!accountType) {
+      throw new Error('User is not authenticated.')
+    }
+
+    if (!ALLOWED_ACCOUNT_TYPES.includes(accountType)) {
+      const dashboardMap = {
+        internal: 'Admin',
+        customer: 'Customer',
+      }
+
+      const dashboard = dashboardMap[accountType]
+
+      throw new Error(
+        dashboard
+          ? `Your credentials are for accessing the ${dashboard} dashboard. Accessing the SmartPack dashboard is restricted for your account type.`
+          : 'The provided credentials are not supposed to be used for this dashboard.',
+      )
+    }
   },
 
   /**
@@ -78,26 +107,7 @@ export const actions: AuthActions = {
    * to access the dashboard.
    */
   async createTwoFaToken(this: AuthStoreContext): Promise<void> {
-    const accountType = this.loggedInUser?.account_type
-
-    if (!accountType) {
-      throw new Error('User is not authenticated.')
-    }
-
-    if (!ALLOWED_ACCOUNT_TYPES.includes(accountType)) {
-      const dashboardMap = {
-        internal: 'Admin',
-        customer: 'Customer',
-      }
-
-      const dashboard = dashboardMap[accountType]
-
-      throw new Error(
-        dashboard
-          ? `Your credentials are for accessing the ${dashboard} dashboard. Accessing the SmartPack dashboard is restricted for your account type.`
-          : 'The provided credentials are not supposed to be used for this dashboard.',
-      )
-    }
+    this.validateAccountType()
 
     await twoFactor.request()
   },
@@ -133,6 +143,30 @@ export const actions: AuthActions = {
       throw error
     } finally {
       this.loginBtn = 'Log In'
+    }
+  },
+  /**
+   * Logs in a customer using Google authentication.
+   * 1. Authenticates with the Google credential.
+   * 2. Stores the access token.
+   * 3. Fetches the logged-in user's profile.
+   * 4. Validates the user's account type.
+   *
+   * @param credential - Google ID token credential.
+   * @returns {Promise<string>} Google Sign-In confirmation message.
+   * @throws {Error} Throws an error on failure.
+   */
+  async googleLogIn(this: AuthStoreContext, credential: string) {
+    try {
+      const { access } = await auth.googleLogin({ credential })
+
+      this.accessToken = access
+      await this.fetchUser()
+      this.validateAccountType()
+      return 'Google Sign-In successful.'
+    } catch (error) {
+      this.clearStore()
+      throw error
     }
   },
   /**

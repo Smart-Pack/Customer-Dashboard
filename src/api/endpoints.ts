@@ -6,6 +6,7 @@
 export const AUTH = {
   FORGOT: '/v1/users/reset_password/request/',
   RESET: '/v1/users/reset_password/confirm/',
+  GOOGLE_LOGIN: 'v1/users/auth/google-login/',
   LOGIN: 'v1/users/auth/login/',
   LOGOUT: 'v1/users/auth/logout/',
   REFRESH: 'v1/users/auth/refresh/',
@@ -22,6 +23,7 @@ export const USERS = {
   SET_PASSWORD: 'v1/users/set_password/',
   ME: 'v1/users/me/',
   COLLECTION: 'v1/users/',
+  REGISTER: 'v1/users/register/',
   collectionWithQuery: (params?: object) => {
     if (!params) return USERS.COLLECTION
 

@@ -2,7 +2,15 @@ import type { AxiosInstance } from 'axios'
 import { describe, expect, it, vi } from 'vitest'
 import apiClient from '@/api/client'
 import { AUTH } from '@/api/endpoints'
-import { forgotPassword, login, logout, refresh, resetPassword, verify } from '@/api/modules/auth'
+import {
+  forgotPassword,
+  googleLogin,
+  login,
+  logout,
+  refresh,
+  resetPassword,
+  verify,
+} from '@/api/modules/auth'
 
 interface TestAuthError {
   response: {
@@ -23,6 +31,55 @@ vi.mock('@/api/client', () => ({
  * Tests the authentication API module.
  */
 describe('auth API', () => {
+  describe('googleLogin', () => {
+    /**
+     * Verifies that Google login sends the correct credential to the Google login
+     * endpoint and returns the response data.
+     */
+    it('logs in a user with Google', async () => {
+      const response = {
+        data: {
+          access: 'access-token',
+          refresh: 'refresh-token',
+        },
+      }
+
+      vi.mocked(apiClient.post).mockResolvedValue(response)
+
+      const credentials = {
+        credential: 'google-id-token',
+      }
+
+      const result = await googleLogin(credentials)
+
+      expect(apiClient.post).toHaveBeenCalledWith(AUTH.GOOGLE_LOGIN, credentials)
+      expect(result).toEqual(response.data)
+    })
+
+    /**
+     * Verifies that Google login converts an API detail error into a standard
+     * Error with the detail message.
+     */
+    it('throws the API detail message when Google login fails', async () => {
+      const error = {
+        response: {
+          data: {
+            detail: 'Invalid Google credential.',
+          },
+        },
+      }
+
+      vi.mocked(apiClient.post).mockRejectedValue(error)
+
+      const credentials = {
+        credential: 'google-id-token',
+      }
+
+      await expect(googleLogin(credentials)).rejects.toThrow('Invalid Google credential.')
+
+      expect(apiClient.post).toHaveBeenCalledWith(AUTH.GOOGLE_LOGIN, credentials)
+    })
+  })
   /**
    * Verifies that login sends the correct credentials to the login endpoint
    * and returns the response data.

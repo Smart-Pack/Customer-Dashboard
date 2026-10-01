@@ -11,6 +11,7 @@ import Filters from './helpers/filters'
 import { setupValidation } from './helpers/validation'
 import router from './router'
 import VueTelInput from 'vue-tel-input'
+import GoogleSignInPlugin from 'vue3-google-signin'
 import { useAuthStore } from './stores'
 import { setupRouterGuard } from './router/guards'
 
@@ -19,6 +20,11 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(VueTelInput)
+// Google OAuth client ID used for Google Sign-In.
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+app.use(GoogleSignInPlugin, {
+  clientId: googleClientId,
+})
 setupValidation()
 
 /**

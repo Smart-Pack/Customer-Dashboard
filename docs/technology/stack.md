@@ -22,7 +22,7 @@ This document describes the technologies and tools used to develop and operate t
 | @vee-validate/rules | — Built-in validation rules for VeeValidate |
 | Vue Tel Input | — International telephone number input with country selection and formatting |
 | QRCode Vue 3 | `qrcode-vue3` | Vue 3 QR code generation component for displaying device/user QR codes |
-
+| `vue3-google-signin` | Vue 3 Google Sign-In integration using Google Identity Services ([Guide](https://vue3-google-signin.wavezync.com/guide/)) |
 
 ## Testing
 

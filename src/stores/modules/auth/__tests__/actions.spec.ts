@@ -14,6 +14,7 @@ vi.mock('@/api/modules/users', () => ({
 }))
 vi.mock('@/api', () => ({
   auth: {
+    googleLogin: vi.fn<(payload: { credential: string }) => Promise<{ access: string }>>(),
     login: vi.fn<() => Promise<{ access: string; refresh: string }>>(),
     refresh: vi.fn<(options?: RefreshOptions) => Promise<{ access: string; refresh: string }>>(),
   },
@@ -286,6 +287,73 @@ describe('auth store actions', () => {
       store.setLoggedInUser(updatedUser)
 
       expect(store.loggedInUser).toEqual(updatedUser)
+    })
+  })
+  describe('googleLogIn', () => {
+    it('logs in successfully with Google', async () => {
+      store.loggedInUser = null
+
+      vi.mocked(auth.googleLogin).mockResolvedValue({
+        access: 'google-access-token',
+        refresh: 'google-refresh-token',
+      })
+
+      vi.mocked(getMe).mockResolvedValue(mockUser)
+
+      const result = await store.googleLogIn('google-credential')
+
+      expect(auth.googleLogin).toHaveBeenCalledExactlyOnceWith({
+        credential: 'google-credential',
+      })
+      expect(getMe).toHaveBeenCalledExactlyOnceWith()
+      expect(store.accessToken).toBe('google-access-token')
+      expect(store.loggedInUser).toEqual(mockUser)
+      expect(result).toBe('Google Sign-In successful.')
+    })
+
+    it('clears the store and rethrows when Google login fails', async () => {
+      const error = new Error('Google Sign-In failed')
+
+      vi.mocked(auth.googleLogin).mockRejectedValue(error)
+
+      await expect(store.googleLogIn('google-credential')).rejects.toThrow('Google Sign-In failed')
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('clears the store and rethrows when fetching the user fails', async () => {
+      vi.mocked(auth.googleLogin).mockResolvedValue({
+        access: 'google-access-token',
+        refresh: 'google-refresh-token',
+      })
+
+      const error = new Error('Failed to fetch user')
+      vi.mocked(getMe).mockRejectedValue(error)
+
+      await expect(store.googleLogIn('google-credential')).rejects.toThrow('Failed to fetch user')
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('throws when the Google user has an unauthorized account type', async () => {
+      vi.mocked(auth.googleLogin).mockResolvedValue({
+        access: 'google-access-token',
+        refresh: 'google-refresh-token',
+      })
+
+      vi.mocked(getMe).mockResolvedValue({
+        ...mockUser,
+        account_type: 'internal',
+      })
+
+      await expect(store.googleLogIn('google-credential')).rejects.toThrow(
+        'Your credentials are for accessing the Admin dashboard. Accessing the SmartPack dashboard is restricted for your account type.',
+      )
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
     })
   })
 })

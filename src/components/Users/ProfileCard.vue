@@ -125,10 +125,9 @@
               name="email"
               specific-type="email"
               placeholder="Email"
-              :icon-right="activeIcon"
-              :rules="editProfileMode ? 'required|email' : ''"
-              :disabled="!editProfileMode"
-              :input-class="viewInputClass"
+              :icon-right="markRaw(LockClosedIcon)"
+              disabled
+              input-class="!bg-page dark:!bg-page-dark !cursor-not-allowed"
             />
           </div>
 

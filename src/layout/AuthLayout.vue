@@ -2,7 +2,7 @@
   <div
     data-testid="auth-layout"
     class="w-full relative flex flex-col bg-auth-gradient dark:bg-auth-gradient-dark font-sans lg:flex-row lg:bg-none lg:bg-page-light"
-    :class="screenSize ? 'h-[120%] overflow-y-auto' : 'h-full'"
+    :class="[screenSize ? 'h-[120%]' : 'h-full', scrollMain ? 'pb-12 md:pb-0' : '']"
   >
     <div
       v-if="uiStore.getSwalBackdrop"
@@ -27,14 +27,16 @@
 
     <!-- Auth login cards -->
     <main
-      class="w-full lg:w-1/2 lg:h-full lg:order-1 lg:flex lg:flex-col lg:items-center lg:justify-center"
+      class="w-full flex-1 min-h-0 lg:w-1/2 lg:h-full lg:order-1 lg:flex lg:flex-col lg:items-center"
+      :class="scrollMain ? 'overflow-y-auto py-4 md:py-8' : 'lg:justify-center'"
     >
-      <router-view @change-size="handleChangeSize"></router-view>
+      <router-view @change-size="handleChangeSize" @scroll-main="handleScrollMain"></router-view>
     </main>
 
     <!-- Footer -->
     <footer
       class="absolute bottom-5 left-1/2 -translate-x-1/2 text-pwhite lg:left-1/4 lg:-translate-x-1/4 lg:text-primary dark:text-primary-dark font-bold"
+      :class="scrollMain ? 'hidden' : ''"
     >
       © {{ year }} SMARTPACK
     </footer>
@@ -48,7 +50,8 @@ import SmartPackAuthLogoIcon from '@/components/Icons/SmartPackAuthLogo.vue'
 /**
  * @module layout/AuthLayout
  * @description This layout component provides the structure for all
- * authentication-related pages.
+ * authentication-related pages. It handles authentication page sizing,
+ * scrolling, branding, modal backdrop visibility, and theme synchronization.
  */
 export default {
   name: 'AuthLayout',
@@ -72,6 +75,13 @@ export default {
        * @type {boolean}
        */
       screenSize: false,
+
+      /**
+       * Controls scrolling of the main authentication content area.
+       *
+       * @type {boolean}
+       */
+      scrollMain: false,
     }
   },
 
@@ -94,12 +104,21 @@ export default {
 
   methods: {
     /**
-     * Handle layout size changes emitted by child authentication pages.
+     * Handles layout size changes emitted by child authentication pages.
      *
-     * @param {boolean} value
+     * @param value - Determines whether the authentication layout requires additional height.
      */
     handleChangeSize(value: boolean): void {
       this.screenSize = value
+    },
+
+    /**
+     * Updates the main authentication content scroll state.
+     *
+     * @param value - Determines whether the main authentication content area should scroll.
+     */
+    handleScrollMain(value: boolean): void {
+      this.scrollMain = value
     },
   },
 
@@ -108,9 +127,9 @@ export default {
      * Watches the current theme state and synchronizes the dark class
      * on the document element.
      *
-     * @param {boolean} isLight
+     * @param isLight - True when light mode is active, false otherwise.
      */
-    'uiStore.getIsLightMode'(isLight) {
+    'uiStore.getIsLightMode'(isLight: boolean): void {
       document.documentElement.classList.toggle('dark', !isLight)
     },
   },

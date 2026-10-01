@@ -31,7 +31,8 @@
     "vee-validate": "^4.15.1",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0",
-    "vue-tel-input": "^6.0.5"
+    "vue-tel-input": "^6.0.5",
+    "vue3-google-signin": "^2.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
