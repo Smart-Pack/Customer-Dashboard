@@ -8,11 +8,13 @@
     </span>
 
     <GoogleLoginButton v-if="mode === 'signIn'" />
+    <GoogleSignupButton v-if="mode === 'create'" />
   </div>
 </template>
 
 <script lang="ts">
 import GoogleLoginButton from './GoogleLoginButton.vue'
+import GoogleSignupButton from './GoogleSignupButton.vue'
 
 /**
  * @module components/Base/AuthCard
@@ -24,6 +26,7 @@ export default {
 
   components: {
     GoogleLoginButton,
+    GoogleSignupButton,
   },
 
   props: {
