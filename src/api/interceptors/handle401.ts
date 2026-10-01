@@ -37,7 +37,7 @@ export async function handle401(error: AxiosError) {
   /**
    * Authentication endpoints must not trigger token refresh.
    */
-  if (url.includes(AUTH.LOGIN) || url.includes(AUTH.VERIFY)) {
+  if (url.includes(AUTH.LOGIN) || url.includes(AUTH.VERIFY) || url.includes(AUTH.GOOGLE_LOGIN)) {
     return Promise.reject(error)
   }
 
