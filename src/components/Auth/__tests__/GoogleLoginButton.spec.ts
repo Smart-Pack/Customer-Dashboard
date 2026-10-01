@@ -2,15 +2,11 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Router } from 'vue-router'
 import GoogleLoginButton from '../GoogleLoginButton.vue'
-import { googleLogin } from '@/api/modules/auth'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore } from '@/stores/modules/auth'
 
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: vi.fn<typeof import('@/stores/modules/auth').useAuthStore>(),
-}))
-vi.mock('@/api/modules/auth', () => ({
-  googleLogin: vi.fn<typeof import('@/api/modules/auth').googleLogin>(),
 }))
 
 vi.mock('@/composables/useGlobals', () => ({
@@ -21,7 +17,7 @@ describe('GoogleLoginButton', () => {
   const notifySuccess = vi.fn<(message: string) => Promise<unknown>>()
   const notifyError = vi.fn<(message: string) => Promise<unknown>>()
   const push = vi.fn<Router['push']>()
-  const fetchUser = vi.fn<ReturnType<typeof useAuthStore>['fetchUser']>()
+  const googleLogIn = vi.fn<ReturnType<typeof useAuthStore>['googleLogIn']>()
 
   const GoogleSignInButtonStub = {
     template: `
@@ -68,13 +64,10 @@ describe('GoogleLoginButton', () => {
     } as unknown as ReturnType<typeof useGlobals>)
 
     vi.mocked(useAuthStore).mockReturnValue({
-      fetchUser,
+      googleLogIn,
     } as unknown as ReturnType<typeof useAuthStore>)
 
-    vi.mocked(googleLogin).mockResolvedValue({
-      access: 'access-token',
-      refresh: 'refresh-token',
-    })
+    googleLogIn.mockResolvedValue('Google Sign-In successful.')
   })
 
   it('renders the Google Sign-In button', () => {
@@ -90,21 +83,18 @@ describe('GoogleLoginButton', () => {
     await wrapper.find('[data-testid="google-sign-in-button"]').trigger('click')
 
     await vi.waitFor(() => {
-      expect(googleLogin).toHaveBeenCalledWith({
-        credential: 'google-id-token',
-      })
+      expect(googleLogIn).toHaveBeenCalledExactlyOnceWith('google-id-token')
     })
 
-    expect(fetchUser).toHaveBeenCalled()
     expect(notifySuccess).toHaveBeenCalledWith('Google Sign-In successful.')
     expect(push).toHaveBeenCalledWith({ name: 'dashboard' })
     expect(notifyError).not.toHaveBeenCalled()
   })
 
   it('shows the loading state while authenticating', async () => {
-    let resolveLogin: (value: { access: string; refresh: string }) => void
+    let resolveLogin: (value: string) => void
 
-    vi.mocked(googleLogin).mockImplementation(
+    googleLogIn.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveLogin = resolve
@@ -123,10 +113,7 @@ describe('GoogleLoginButton', () => {
       'true',
     )
 
-    resolveLogin!({
-      access: 'access-token',
-      refresh: 'refresh-token',
-    })
+    resolveLogin!('Google Sign-In successful.')
 
     await vi.waitFor(() => {
       expect(wrapper.find('.submit-spinner').exists()).toBe(false)
@@ -140,12 +127,12 @@ describe('GoogleLoginButton', () => {
       .findComponent(GoogleSignInButtonStub)
       .vm.$emit('success', { credential: undefined })
 
-    expect(googleLogin).not.toHaveBeenCalled()
+    expect(googleLogIn).not.toHaveBeenCalled()
     expect(notifyError).toHaveBeenCalledWith('Google Sign-In did not return a credential.')
   })
 
-  it('shows the API error when Google login fails', async () => {
-    vi.mocked(googleLogin).mockRejectedValue(new Error('Invalid Google credential.'))
+  it('shows the store error when Google login fails', async () => {
+    googleLogIn.mockRejectedValue(new Error('Invalid Google credential.'))
 
     const wrapper = wrapperFactory()
 
@@ -155,7 +142,6 @@ describe('GoogleLoginButton', () => {
       expect(notifyError).toHaveBeenCalledWith('Invalid Google credential.')
     })
 
-    expect(fetchUser).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
   })
 

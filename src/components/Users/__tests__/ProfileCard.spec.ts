@@ -399,6 +399,16 @@ describe('ProfileCard', () => {
       expect(mockNotifyError).toHaveBeenCalledWith('Please select an image file.')
       expect(wrapper.find('img').exists()).toBe(false)
     })
+    it('keeps the email field disabled in edit mode', async () => {
+      const wrapper = await wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get('[data-testid="edit-profile-button"]').trigger('click')
+
+      const emailInput = wrapper.get('input[name="email"]')
+
+      expect(emailInput.attributes('disabled')).toBeDefined()
+    })
   })
 
   describe('submitting state', () => {
