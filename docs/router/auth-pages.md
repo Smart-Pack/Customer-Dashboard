@@ -31,5 +31,5 @@ Allows users who have not yet finalized their account to set a new password and 
 
 ## Sign Up
 
-Allows new customers to register using their personal information, including their name, email address, phone number, gender, and date of birth. The registration request is submitted to the customer registration API, with backend validation errors displayed directly on the
+Allows new customers to register using their personal information, including their name, email address, phone number, gender, and date of birth. Customers can register using either their email and password or their Google account. Google Sign-Up retrieves the customer's verified Google profile information and allows them to complete any remaining registration details before the registration request is submitted to the customer registration API. Backend validation errors are displayed directly on the registration form.
 
