@@ -5,6 +5,7 @@ import { mockUser } from '@/tests/constants'
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '@/api/endpoints'
 import {
+  edit,
   list,
   getById,
   assign,
@@ -158,6 +159,57 @@ describe('SmartPacks API', () => {
 
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassign(mockSmartPack.id))
       expect(response).toBe('SmartPack unassigned successfully.')
+    })
+  })
+  describe('edit', () => {
+    it('updates the child name of an existing SmartPack', async () => {
+      const smartPack = {
+        ...mockSmartPack,
+        child_name: 'Zuri',
+      }
+
+      const payload = {
+        child_name: smartPack.child_name,
+      }
+
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: smartPack,
+      } as never)
+
+      const result = await edit(smartPack)
+
+      expect(apiClient.patch).toHaveBeenCalledExactlyOnceWith(
+        SMARTPACKS.detail(smartPack.id),
+        payload,
+      )
+
+      expect(result).toEqual({
+        data: smartPack,
+        message: 'SmartPack updated successfully.',
+      })
+    })
+
+    it('throws an error when the SmartPack is not found', async () => {
+      const error = {
+        response: { status: 404 },
+      } as AxiosError
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(mockSmartPack)).rejects.toEqual(
+        expect.objectContaining({
+          message: `SmartPack with ID ${mockSmartPack.id} not found. It may have been deleted.`,
+          reload: true,
+        }),
+      )
+    })
+
+    it('rethrows errors other than 404', async () => {
+      const error = new Error('Internal server error')
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(mockSmartPack)).rejects.toThrow('Internal server error')
     })
   })
 })

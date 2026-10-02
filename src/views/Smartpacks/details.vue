@@ -16,21 +16,12 @@
           <h2 class="main-heading text-xl lg:text-2xl">SmartPack</h2>
           <h3 class="sub-heading lg:text-lg">{{ smartPack.hardware_model || '—' }}</h3>
 
-          <div class="flex secondary-text justify-start w-full" title="Assigned User">
+          <div class="flex secondary-text justify-start w-full" title="Child">
             <UserIcon class="secondary-text text-left mr-2" />
 
-            <RouterLink
-              v-if="smartPack.assigned_to"
-              :to="{
-                name: 'user-details',
-                params: { id: smartPack.assigned_to.id },
-              }"
-              class="primary-text hover:underline"
-            >
-              {{ smartPack.assigned_to.full_name }}
-            </RouterLink>
-
-            <span v-else>—</span>
+            <span>
+              {{ smartPack.child_name || '—' }}
+            </span>
           </div>
 
           <div class="flex secondary-text justify-start w-full" title="Connection Status">
@@ -86,6 +77,15 @@
 
         <!-- Actions -->
         <div class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
+            @click="handlePageChange('assignChild')"
+            :disabled="submitting"
+          >
+            Assign to Child
+          </button>
+
           <template v-if="authStore.isAdmin">
             <button
               v-if="!smartPack.assigned_to"
@@ -119,7 +119,21 @@
         </div>
       </section>
     </div>
+    <!-- Assign Child Card -->
+    <div v-else class="main-card">
+      <header class="flex gap-3 items-center justify-between p-4">
+        <h2 class="main-heading text-2xl lg:text-3xl">Assign to Child</h2>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
+          @click="activePage = 'showDetails'"
+        >
+          Cancel
+        </button>
+      </header>
 
+      <AssignChildForm :initial-values="{ ...smartPack }" @close="handlePageChange" />
+    </div>
     <!-- Assign User Modal -->
     <AssignUser
       v-if="showAssignTable"
@@ -148,6 +162,7 @@ import type { ItemNotFoundError } from '@/api/types'
 import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import AssignUser from '@/components/Smartpacks/AssignUser.vue'
+import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 
 import { useAuthStore } from '@/stores/modules/auth'
@@ -156,6 +171,7 @@ export default defineComponent({
   name: 'SmartPackDetails',
 
   components: {
+    AssignChildForm,
     BackPackIcon,
     UserIcon,
     AssignUser,
@@ -179,7 +195,7 @@ export default defineComponent({
   data() {
     return {
       smartPack: {} as SmartPack,
-      activePage: 'showDetails' as const,
+      activePage: 'showDetails' as 'showDetails' | 'assignChild',
       showAssignTable: false,
       submitting: false,
       /**
@@ -208,6 +224,13 @@ export default defineComponent({
         if (itemError.reload) {
           this.$router.push({ name: 'smartpacks' })
         }
+      }
+    },
+    handlePageChange(value: 'showDetails' | 'assignChild', refresh = false): void {
+      this.activePage = value
+
+      if (refresh) {
+        this.getSmartPack()
       }
     },
 

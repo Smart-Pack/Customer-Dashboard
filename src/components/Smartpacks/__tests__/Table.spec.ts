@@ -35,7 +35,9 @@ describe('SmartPacksTable', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
 
-      expect(layout.props('pageDescription')).toContain('Manage registered SmartPacks')
+      expect(layout.props('pageDescription')).toContain(
+        'Monitor your SmartPacks and keep track of their connectivity and status.',
+      )
       expect(layout.props('name')).toBe('SmartPacks')
       expect(layout.props('navClass')).toBe('grid-cols-3 lg:text-base')
       expect(layout.props('enableSearch')).toBe(true)
@@ -92,7 +94,7 @@ describe('SmartPacksTable', () => {
         'hardware_model',
         'firmware_version',
         'is_online',
-        'assigned_to',
+        'child_name',
         'created',
         'actions',
       ])
@@ -122,26 +124,17 @@ describe('SmartPacksTable', () => {
       expect(isOnline?.formatter?.(false)).toBe('Offline')
     })
 
-    it('formats assigned_to using the assigned user full name', () => {
+    it('configures child_name as a sortable column', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
       const headings = layout.props('itemHeadings') as Array<{
         key: string
-        formatter?: (value: unknown) => unknown
+        sortable: boolean
       }>
 
-      const assignedTo = headings.find((heading) => heading.key === 'assigned_to')
+      const childName = headings.find((heading) => heading.key === 'child_name')
 
-      expect(
-        assignedTo?.formatter?.({
-          id: 1,
-          uuid: 'abc-123',
-          full_name: 'Jane Doe',
-          email: 'jane@example.com',
-          phone: '+254712345678',
-        }),
-      ).toBe('Jane Doe')
-      expect(assignedTo?.formatter?.(null)).toBe('Unassigned')
+      expect(childName?.sortable).toBe(true)
     })
 
     it('formats created using Filters.dateTime', () => {
@@ -175,7 +168,7 @@ describe('SmartPacksTable', () => {
         'hardware_model',
         'firmware_version',
         'is_online',
-        'assigned_to',
+        'child_name',
         'created',
       ])
       expect(nonSortableKeys).toEqual(['actions'])

@@ -32,12 +32,20 @@ The page displays:
 * Hardware model
 * IMEI
 * Firmware version
-* Assigned user
+* Assigned child
 * Last seen timestamp
 * Date the SmartPack was added
 * Current connection status
 
 The connection status indicates whether the SmartPack is currently online or offline.
+
+### Child Assignment
+
+Users can assign a SmartPack to a child from the details page.
+
+The **Assign to Child** action opens the child assignment form, where the child name can be entered and saved. The existing child name is displayed when a SmartPack has already been assigned to a child.
+
+After a child assignment is completed, the SmartPack details are refreshed to display the updated child information.
 
 ### User Assignment
 
@@ -59,5 +67,5 @@ The QR code provides a convenient way to identify the SmartPack device without m
 
 ## Access Control
 
-SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while other authorized users can view SmartPack information according to their assigned permissions.
+SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while authorized users can assign a SmartPack to a child and view SmartPack information according to their assigned permissions.
 

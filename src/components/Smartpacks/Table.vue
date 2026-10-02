@@ -1,7 +1,7 @@
 <template>
   <TablePageLayout
     :getter="$api.smartpacks.list"
-    page-description="Manage registered SmartPacks, monitor their connectivity, and keep track of customer assignments."
+    page-description="Monitor your SmartPacks and keep track of their connectivity and status."
     :tabs="smartPackTabs"
     name="SmartPacks"
     :item-headings="smartPackHeadings"
@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { SmartPackAssignedUser, SmartPackQueryParams } from '@/api/modules/smartpacks'
+import type { SmartPackQueryParams } from '@/api/modules/smartpacks'
 import Filters from '@/helpers/filters'
 
 defineOptions({
@@ -76,14 +76,9 @@ const smartPackHeadings = [
     },
   },
   {
-    key: 'assigned_to',
-    label: 'Assigned To',
+    key: 'child_name',
+    label: 'Child',
     sortable: true,
-    formatter: (value: unknown) => {
-      const assignedUser = value as SmartPackAssignedUser | null
-
-      return assignedUser ? assignedUser.full_name : 'Unassigned'
-    },
   },
   {
     key: 'created',

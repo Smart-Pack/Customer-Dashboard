@@ -1,4 +1,5 @@
 import type { User } from '@/api/modules/users'
+import type { SmartPack } from '@/api/modules/smartpacks'
 
 export const mockUser: User = {
   id: 1,
@@ -19,4 +20,18 @@ export const mockUser: User = {
   two_factor_enabled: true,
   status: 'active',
   is_active: true,
+}
+
+export const mockSmartPack: SmartPack = {
+  id: 1,
+  device_uid: 'SP-001',
+  hardware_model: 'SmartPack V1',
+  imei: '123456789012345',
+  firmware_version: '1.0.0',
+  last_seen: '2026-10-02T08:00:00Z',
+  is_online: true,
+  assigned_to: null,
+  child_name: 'Zuri',
+  created: '2026-10-01T08:00:00Z',
+  updated: '2026-10-02T08:00:00Z',
 }
