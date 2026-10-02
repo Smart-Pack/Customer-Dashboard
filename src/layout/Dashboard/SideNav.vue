@@ -41,11 +41,12 @@
       v-for="item in menuItems"
       :key="item.name"
       class="center-flex-col rounded-lg"
-      :class="
+      :class="[
+        item.extraClass,
         uiStore.hasBreadcrumb(item.name, route.name)
           ? 'bg-primary dark:bg-primary-dark'
-          : 'secondary-text'
-      "
+          : 'secondary-text',
+      ]"
     >
       <button
         type="button"
@@ -55,7 +56,7 @@
             ? 'form-submit disabled:opacity-100'
             : 'secondary-text hover:primary-text'
         "
-        @click="navigateTo(item)"
+        @click="item.onClick ? item.onClick() : navigateTo(item)"
       >
         <component :is="item.icon" class="w-6 h-6" />
 
@@ -75,11 +76,13 @@
 import { markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { auth } from '@/api'
 import HomeIcon from '@/components/Icons/HomeIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import DarkModeIcon from '@/components/Icons/DarkModeIcon.vue'
 import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import LightModeIcon from '@/components/Icons/LightModeIcon.vue'
+import LogOutIcon from '@/components/Icons/LogOutIcon.vue'
 import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
 import { useAuthStore, useUiStore } from '@/stores'
 import { withCacheBust } from '@/utils/urlSecurity'
@@ -92,6 +95,8 @@ interface MenuItem {
   name: string
   label: string
   icon: ReturnType<typeof markRaw>
+  onClick?: () => void
+  extraClass?: string
 }
 
 const router = useRouter()
@@ -99,6 +104,45 @@ const route = useRoute()
 
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+function toggleTheme(): void {
+  uiStore.updateThemePreference(uiStore.isLightMode ? 2 : 1)
+}
+
+function navigateTo(item: MenuItem): void {
+  if (route.name === item.name) {
+    return
+  }
+
+  uiStore.updateIsSideNavOpen(false)
+
+  void router.push({
+    name: item.name,
+  })
+}
+
+/**
+ * Logs the user out of the application.
+ *
+ * The local authentication state is cleared and the user is redirected
+ * to the login page even if the server-side logout request fails.
+ */
+async function logout(): Promise<void> {
+  try {
+    await auth.logout()
+  } catch {
+    // Continue with local logout if the server logout request fails.
+  } finally {
+    authStore.clearStore()
+    await router.push({ name: 'login' })
+  }
+}
+
+function splitLabel(label: string): string[] {
+  const words = label.split(' ')
+
+  return words.length >= 2 ? words : [label]
+}
 
 const menuItems: MenuItem[] = [
   {
@@ -121,27 +165,12 @@ const menuItems: MenuItem[] = [
     label: 'User Management',
     icon: markRaw(UserGroupIcon),
   },
+  {
+    name: 'logout',
+    label: 'Logout',
+    icon: markRaw(LogOutIcon),
+    onClick: logout,
+    extraClass: 'lg:hidden',
+  },
 ]
-
-function toggleTheme(): void {
-  uiStore.updateThemePreference(uiStore.isLightMode ? 2 : 1)
-}
-
-function navigateTo(item: MenuItem): void {
-  if (route.name === item.name) {
-    return
-  }
-
-  uiStore.updateIsSideNavOpen(false)
-
-  void router.push({
-    name: item.name,
-  })
-}
-
-function splitLabel(label: string): string[] {
-  const words = label.split(' ')
-
-  return words.length >= 2 ? words : [label]
-}
 </script>

@@ -3,10 +3,13 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 
 import SideNav from '../SideNav.vue'
+import { auth } from '@/api'
+import type { ApiDetailResponse } from '@/api/types'
 import { useAuthStore, useUiStore } from '@/stores'
 import { mockUser } from '@/tests/constants'
 
 const routerPush = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+
 const findMenuButton = (
   wrapper: VueWrapper,
   label: string,
@@ -20,6 +23,7 @@ const findMenuButton = (
     return text === label
   })
 }
+
 let currentRouteName: string | undefined = 'dashboard'
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -40,6 +44,12 @@ vi.mock('vue-router', async (importOriginal) => {
   }
 })
 
+vi.mock('@/api', () => ({
+  auth: {
+    logout: vi.fn<() => Promise<ApiDetailResponse>>(),
+  },
+}))
+
 const stubs = {
   HomeIcon: {
     name: 'HomeIcon',
@@ -49,6 +59,21 @@ const stubs = {
   UserIcon: {
     name: 'UserIcon',
     template: '<svg data-testid="user-icon" />',
+  },
+
+  BackPackIcon: {
+    name: 'BackPackIcon',
+    template: '<svg data-testid="backpack-icon" />',
+  },
+
+  UserGroupIcon: {
+    name: 'UserGroupIcon',
+    template: '<svg data-testid="user-group-icon" />',
+  },
+
+  LogOutIcon: {
+    name: 'LogOutIcon',
+    template: '<svg data-testid="logout-icon" />',
   },
 
   LightModeIcon: {
@@ -104,13 +129,31 @@ describe('SideNav', () => {
     it('renders the Home menu item', () => {
       const wrapper = mountSideNav()
 
-      expect(wrapper.text()).toContain('Home')
+      expect(findMenuButton(wrapper, 'Home')).toBeDefined()
+    })
+
+    it('renders the SmartPack Management menu item', () => {
+      const wrapper = mountSideNav()
+
+      expect(findMenuButton(wrapper, 'SmartPack Management')).toBeDefined()
     })
 
     it('renders the My Profile menu item', () => {
       const wrapper = mountSideNav()
 
       expect(findMenuButton(wrapper, 'My Profile')).toBeDefined()
+    })
+
+    it('renders the User Management menu item', () => {
+      const wrapper = mountSideNav()
+
+      expect(findMenuButton(wrapper, 'User Management')).toBeDefined()
+    })
+
+    it('renders the Logout menu item', () => {
+      const wrapper = mountSideNav()
+
+      expect(findMenuButton(wrapper, 'Logout')).toBeDefined()
     })
 
     it('renders the authenticated user first name', () => {
@@ -226,13 +269,51 @@ describe('SideNav', () => {
       })
     })
 
+    it('navigates to SmartPack Management and closes the side navigation', async () => {
+      currentRouteName = 'dashboard'
+      uiStore.isSideNavOpen = true
+
+      const wrapper = mountSideNav()
+
+      const smartPackButton = findMenuButton(wrapper, 'SmartPack Management')
+
+      expect(smartPackButton).toBeDefined()
+
+      await smartPackButton!.trigger('click')
+
+      expect(uiStore.isSideNavOpen).toBe(false)
+      expect(routerPush).toHaveBeenCalledTimes(1)
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'smartpacks-parent',
+      })
+    })
+
+    it('navigates to User Management and closes the side navigation', async () => {
+      currentRouteName = 'dashboard'
+      uiStore.isSideNavOpen = true
+
+      const wrapper = mountSideNav()
+
+      const userManagementButton = findMenuButton(wrapper, 'User Management')
+
+      expect(userManagementButton).toBeDefined()
+
+      await userManagementButton!.trigger('click')
+
+      expect(uiStore.isSideNavOpen).toBe(false)
+      expect(routerPush).toHaveBeenCalledTimes(1)
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'users-parent',
+      })
+    })
+
     it('navigates to Home and closes the side navigation', async () => {
       currentRouteName = 'my-profile'
       uiStore.isSideNavOpen = true
 
       const wrapper = mountSideNav()
 
-      const homeButton = wrapper.findAll('button').find((button) => button.text().includes('Home'))
+      const homeButton = findMenuButton(wrapper, 'Home')
 
       expect(homeButton).toBeDefined()
 
@@ -251,7 +332,7 @@ describe('SideNav', () => {
 
       const wrapper = mountSideNav()
 
-      const homeButton = wrapper.findAll('button').find((button) => button.text().includes('Home'))
+      const homeButton = findMenuButton(wrapper, 'Home')
 
       expect(homeButton).toBeDefined()
 
@@ -259,6 +340,63 @@ describe('SideNav', () => {
 
       expect(routerPush).not.toHaveBeenCalled()
       expect(uiStore.isSideNavOpen).toBe(true)
+    })
+  })
+
+  describe('logout', () => {
+    it('logs out, clears the auth store, and redirects to login', async () => {
+      vi.mocked(auth.logout).mockResolvedValue({
+        detail: 'Successfully logged out.',
+      })
+
+      const clearStoreSpy = vi.spyOn(authStore, 'clearStore')
+
+      const wrapper = mountSideNav()
+
+      const logoutButton = findMenuButton(wrapper, 'Logout')
+
+      expect(logoutButton).toBeDefined()
+
+      await logoutButton!.trigger('click')
+
+      expect(auth.logout).toHaveBeenCalledTimes(1)
+      expect(clearStoreSpy).toHaveBeenCalledTimes(1)
+
+      expect(routerPush).toHaveBeenCalledTimes(1)
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'login',
+      })
+    })
+
+    it('clears the auth store and redirects when logout fails', async () => {
+      vi.mocked(auth.logout).mockRejectedValue(new Error('Logout failed'))
+
+      const clearStoreSpy = vi.spyOn(authStore, 'clearStore')
+
+      const wrapper = mountSideNav()
+
+      const logoutButton = findMenuButton(wrapper, 'Logout')
+
+      expect(logoutButton).toBeDefined()
+
+      await logoutButton!.trigger('click')
+
+      expect(auth.logout).toHaveBeenCalledTimes(1)
+      expect(clearStoreSpy).toHaveBeenCalledTimes(1)
+
+      expect(routerPush).toHaveBeenCalledTimes(1)
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'login',
+      })
+    })
+
+    it('applies the extra class to the logout menu item', () => {
+      const wrapper = mountSideNav()
+
+      const logoutButton = findMenuButton(wrapper, 'Logout')
+
+      expect(logoutButton).toBeDefined()
+      expect(logoutButton!.element.parentElement?.classList.contains('lg:hidden')).toBe(true)
     })
   })
 
@@ -275,7 +413,7 @@ describe('SideNav', () => {
 
       const wrapper = mountSideNav()
 
-      const homeButton = wrapper.findAll('button').find((button) => button.text().includes('Home'))
+      const homeButton = findMenuButton(wrapper, 'Home')
 
       expect(homeButton).toBeDefined()
       expect(homeButton!.classes()).toContain('form-submit')
