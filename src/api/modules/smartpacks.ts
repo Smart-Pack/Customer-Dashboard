@@ -24,6 +24,10 @@ export interface SmartPack {
   updated: string
 }
 
+export type EditSmartPackPayload = {
+  child_name: string
+}
+
 export type SmartPackListItem = SmartPack
 
 export interface SmartPackQueryParams extends PaginationQueryParams {
@@ -108,4 +112,37 @@ export const unassign = async (id: string | number): Promise<string> => {
   await apiClient.patch(SMARTPACKS.unassign(id))
 
   return 'SmartPack unassigned successfully.'
+}
+
+/**
+ * Updates an existing SmartPack.
+ *
+ * @param smartPack - The SmartPack data to update.
+ * @param smartPack.id - The ID of the SmartPack.
+ * @param smartPack.child_name - The name of the child assigned to the SmartPack.
+ * @returns A promise resolving with the updated SmartPack and success message.
+ * @throws The error is re-thrown after annotating a 404 response.
+ */
+export const edit = async (smartPack: SmartPack): Promise<{ data: SmartPack; message: string }> => {
+  const payload: EditSmartPackPayload = {
+    child_name: smartPack.child_name,
+  }
+
+  try {
+    const response = await apiClient.patch<SmartPack>(SMARTPACKS.detail(smartPack.id), payload)
+
+    return {
+      data: response.data,
+      message: 'SmartPack updated successfully.',
+    }
+  } catch (error) {
+    const axiosError = error as ItemNotFoundError
+
+    if (axiosError.response?.status === 404) {
+      axiosError.message = `SmartPack with ID ${smartPack.id} not found. It may have been deleted.`
+      axiosError.reload = true
+    }
+
+    throw axiosError
+  }
 }
