@@ -3,10 +3,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import SmartPackDetails from '@/views/Smartpacks/details.vue'
 import AssignUser from '@/components/Smartpacks/AssignUser.vue'
+import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
+import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import { mockUser } from '@/tests/constants'
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { User } from '@/api/modules/users'
-import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 
 const mockGetById = vi.fn<(params: { id: string }) => Promise<SmartPack>>()
 const mockAssign =
@@ -69,6 +70,7 @@ const mountView = () =>
       },
       stubs: {
         AssignUser: true,
+        AssignChildForm: true,
         SmartPackQrComponent: true,
         RouterLink: {
           name: 'RouterLink',
@@ -91,7 +93,9 @@ describe('SmartPackDetails', () => {
       mountView()
       await flushPromises()
 
-      expect(mockGetById).toHaveBeenCalledWith({ id: mockSmartPack.id.toString() })
+      expect(mockGetById).toHaveBeenCalledWith({
+        id: mockSmartPack.id.toString(),
+      })
     })
 
     it('renders the fetched smartpack details', async () => {
@@ -104,7 +108,10 @@ describe('SmartPackDetails', () => {
     })
 
     it('notifies and redirects to smartpacks list when fetch fails with a reload error', async () => {
-      mockGetById.mockRejectedValueOnce({ message: 'SmartPack not found', reload: true })
+      mockGetById.mockRejectedValueOnce({
+        message: 'SmartPack not found',
+        reload: true,
+      })
 
       mountView()
       await flushPromises()
@@ -114,7 +121,10 @@ describe('SmartPackDetails', () => {
     })
 
     it('notifies without redirecting when fetch fails without a reload flag', async () => {
-      mockGetById.mockRejectedValueOnce({ message: 'Server error', reload: false })
+      mockGetById.mockRejectedValueOnce({
+        message: 'Server error',
+        reload: false,
+      })
 
       mountView()
       await flushPromises()
@@ -126,7 +136,10 @@ describe('SmartPackDetails', () => {
 
   describe('connection status', () => {
     it('shows Online when the smartpack is online', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, is_online: true })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        is_online: true,
+      })
 
       const wrapper = mountView()
       await flushPromises()
@@ -135,7 +148,10 @@ describe('SmartPackDetails', () => {
     })
 
     it('shows Offline when the smartpack is not online', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, is_online: false })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        is_online: false,
+      })
 
       const wrapper = mountView()
       await flushPromises()
@@ -144,8 +160,120 @@ describe('SmartPackDetails', () => {
     })
   })
 
-  describe('assigned_to rendering', () => {
-    it('shows an em dash when unassigned', async () => {
+  describe('child_name rendering', () => {
+    it('shows an em dash when no child is assigned', async () => {
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        child_name: '',
+      })
+
+      const wrapper = mountView()
+      await flushPromises()
+
+      const child = wrapper.find('[title="Child"]')
+
+      expect(child.exists()).toBe(true)
+      expect(child.text().trim()).toBe('—')
+    })
+
+    it("shows the child's name when assigned", async () => {
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        child_name: 'John Doe',
+      })
+
+      const wrapper = mountView()
+      await flushPromises()
+
+      const child = wrapper.find('[title="Child"]')
+
+      expect(child.exists()).toBe(true)
+      expect(child.text()).toContain('John Doe')
+      expect(child.findComponent({ name: 'RouterLink' }).exists()).toBe(false)
+    })
+  })
+
+  describe('assign child', () => {
+    it('shows the Assign to Child button', async () => {
+      const wrapper = mountView()
+      await flushPromises()
+
+      const assignChildButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign to Child')
+
+      expect(assignChildButton?.exists()).toBe(true)
+    })
+
+    it('shows the AssignChildForm when Assign to Child is clicked', async () => {
+      const wrapper = mountView()
+      await flushPromises()
+
+      const assignChildButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign to Child')
+
+      expect(assignChildButton).toBeDefined()
+
+      await assignChildButton!.trigger('click')
+
+      expect(wrapper.findComponent(AssignChildForm).exists()).toBe(true)
+      expect(wrapper.text()).toContain('Assign to Child')
+    })
+
+    it('returns to the details page when Cancel is clicked', async () => {
+      const wrapper = mountView()
+      await flushPromises()
+
+      const assignChildButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign to Child')
+
+      expect(assignChildButton).toBeDefined()
+
+      await assignChildButton!.trigger('click')
+
+      expect(wrapper.findComponent(AssignChildForm).exists()).toBe(true)
+
+      const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'Cancel')
+
+      expect(cancelButton).toBeDefined()
+
+      await cancelButton!.trigger('click')
+
+      expect(wrapper.findComponent(AssignChildForm).exists()).toBe(false)
+      expect(wrapper.text()).toContain(mockSmartPack.hardware_model)
+    })
+
+    it('refreshes the SmartPack and returns to details when child assignment completes', async () => {
+      const wrapper = mountView()
+      await flushPromises()
+
+      const assignChildButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign to Child')
+
+      expect(assignChildButton).toBeDefined()
+
+      await assignChildButton!.trigger('click')
+
+      expect(wrapper.findComponent(AssignChildForm).exists()).toBe(true)
+
+      mockGetById.mockClear()
+
+      await wrapper.findComponent(AssignChildForm).vm.$emit('close', 'showDetails', true)
+      await flushPromises()
+
+      expect(wrapper.findComponent(AssignChildForm).exists()).toBe(false)
+      expect(mockGetById).toHaveBeenCalledWith({
+        id: mockSmartPack.id.toString(),
+      })
+    })
+  })
+
+  describe('admin actions', () => {
+    it('shows Assign User when unassigned and the user is an admin', async () => {
+      mockAuthStore.isAdmin = true
       mockGetById.mockResolvedValueOnce({
         ...mockSmartPack,
         assigned_to: null,
@@ -154,50 +282,11 @@ describe('SmartPackDetails', () => {
       const wrapper = mountView()
       await flushPromises()
 
-      const assignedUser = wrapper.find('[title="Assigned User"]')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
 
-      expect(assignedUser.exists()).toBe(true)
-      expect(assignedUser.text().trim()).toBe('—')
-    })
-
-    it("shows the assigned user's full name as a link when assigned", async () => {
-      mockGetById.mockResolvedValueOnce({
-        ...mockSmartPack,
-        assigned_to: {
-          id: mockUser.id,
-          uuid: mockUser.unique_id,
-          full_name: mockUser.full_name,
-          email: mockUser.email,
-          phone: mockUser.phone,
-        },
-      })
-
-      const wrapper = mountView()
-      await flushPromises()
-
-      const assignedUser = wrapper.find('[title="Assigned User"]')
-      const link = assignedUser.findComponent({ name: 'RouterLink' })
-
-      expect(assignedUser.exists()).toBe(true)
-      expect(assignedUser.text()).toContain(mockUser.full_name)
-      expect(link.exists()).toBe(true)
-      expect(link.props('to')).toEqual({
-        name: 'user-details',
-        params: { id: mockUser.id },
-      })
-    })
-  })
-
-  describe('admin actions', () => {
-    it('shows Assign User when unassigned and the user is an admin', async () => {
-      mockAuthStore.isAdmin = true
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
-
-      const wrapper = mountView()
-      await flushPromises()
-
-      expect(wrapper.find('.form-submit').exists()).toBe(true)
-      expect(wrapper.find('.form-submit').text()).toBe('Assign User')
+      expect(assignUserButton?.exists()).toBe(true)
       expect(wrapper.find('.error-btn').exists()).toBe(false)
     })
 
@@ -219,41 +308,68 @@ describe('SmartPackDetails', () => {
 
       expect(wrapper.find('.error-btn').exists()).toBe(true)
       expect(wrapper.find('.error-btn').text()).toBe('Unassign User')
-      expect(wrapper.find('.form-submit').exists()).toBe(false)
+
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeUndefined()
     })
 
-    it('hides both actions for a non-admin', async () => {
+    it('hides user assignment actions for a non-admin', async () => {
       mockAuthStore.isAdmin = false
 
       const wrapper = mountView()
       await flushPromises()
 
-      expect(wrapper.find('.form-submit').exists()).toBe(false)
-      expect(wrapper.find('.error-btn').exists()).toBe(false)
+      const buttons = wrapper.findAll('button')
+
+      expect(buttons.some((button) => button.text() === 'Assign User')).toBe(false)
+      expect(buttons.some((button) => button.text() === 'Unassign User')).toBe(false)
+      expect(buttons.some((button) => button.text() === 'Assign to Child')).toBe(true)
     })
   })
 
   describe('assignUser', () => {
     it('opens the AssignUser modal when Assign User is clicked', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
 
       const wrapper = mountView()
       await flushPromises()
 
       expect(wrapper.findComponent(AssignUser).exists()).toBe(false)
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
 
       expect(wrapper.findComponent(AssignUser).exists()).toBe(true)
     })
 
     it('closes the modal via the close event', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
 
       const wrapper = mountView()
       await flushPromises()
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
+
       expect(wrapper.findComponent(AssignUser).exists()).toBe(true)
 
       await wrapper.findComponent(AssignUser).vm.$emit('close', false)
@@ -264,47 +380,89 @@ describe('SmartPackDetails', () => {
 
   describe('handleAssign', () => {
     it('assigns the selected user, closes the modal, refetches, and notifies success', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
       mockAssign.mockResolvedValueOnce('SmartPack assigned successfully.')
 
       const wrapper = mountView()
       await flushPromises()
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
+
       mockGetById.mockClear()
 
       await wrapper.findComponent(AssignUser).vm.$emit('assign', mockUser as User)
       await flushPromises()
 
-      expect(mockAssign).toHaveBeenCalledWith(mockSmartPack.id, { assigned_to: mockUser.id })
+      expect(mockAssign).toHaveBeenCalledWith(mockSmartPack.id, {
+        assigned_to: mockUser.id,
+      })
       expect(wrapper.findComponent(AssignUser).exists()).toBe(false)
-      expect(mockGetById).toHaveBeenCalledWith({ id: mockSmartPack.id.toString() })
+      expect(mockGetById).toHaveBeenCalledWith({
+        id: mockSmartPack.id.toString(),
+      })
       expect(mockNotifySuccess).toHaveBeenCalledWith('SmartPack assigned successfully.')
     })
 
     it('notifies and redirects when assign fails with a reload error', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
-      mockAssign.mockRejectedValueOnce({ message: 'Assign failed', reload: true })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
+      mockAssign.mockRejectedValueOnce({
+        message: 'Assign failed',
+        reload: true,
+      })
 
       const wrapper = mountView()
       await flushPromises()
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
+
       await wrapper.findComponent(AssignUser).vm.$emit('assign', mockUser as User)
       await flushPromises()
 
       expect(mockNotifyError).toHaveBeenCalledWith('Assign failed')
-      expect(mockRouterPush).toHaveBeenCalledWith({ name: 'smartpacks' })
+      expect(mockRouterPush).toHaveBeenCalledWith({
+        name: 'smartpacks',
+      })
     })
 
     it('notifies without redirecting when assign fails without a reload flag', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
-      mockAssign.mockRejectedValueOnce({ message: 'Server error', reload: false })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
+      mockAssign.mockRejectedValueOnce({
+        message: 'Server error',
+        reload: false,
+      })
 
       const wrapper = mountView()
       await flushPromises()
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
+
       await wrapper.findComponent(AssignUser).vm.$emit('assign', mockUser as User)
       await flushPromises()
 
@@ -313,8 +471,13 @@ describe('SmartPackDetails', () => {
     })
 
     it('passes submitting through to the AssignUser modal while assigning', async () => {
-      mockGetById.mockResolvedValueOnce({ ...mockSmartPack, assigned_to: null })
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        assigned_to: null,
+      })
+
       let resolveAssign: (value: string) => void = () => {}
+
       mockAssign.mockReturnValueOnce(
         new Promise((resolve) => {
           resolveAssign = resolve
@@ -324,7 +487,14 @@ describe('SmartPackDetails', () => {
       const wrapper = mountView()
       await flushPromises()
 
-      await wrapper.find('.form-submit').trigger('click')
+      const assignUserButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Assign User')
+
+      expect(assignUserButton).toBeDefined()
+
+      await assignUserButton!.trigger('click')
+
       void wrapper.findComponent(AssignUser).vm.$emit('assign', mockUser as User)
       await wrapper.vm.$nextTick()
 
@@ -388,18 +558,24 @@ describe('SmartPackDetails', () => {
 
       const wrapper = mountView()
       await flushPromises()
+
       mockGetById.mockClear()
 
       await wrapper.find('.error-btn').trigger('click')
       await flushPromises()
 
-      expect(mockGetById).toHaveBeenCalledWith({ id: assignedSmartPack.id.toString() })
+      expect(mockGetById).toHaveBeenCalledWith({
+        id: assignedSmartPack.id.toString(),
+      })
     })
 
     it('notifies and redirects when unassign fails with a reload error', async () => {
       mockGetById.mockResolvedValueOnce(assignedSmartPack)
       mockDeleteModal.mockResolvedValueOnce(true)
-      mockUnassign.mockRejectedValueOnce({ message: 'Unassign failed', reload: true })
+      mockUnassign.mockRejectedValueOnce({
+        message: 'Unassign failed',
+        reload: true,
+      })
 
       const wrapper = mountView()
       await flushPromises()
@@ -408,13 +584,18 @@ describe('SmartPackDetails', () => {
       await flushPromises()
 
       expect(mockNotifyError).toHaveBeenCalledWith('Unassign failed')
-      expect(mockRouterPush).toHaveBeenCalledWith({ name: 'smartpacks' })
+      expect(mockRouterPush).toHaveBeenCalledWith({
+        name: 'smartpacks',
+      })
     })
 
     it('notifies without redirecting when unassign fails without a reload flag', async () => {
       mockGetById.mockResolvedValueOnce(assignedSmartPack)
       mockDeleteModal.mockResolvedValueOnce(true)
-      mockUnassign.mockRejectedValueOnce({ message: 'Server error', reload: false })
+      mockUnassign.mockRejectedValueOnce({
+        message: 'Server error',
+        reload: false,
+      })
 
       const wrapper = mountView()
       await flushPromises()
@@ -426,6 +607,7 @@ describe('SmartPackDetails', () => {
       expect(mockRouterPush).not.toHaveBeenCalled()
     })
   })
+
   describe('Print QR', () => {
     it('shows the Print QR button regardless of admin status', async () => {
       mockAuthStore.isAdmin = false
@@ -434,6 +616,7 @@ describe('SmartPackDetails', () => {
       await flushPromises()
 
       const printQrBtn = wrapper.find('.form-submit-secondary')
+
       expect(printQrBtn.exists()).toBe(true)
       expect(printQrBtn.text()).toBe('Print QR')
     })
@@ -452,6 +635,7 @@ describe('SmartPackDetails', () => {
       await wrapper.find('.form-submit-secondary').trigger('click')
 
       const qrComponent = wrapper.findComponent(SmartPackQrComponent)
+
       expect(qrComponent.exists()).toBe(true)
       expect(qrComponent.props('item')).toEqual(mockSmartPack)
     })
@@ -461,6 +645,7 @@ describe('SmartPackDetails', () => {
       await flushPromises()
 
       await wrapper.find('.form-submit-secondary').trigger('click')
+
       expect(wrapper.findComponent(SmartPackQrComponent).exists()).toBe(true)
 
       await wrapper.findComponent(SmartPackQrComponent).vm.$emit('show-qr', false)
