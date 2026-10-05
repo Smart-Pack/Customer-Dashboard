@@ -176,6 +176,27 @@ describe('SmartPacks API', () => {
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.claim(deviceUid), payload)
       expect(response).toBe('SmartPack claimed successfully.')
     })
+
+    it('uses the IMEI validation error message for a 400 response', async () => {
+      const error = {
+        message: 'Request failed with status code 400',
+        response: {
+          status: 400,
+          data: {
+            imei: ['SmartPack with this IMEI does not exist.'],
+          },
+        },
+      }
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      await expect(claim(deviceUid, payload)).rejects.toBe(error)
+
+      expect(error.message).toBe('SmartPack with this IMEI does not exist.')
+    })
   })
   describe('edit', () => {
     it('updates the child name of an existing SmartPack', async () => {

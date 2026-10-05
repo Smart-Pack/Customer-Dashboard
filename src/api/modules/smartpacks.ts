@@ -159,7 +159,25 @@ export const edit = async (smartPack: SmartPack): Promise<{ data: SmartPack; mes
  * @returns A promise resolving with a success message.
  */
 export const claim = async (deviceUid: string, payload: ClaimSmartPackPayload): Promise<string> => {
-  await apiClient.patch(SMARTPACKS.claim(deviceUid), payload)
+  try {
+    await apiClient.patch(SMARTPACKS.claim(deviceUid), payload)
 
-  return 'SmartPack claimed successfully.'
+    return 'SmartPack claimed successfully.'
+  } catch (error: unknown) {
+    const e = error as {
+      response?: {
+        status?: number
+        data?: {
+          detail?: string
+          imei?: string[]
+        }
+      }
+      message: string
+    }
+    if (e.response?.status === 400 && e.response?.data?.imei?.[0]) {
+      e.message = e.response.data.imei[0]
+    }
+
+    throw e
+  }
 }
