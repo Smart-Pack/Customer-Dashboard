@@ -6,7 +6,7 @@
       :width="500"
       :height="500"
       :dotsOptions="{ type: 'square', color: '#000000' }"
-      :qrOptions="{ typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'H' }"
+      :qrOptions="{ typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'M' }"
       :download="true"
       downloadButton="smartpack-qr-button"
       :downloadOptions="{

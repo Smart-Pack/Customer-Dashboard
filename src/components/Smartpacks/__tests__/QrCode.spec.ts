@@ -96,7 +96,7 @@ describe('SmartPackQrComponent', () => {
       expect(qr.props('qrOptions')).toEqual({
         typeNumber: 0,
         mode: 'Byte',
-        errorCorrectionLevel: 'H',
+        errorCorrectionLevel: 'M',
       })
 
       wrapper.unmount()
