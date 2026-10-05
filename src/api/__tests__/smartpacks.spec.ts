@@ -5,6 +5,7 @@ import { mockUser } from '@/tests/constants'
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '@/api/endpoints'
 import {
+  claim,
   edit,
   list,
   getById,
@@ -159,6 +160,42 @@ describe('SmartPacks API', () => {
 
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassign(mockSmartPack.id))
       expect(response).toBe('SmartPack unassigned successfully.')
+    })
+  })
+  describe('claim', () => {
+    it('claims a SmartPack using its device UID and IMEI', async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: {},
+      } as never)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      const response = await claim(deviceUid, payload)
+
+      expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.claim(deviceUid), payload)
+      expect(response).toBe('SmartPack claimed successfully.')
+    })
+
+    it('uses the IMEI validation error message for a 400 response', async () => {
+      const error = {
+        message: 'Request failed with status code 400',
+        response: {
+          status: 400,
+          data: {
+            imei: ['SmartPack with this IMEI does not exist.'],
+          },
+        },
+      }
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      await expect(claim(deviceUid, payload)).rejects.toBe(error)
+
+      expect(error.message).toBe('SmartPack with this IMEI does not exist.')
     })
   })
   describe('edit', () => {

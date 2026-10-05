@@ -2,6 +2,10 @@ import apiClient from '@/api/client'
 import { SMARTPACKS } from '../endpoints'
 import type { ItemNotFoundError, PaginatedResponse, PaginationQueryParams } from '@/api/types'
 
+export type ClaimSmartPackPayload = {
+  imei: string
+}
+
 export interface SmartPackAssignedUser {
   id: number
   uuid: string
@@ -144,5 +148,36 @@ export const edit = async (smartPack: SmartPack): Promise<{ data: SmartPack; mes
     }
 
     throw axiosError
+  }
+}
+
+/**
+ * Claims an unassigned SmartPack for the authenticated customer.
+ *
+ * @param deviceUid - The UUID of the SmartPack device to claim.
+ * @param payload - The IMEI verification payload.
+ * @returns A promise resolving with a success message.
+ */
+export const claim = async (deviceUid: string, payload: ClaimSmartPackPayload): Promise<string> => {
+  try {
+    await apiClient.patch(SMARTPACKS.claim(deviceUid), payload)
+
+    return 'SmartPack claimed successfully.'
+  } catch (error: unknown) {
+    const e = error as {
+      response?: {
+        status?: number
+        data?: {
+          detail?: string
+          imei?: string[]
+        }
+      }
+      message: string
+    }
+    if (e.response?.status === 400 && e.response?.data?.imei?.[0]) {
+      e.message = e.response.data.imei[0]
+    }
+
+    throw e
   }
 }

@@ -6,8 +6,11 @@ import TablePageLayout, { type Getter } from '@/components/Base/TablePageLayout.
 
 const mockSmartPacksList = vi.fn<Getter>()
 
-const mountTable = () =>
+const mountTable = (refreshKey = 0) =>
   mount(SmartPacksTable, {
+    props: {
+      refreshKey,
+    },
     global: {
       mocks: {
         $api: {
@@ -48,6 +51,12 @@ describe('SmartPacksTable', () => {
       const layout = wrapper.findComponent(TablePageLayout)
 
       expect(layout.props('getter')).toBe(mockSmartPacksList)
+    })
+    it('passes the refresh key through', () => {
+      const wrapper = mountTable(3)
+      const layout = wrapper.findComponent(TablePageLayout)
+
+      expect(layout.props('refreshKey')).toBe(3)
     })
   })
 

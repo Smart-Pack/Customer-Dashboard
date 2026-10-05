@@ -6,6 +6,7 @@
     name="SmartPacks"
     :item-headings="smartPackHeadings"
     :enable-search="true"
+    :refresh-key="refreshKey"
     nav-class="grid-cols-3 lg:text-base"
   />
 </template>
@@ -96,4 +97,13 @@ const smartPackHeadings = [
     },
   },
 ]
+/**
+ * Props for the SmartPacks table.
+ */
+const { refreshKey } = defineProps<{
+  /**
+   * Key used to trigger a table refresh after SmartPack changes.
+   */
+  refreshKey: number
+}>()
 </script>

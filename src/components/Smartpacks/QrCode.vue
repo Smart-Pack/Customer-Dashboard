@@ -3,10 +3,10 @@
   <div class="invisible absolute">
     <QRCodeVue3
       :value="productQrData"
-      :width="300"
-      :height="300"
-      :dotsOptions="{ type: 'dots', color: '#000000' }"
-      :qrOptions="{ typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'H' }"
+      :width="500"
+      :height="500"
+      :dotsOptions="{ type: 'square', color: '#000000' }"
+      :qrOptions="{ typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'M' }"
       :download="true"
       downloadButton="smartpack-qr-button"
       :downloadOptions="{
