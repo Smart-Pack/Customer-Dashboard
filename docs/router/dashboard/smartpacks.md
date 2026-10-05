@@ -1,6 +1,6 @@
 # SmartPack Management
 
-The SmartPack Management section allows administrators and authorized internal users to view and manage registered SmartPack devices. It provides a paginated list of SmartPacks and a dedicated details page for viewing device information and managing user assignments.
+The SmartPack Management section allows administrators and authorized internal users to view and manage registered SmartPack devices. It provides a paginated list of SmartPacks, a dedicated details page, and functionality for claiming unassigned SmartPacks.
 
 ## SmartPack List Page
 
@@ -18,8 +18,50 @@ The SmartPack list page displays all registered SmartPack devices in a table.
 * Assigned child/user
 * SmartPack creation date
 * Navigation to the SmartPack details page
+* Claiming an unassigned SmartPack
 
 Each SmartPack can be opened from the table to view its complete device details.
+
+### Claim SmartPack
+
+The **Claim SmartPack** action allows an authorized user to claim an unassigned SmartPack.
+
+The claim interface supports identifying a SmartPack using its QR code. The QR code can either be uploaded as an image or scanned directly using the device camera.
+
+The QR code contains the SmartPack device UID and IMEI, which are used to identify the device and complete the claim.
+
+#### QR Code Upload
+
+Users can upload an image containing a SmartPack QR code. The QR code reader extracts the device UID and IMEI and displays the detected information before the SmartPack is claimed.
+
+#### QR Code Scanning
+
+Users can also select **Scan QR Code** to open the camera-based QR scanner.
+
+The scanner:
+
+* Uses the device camera to detect QR codes
+* Uses the environment-facing camera where supported
+* Supports fullscreen mode for easier scanning
+* Displays camera errors when access or scanning fails
+* Automatically exits scanning mode after detecting a valid SmartPack QR code
+
+After a valid QR code is detected, the device UID and IMEI are displayed and the user can proceed with the claim.
+
+#### Claim Process
+
+Once a valid SmartPack QR code has been detected, the user can select **Claim SmartPack**.
+
+The claim request uses the detected device UID and IMEI to associate the SmartPack with the user's account.
+
+After a successful claim:
+
+* A success notification is displayed
+* The claim modal closes
+* The SmartPack list is refreshed
+* The newly claimed SmartPack appears with its updated assignment state
+
+Invalid or unsuccessful claim requests display an appropriate error message without closing the claim interface.
 
 ## SmartPack Details Page
 
@@ -65,7 +107,8 @@ The QR code provides a convenient way to identify the SmartPack device without m
 
 `src/components/Smartpacks/QrCode.vue`
 
+The generated QR code can be used by the **Claim SmartPack** workflow to identify the device.
+
 ## Access Control
 
-SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while authorized users can assign a SmartPack to a child and view SmartPack information according to their assigned permissions.
-
+SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while authorized users can view SmartPack information, claim eligible SmartPacks, and assign a SmartPack to a child according to their assigned permissions.
