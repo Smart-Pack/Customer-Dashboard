@@ -5,6 +5,7 @@ import { mockUser } from '@/tests/constants'
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '@/api/endpoints'
 import {
+  claim,
   edit,
   list,
   getById,
@@ -159,6 +160,21 @@ describe('SmartPacks API', () => {
 
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassign(mockSmartPack.id))
       expect(response).toBe('SmartPack unassigned successfully.')
+    })
+  })
+  describe('claim', () => {
+    it('claims a SmartPack using its device UID and IMEI', async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: {},
+      } as never)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      const response = await claim(deviceUid, payload)
+
+      expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.claim(deviceUid), payload)
+      expect(response).toBe('SmartPack claimed successfully.')
     })
   })
   describe('edit', () => {

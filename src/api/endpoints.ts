@@ -38,6 +38,7 @@ export const USERS = {
 
 export const SMARTPACKS = {
   COLLECTION: 'v1/smartpacks/',
+  claim: (deviceUid: string): string => `v1/smartpacks/${deviceUid}/claim/`,
   detail: (id: string | number): string => `v1/smartpacks/${id}/`,
   assign: (id: string | number): string => `v1/smartpacks/${id}/assign/`,
   unassign: (id: string | number): string => `v1/smartpacks/${id}/unassign/`,
