@@ -64,7 +64,7 @@ export const sendInvite = async (
  * @returns A promise resolving with the API response detail message.
  */
 export const leaveGroup = async (id: string | number): Promise<string> => {
-  const response = await apiClient.post<ApiDetailResponse>(GROUP_MEMBERS.leave(id))
+  const response = await apiClient.delete<ApiDetailResponse>(GROUP_MEMBERS.leave(id))
 
   return response.data.detail
 }

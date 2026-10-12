@@ -11,6 +11,7 @@ import type { ApiDetailResponse } from '@/api/types'
 
 vi.mock('@/api/client', () => ({
   default: {
+    delete: vi.fn<AxiosInstance['delete']>(),
     get: vi.fn<AxiosInstance['get']>(),
     post: vi.fn<AxiosInstance['post']>(),
   },
@@ -144,37 +145,39 @@ describe('groupMembers API', () => {
     const membershipId = 2
 
     const mockResponse: ApiDetailResponse = {
-      detail: 'You have left the group successfully.',
+      detail: 'You have left the group "Family Group" successfully.',
     }
 
     it('allows the current user to leave a group', async () => {
-      vi.mocked(apiClient.post).mockResolvedValueOnce({
+      vi.mocked(apiClient.delete).mockResolvedValueOnce({
         data: mockResponse,
       })
 
       const result = await leaveGroup(membershipId)
 
-      expect(apiClient.post).toHaveBeenCalledWith(GROUP_MEMBERS.leave(membershipId))
-      expect(result).toBe('You have left the group successfully.')
+      expect(apiClient.delete).toHaveBeenCalledExactlyOnceWith(GROUP_MEMBERS.leave(membershipId))
+      expect(result).toBe('You have left the group "Family Group" successfully.')
     })
 
     it('supports a string membership ID', async () => {
       const stringMembershipId = '2'
 
-      vi.mocked(apiClient.post).mockResolvedValueOnce({
+      vi.mocked(apiClient.delete).mockResolvedValueOnce({
         data: mockResponse,
       })
 
       const result = await leaveGroup(stringMembershipId)
 
-      expect(apiClient.post).toHaveBeenCalledWith(GROUP_MEMBERS.leave(stringMembershipId))
-      expect(result).toBe('You have left the group successfully.')
+      expect(apiClient.delete).toHaveBeenCalledExactlyOnceWith(
+        GROUP_MEMBERS.leave(stringMembershipId),
+      )
+      expect(result).toBe('You have left the group "Family Group" successfully.')
     })
 
     it('propagates API errors', async () => {
       const error = new Error('Failed to leave group')
 
-      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+      vi.mocked(apiClient.delete).mockRejectedValueOnce(error)
 
       await expect(leaveGroup(membershipId)).rejects.toThrow('Failed to leave group')
     })

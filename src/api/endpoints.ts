@@ -76,6 +76,6 @@ export const GROUP_MEMBERS = {
     return `${GROUP_MEMBERS.COLLECTION}?${query.toString()}`
   },
   detail: (id: string | number): string => `v1/users/groups/members/${id}/`,
-  leave: (id: string | number): string => `v1/users/groups/members/${id}/leave`,
+  leave: (id: string | number): string => `v1/users/groups/members/${id}/leave/`,
   sendInvite: (groupId: string | number): string => `v1/users/groups/${groupId}/invite/`,
 } as const
