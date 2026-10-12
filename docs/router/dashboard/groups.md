@@ -9,7 +9,7 @@ The Groups page allows users to view and manage groups within SmartPack. It prov
 - **Search and sorting:** Supports searching for groups and sorting the list by supported columns.
 - **Group creation:** Provides a form for creating groups with a group name.
 - **Group details:** Provides a dedicated page for viewing group information, membership, and associated SmartPacks.
-- **Group member management:** Allows authorized users to view group members, distinguish administrators from regular members, and access available management actions.
+- **Group member management:** Allows authorized users to view group members, distinguish administrators from regular members, update member roles, and remove members where permitted.
 - **SmartPack management:** Displays SmartPacks associated with a group.
 - **Group updates:** Allows authorized users to update group information.
 - **Group invitations:** Allows authorized group administrators to invite users to join a group.
@@ -54,7 +54,7 @@ Fallback values are displayed when certain information is unavailable.
 
 The Group Details page includes an assets section with two views: **Users** and **SmartPacks**.
 
-**Users**
+#### Users
 
 The Users view displays the group's members and provides tabs for organizing them:
 
@@ -64,7 +64,14 @@ The Users view displays the group's members and provides tabs for organizing the
 
 The member table supports searching and displays relevant user information, including member details, group role, contact information, and creation date.
 
-**SmartPacks**
+Authorized users can access member management actions directly from the table:
+
+- **Change Role:** Opens a modal for changing a member's role between administrator and regular member, subject to the applicable permissions.
+- **Delete:** Opens a confirmation dialog before removing a member from the group.
+
+The current user's own membership and the group owner's membership are protected from these actions in the interface. Successful role updates and member removals trigger a refresh of the member data. Errors are reported through notifications, and cancelled removal confirmations do not modify membership.
+
+#### SmartPacks
 
 The SmartPacks view displays devices associated with the group. The table includes relevant device information, such as device details, status, firmware, and child name.
 
@@ -93,17 +100,21 @@ Upon successful deletion, the user is redirected away from the deleted group's d
 Group visibility and management capabilities depend on the user's account type, group membership, and role.
 
 - **Owners:** Have group ownership privileges, including access to group deletion.
-- **Administrators:** Can access authorized group management actions, such as updating group information and inviting members.
+- **Administrators:** Can access authorized group management actions, such as updating group information, inviting members, and managing eligible member roles.
 - **Regular members:** Have more limited access to group management functionality while retaining access to the group information and assets permitted by their role.
 
 The frontend controls the visibility of actions based on the user's permissions. The backend remains responsible for enforcing authorization and validating group operations.
 
 ## Error Handling and Refresh Behaviour
 
-The Groups and Group Details pages handle API errors and provide feedback when operations fail. The details page supports reloading group information after updates and successful invitations. When a reload requires navigation away from the current page, the application redirects the user appropriately.
+The Groups and Group Details pages handle API errors and provide feedback when operations fail.
+
+The details page supports reloading group information after updates and successful invitations. The Users view refreshes its member data after successful role changes and member removals. Cancelled operations do not trigger unnecessary API mutations.
+
+When a reload requires navigation away from the current page, the application redirects the user appropriately.
 
 ## Related Functionality
 
-The Groups page integrates with the groups API to retrieve group information and create groups. The Group Details page builds on this functionality by integrating group information, asset tables, the update form, and the invitation modal.
+The Groups page integrates with the groups API to retrieve group information and create groups. The Group Details page builds on this functionality by integrating group information, asset tables, member management actions, the update form, and the invitation modal.
 
 Group membership, SmartPack associations, invitations, and group management operations are governed by the backend's API and permission rules.
