@@ -11,6 +11,8 @@ import {
   getById,
   assign,
   unassign,
+  assignGroup,
+  unassignGroup,
   type SmartPack,
   type SmartPackListResult,
   type SmartPackQueryParams,
@@ -21,6 +23,7 @@ vi.mock('@/api/client', () => ({
   default: {
     get: vi.fn<AxiosInstance['get']>(),
     patch: vi.fn<AxiosInstance['patch']>(),
+    post: vi.fn<AxiosInstance['post']>(),
   },
 }))
 
@@ -39,6 +42,7 @@ const mockSmartPack: SmartPack = {
     email: mockUser.email,
     phone: mockUser.phone,
   },
+  group: null,
   child_name: 'Amara',
   created: '2026-01-05T09:00:00.000Z',
   updated: '2026-09-18T12:33:13.497Z',
@@ -247,6 +251,37 @@ describe('SmartPacks API', () => {
       vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
 
       await expect(edit(mockSmartPack)).rejects.toThrow('Internal server error')
+    })
+  })
+  describe('assignGroup', () => {
+    it('assigns a SmartPack to a group', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: {
+          detail: 'SmartPack assigned to group successfully.',
+        },
+      } as never)
+
+      const payload = { group: 1 }
+
+      const response = await assignGroup(mockSmartPack.id, payload)
+
+      expect(apiClient.post).toHaveBeenCalledWith(SMARTPACKS.assignGroup(mockSmartPack.id), payload)
+      expect(response).toBe('SmartPack assigned to group successfully.')
+    })
+  })
+
+  describe('unassignGroup', () => {
+    it('unassigns a SmartPack from its current group', async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: {
+          detail: 'SmartPack unassigned from group successfully.',
+        },
+      } as never)
+
+      const response = await unassignGroup(mockSmartPack.id)
+
+      expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassignGroup(mockSmartPack.id))
+      expect(response).toBe('SmartPack unassigned from group successfully.')
     })
   })
 })

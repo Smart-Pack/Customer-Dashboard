@@ -1,6 +1,15 @@
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '../endpoints'
-import type { ItemNotFoundError, PaginatedResponse, PaginationQueryParams } from '@/api/types'
+import type {
+  ApiDetailResponse,
+  ItemNotFoundError,
+  PaginatedResponse,
+  PaginationQueryParams,
+} from '@/api/types'
+
+export type AssignSmartPackGroupPayload = {
+  group: number
+}
 
 export type ClaimSmartPackPayload = {
   imei: string
@@ -14,6 +23,11 @@ export interface SmartPackAssignedUser {
   phone: string
 }
 
+export interface SmartPackGroup {
+  id: number
+  name: string
+}
+
 export interface SmartPack {
   id: number
   device_uid: string
@@ -24,6 +38,7 @@ export interface SmartPack {
   is_online: boolean
   assigned_to: SmartPackAssignedUser | null
   child_name: string
+  group: SmartPackGroup | null
   created: string
   updated: string
 }
@@ -36,7 +51,9 @@ export type SmartPackListItem = SmartPack
 
 export interface SmartPackQueryParams extends PaginationQueryParams {
   assigned_to?: number
+  group?: number
   is_assigned?: boolean
+  has_group?: boolean
 }
 
 export type SmartPackListResult = PaginatedResponse<SmartPackListItem>
@@ -180,4 +197,32 @@ export const claim = async (deviceUid: string, payload: ClaimSmartPackPayload): 
 
     throw e
   }
+}
+
+/**
+ * Assigns a SmartPack to a group.
+ *
+ * @param id - The ID of the SmartPack to assign.
+ * @param payload - The group assignment payload.
+ * @returns A promise resolving with the response detail message.
+ */
+export const assignGroup = async (
+  id: string | number,
+  payload: AssignSmartPackGroupPayload,
+): Promise<string> => {
+  const response = await apiClient.post<ApiDetailResponse>(SMARTPACKS.assignGroup(id), payload)
+
+  return response.data.detail
+}
+
+/**
+ * Unassigns a SmartPack from its current group.
+ *
+ * @param id - The ID of the SmartPack to unassign.
+ * @returns A promise resolving with the response detail message.
+ */
+export const unassignGroup = async (id: string | number): Promise<string> => {
+  const response = await apiClient.patch<ApiDetailResponse>(SMARTPACKS.unassignGroup(id))
+
+  return response.data.detail
 }
