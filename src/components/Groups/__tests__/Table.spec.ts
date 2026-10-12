@@ -112,7 +112,7 @@ describe('GroupsTable', () => {
       })
     })
 
-    it('configures the Created tab using the authenticated user ID as owner', () => {
+    it('configures the Managed tab to filter groups where the authenticated user has admin access', () => {
       const wrapper = mountGroupsTable()
       const layout = wrapper.findComponent(TablePageLayout)
       const tabs = layout.props('tabs') as Array<{
@@ -123,14 +123,14 @@ describe('GroupsTable', () => {
       }>
 
       expect(tabs[1]).toEqual({
-        id: 'created',
-        caption: 'Groups I Created',
-        label: 'Created',
-        params: { owner: 42 },
+        id: 'admin',
+        caption: 'Groups I Manage',
+        label: 'Managed',
+        params: { has_admin_access: true },
       })
     })
 
-    it('configures the Member tab using the authenticated user ID as member', () => {
+    it('configures the Member tab to filter groups where the authenticated user has the member role', () => {
       const wrapper = mountGroupsTable()
       const layout = wrapper.findComponent(TablePageLayout)
       const tabs = layout.props('tabs') as Array<{
@@ -144,7 +144,7 @@ describe('GroupsTable', () => {
         id: 'member',
         caption: 'Groups I Belong To',
         label: 'Member',
-        params: { member: 42 },
+        params: { role: 'member' },
       })
     })
   })

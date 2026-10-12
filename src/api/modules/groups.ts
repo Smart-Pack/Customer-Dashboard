@@ -57,6 +57,7 @@ export type GroupListResult = PaginatedResponse<Group>
 export interface GroupQueryParams extends PaginationQueryParams {
   member?: number
   owner?: number
+  role?: 'owner' | 'admin' | 'member'
   has_admin_access?: boolean
 }
 

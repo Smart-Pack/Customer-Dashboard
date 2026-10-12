@@ -13,15 +13,11 @@
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
 import type { GroupQueryParams } from '@/api/modules/groups'
-import { useAuthStore } from '@/stores/modules/auth'
 import Filters from '@/helpers/filters'
 
 defineOptions({
   name: 'GroupsTable',
 })
-
-const authStore = useAuthStore()
-const userId = authStore.userId
 
 /**
  * Defines the available group table tabs and their associated filters.
@@ -45,16 +41,16 @@ const groupTabs: Array<{
     params: {},
   },
   {
-    id: 'created',
-    caption: 'Groups I Created',
-    label: 'Created',
-    params: { owner: userId },
+    id: 'admin',
+    caption: 'Groups I Manage',
+    label: 'Managed',
+    params: { has_admin_access: true },
   },
   {
     id: 'member',
     caption: 'Groups I Belong To',
     label: 'Member',
-    params: { member: userId },
+    params: { role: 'member' },
   },
 ]
 

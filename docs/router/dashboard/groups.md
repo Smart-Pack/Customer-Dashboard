@@ -22,8 +22,8 @@ After creation, users can navigate to the group's details page to access its inf
 The page organizes groups into three tabs:
 
 - **All:** Displays all groups available to the current user.
-- **Created:** Displays groups created by the current user.
-- **Member:** Displays groups in which the current user participates.
+- **Managed:** Displays groups where the current user has owner or administrator access.
+- **Member:** Displays groups where the current user has the member role.
 
 Each group entry displays its name, total number of users, total number of associated SmartPacks, and creation date. The available actions allow users to open the corresponding group details page.
 
