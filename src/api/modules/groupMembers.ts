@@ -7,6 +7,7 @@ import type {
   PaginationQueryParams,
 } from '@/api/types'
 import type { GroupMember } from './groups'
+import type { AxiosError } from 'axios'
 
 export type GroupMemberListResult = PaginatedResponse<GroupMember>
 
@@ -27,6 +28,11 @@ export interface UpdateGroupMemberResponse {
   data: GroupMember
   message: string
 }
+
+export type InvitationVerifyError = AxiosError<{
+  token?: string[]
+  detail?: string
+}>
 /**
  * Fetches a paginated list of group members.
  *
@@ -168,9 +174,21 @@ export const edit = async (
  * @throws An error if the invitation token is invalid or verification fails.
  */
 export const verifyInvite = async (payload: VerifyInvitePayload): Promise<VerifyInviteResponse> => {
-  const response = await apiClient.post<VerifyInviteResponse>(GROUP_MEMBERS.verifyInvite, payload)
+  try {
+    const response = await apiClient.post<VerifyInviteResponse>(GROUP_MEMBERS.verifyInvite, payload)
 
-  return response.data
+    return response.data
+  } catch (error) {
+    const e = error as InvitationVerifyError
+
+    const tokenMessage = e.response?.data?.token?.[0]
+
+    if (tokenMessage) {
+      e.message = tokenMessage
+    }
+
+    throw error
+  }
 }
 
 /**
@@ -181,7 +199,19 @@ export const verifyInvite = async (payload: VerifyInvitePayload): Promise<Verify
  * @throws An error if the invitation cannot be accepted or the user cannot join the group.
  */
 export const joinInvite = async (payload: VerifyInvitePayload): Promise<GroupMember> => {
-  const response = await apiClient.post<GroupMember>(GROUP_MEMBERS.joinInvite, payload)
+  try {
+    const response = await apiClient.post<GroupMember>(GROUP_MEMBERS.joinInvite, payload)
 
-  return response.data
+    return response.data
+  } catch (error) {
+    const e = error as InvitationVerifyError
+
+    const tokenMessage = e.response?.data?.token?.[0]
+
+    if (tokenMessage) {
+      e.message = tokenMessage
+    }
+
+    throw error
+  }
 }
