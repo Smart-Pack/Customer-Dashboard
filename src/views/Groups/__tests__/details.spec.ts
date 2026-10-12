@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn<(groupId: number) => Promise<string>>(),
 
   deleteModal: vi.fn<(title: string, message: string) => Promise<boolean>>(),
+  leaveGroup: vi.fn<(membershipId: number) => Promise<string>>(),
 
   notifySuccess: vi.fn<(message: string) => void>(),
   notifyError: vi.fn<(message: string) => void>(),
@@ -43,6 +44,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: () => ({
+    userId: 11,
     isGroupAdmin: mocks.isGroupAdmin,
     isGroupOwner: mocks.isGroupOwner,
   }),
@@ -105,6 +107,9 @@ const mountGroupDetails = async (routeId = '7'): Promise<VueWrapper> => {
             getById: mocks.getById,
             remove: mocks.remove,
           },
+          groupMembers: {
+            leaveGroup: mocks.leaveGroup,
+          },
         },
         $notifySuccess: mocks.notifySuccess,
         $notifyError: mocks.notifyError,
@@ -152,6 +157,7 @@ describe('GroupDetails', () => {
     vi.clearAllMocks()
 
     mocks.getById.mockResolvedValue(mockGroup)
+    mocks.leaveGroup.mockResolvedValue('You have left the group "Family Group" successfully.')
     mocks.remove.mockResolvedValue('Group deleted successfully.')
     mocks.deleteModal.mockResolvedValue(true)
     mocks.routerPush.mockResolvedValue(undefined)
@@ -322,16 +328,20 @@ describe('GroupDetails', () => {
       )
     })
 
-    it('hides the actions section from users who are not group administrators', async () => {
+    it('hides admin actions from users who are not group administrators', async () => {
       mocks.isGroupAdmin.mockReturnValue(false)
+      mocks.isGroupOwner.mockReturnValue(false)
 
       const wrapper = await mountGroupDetails()
 
-      expect(
-        wrapper
-          .findAll('button')
-          .some((button) => ['Update', 'Send Invite', 'Delete'].includes(button.text().trim())),
-      ).toBe(false)
+      const buttons = wrapper.findAll('button').map((button) => button.text().trim())
+
+      expect(buttons).not.toContain('Update')
+      expect(buttons).not.toContain('Send Invite')
+      expect(buttons).not.toContain('Delete')
+
+      // Non-owners can leave the group.
+      expect(buttons).toContain('Leave Group')
     })
   })
 
@@ -451,6 +461,91 @@ describe('GroupDetails', () => {
 
       await clickButton(wrapper, 'Delete')
 
+      expect(mocks.routerPush).toHaveBeenCalledExactlyOnceWith({
+        name: 'groups',
+      })
+    })
+  })
+  // ---------------------------------------------------------------------------
+  // Leaving a group
+  // ---------------------------------------------------------------------------
+
+  describe('group leaving', () => {
+    beforeEach(() => {
+      // Jane Doe is the authenticated user and has membership ID 2.
+      mocks.isGroupOwner.mockReturnValue(false)
+      mocks.isGroupAdmin.mockReturnValue(false)
+    })
+
+    it('requests confirmation before leaving the group', async () => {
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.deleteModal).toHaveBeenCalledExactlyOnceWith('Leave Group', '"Family Group"?')
+    })
+
+    it('does not leave the group when confirmation is cancelled', async () => {
+      mocks.deleteModal.mockResolvedValueOnce(false)
+
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.leaveGroup).not.toHaveBeenCalled()
+      expect(mocks.routerPush).not.toHaveBeenCalled()
+    })
+
+    it('leaves the group using the current user membership ID', async () => {
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.leaveGroup).toHaveBeenCalledExactlyOnceWith(2)
+    })
+
+    it('shows a success notification after leaving the group', async () => {
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.notifySuccess).toHaveBeenCalledExactlyOnceWith(
+        'You have left the group "Family Group" successfully.',
+      )
+    })
+
+    it('redirects to the groups list after leaving the group', async () => {
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.routerPush).toHaveBeenCalledExactlyOnceWith({
+        name: 'groups',
+      })
+    })
+
+    it('shows an error notification when leaving the group fails', async () => {
+      mocks.leaveGroup.mockRejectedValueOnce(new Error('Failed to leave group'))
+
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.notifyError).toHaveBeenCalledExactlyOnceWith('Failed to leave group')
+    })
+
+    it('redirects when leaving fails and the error requires a reload', async () => {
+      mocks.leaveGroup.mockRejectedValueOnce(
+        Object.assign(new Error('Group membership not found'), {
+          reload: true,
+        }),
+      )
+
+      const wrapper = await mountGroupDetails()
+
+      await clickButton(wrapper, 'Leave Group')
+
+      expect(mocks.notifyError).toHaveBeenCalledExactlyOnceWith('Group membership not found')
       expect(mocks.routerPush).toHaveBeenCalledExactlyOnceWith({
         name: 'groups',
       })

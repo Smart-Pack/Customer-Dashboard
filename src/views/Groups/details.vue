@@ -75,12 +75,10 @@
         </div>
 
         <!-- Actions -->
-        <div
-          v-if="authStore.isGroupAdmin(group.id)"
-          class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4"
-        >
+        <div class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4">
           <!-- Update Group -->
           <button
+            v-if="authStore.isGroupAdmin(group.id)"
             type="button"
             class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
             @click="handlePageChange('update')"
@@ -91,6 +89,7 @@
 
           <!-- Send Invite -->
           <button
+            v-if="authStore.isGroupAdmin(group.id)"
             type="button"
             class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
             @click="showInviteModal = true"
@@ -107,6 +106,16 @@
             :disabled="submitting"
           >
             Delete
+          </button>
+          <!-- Leave Group: Members Only -->
+          <button
+            v-if="!authStore.isGroupOwner(group.id)"
+            type="button"
+            class="px-4 py-2 rounded-full text-sm font-semibold error-btn"
+            @click="leaveGroup"
+            :disabled="submitting"
+          >
+            Leave Group
           </button>
         </div>
       </section>
@@ -235,6 +244,41 @@ export default defineComponent({
         this.submitting = true
 
         const message = await this.$api.groups.remove(this.group.id)
+
+        this.$notifySuccess(message)
+        this.$router.push({ name: 'groups' })
+      } catch (error: unknown) {
+        const itemError = error as ItemNotFoundError
+
+        this.$notifyError(itemError.message)
+
+        if (itemError.reload) {
+          this.$router.push({ name: 'groups' })
+        }
+      } finally {
+        this.submitting = false
+      }
+    },
+    /**
+     * Leaves the group after confirmation.
+     */
+    async leaveGroup(): Promise<void> {
+      try {
+        const confirmation = await this.$deleteModal('Leave Group', `"${this.group.name}"?`)
+
+        if (!confirmation) return
+
+        const currentUserId = this.authStore.userId
+        const membership = this.group.members.find((member) => member.user.id === currentUserId)
+
+        if (!membership) {
+          this.$notifyError('You are not a member of this group.')
+          return
+        }
+
+        this.submitting = true
+
+        const message = await this.$api.groupMembers.leaveGroup(membership.id)
 
         this.$notifySuccess(message)
         this.$router.push({ name: 'groups' })
