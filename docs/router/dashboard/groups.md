@@ -85,9 +85,50 @@ Users can cancel the update operation without saving changes.
 
 ### Group Invitations
 
-Authorized group administrators can open the invitation modal to invite users to join the group. The invitation workflow handles the submission process and refreshes the relevant group information when an invitation is successfully sent.
+Group invitations allow authorized group administrators to invite users to join a group. The invitation workflow supports sending invitations, verifying invitation tokens, and accepting invitations through the Groups page.
 
-The backend validates invitation requests and enforces the applicable group membership and permission rules.
+#### Sending Invitations
+
+Authorized group administrators can open the invitation modal to invite users to join their group.
+
+The invitation workflow includes the following behaviour:
+
+- **Invitation creation:** Administrators provide the email address and role for the invited user.
+- **Validation:** The backend validates invitation requests, checks group permissions, rejects internal accounts where applicable, and prevents invitations to existing members or duplicate active invitations.
+- **Invitation delivery:** The system sends an invitation email containing a link to join the group.
+- **Expiration:** Invitations expire after the configured validity period.
+- **Refresh:** Group information is refreshed after an invitation is successfully sent.
+- **Error handling:** Failed requests are reported through notifications, and invitation delivery failures are handled appropriately.
+
+The backend enforces the applicable group membership, invitation, and authorization rules.
+
+#### Joining a Group
+
+Users can join a group by opening the invitation link received through email. The link contains an invitation token that the frontend uses to verify and accept the invitation.
+
+The joining workflow operates as follows:
+
+1. **Open invitation link:** The user opens the invitation link, which directs them to the Groups page with the invitation token in the URL query parameters.
+2. **Verify invitation:** When the Groups page mounts, the frontend checks for the token and sends it to the backend for verification.
+3. **Validate invitation:** The backend validates the token and returns the invitation details, including the group information and expiration status.
+4. **Check expiration:** If the invitation has expired, the frontend displays an error notification and stops the joining process.
+5. **Confirm joining:** For a valid invitation, the frontend displays a confirmation dialog containing the group name and asks whether the user wants to join.
+6. **Accept invitation:** If the user confirms, the frontend submits the token to the backend to accept the invitation.
+7. **Display success:** After successful acceptance, the frontend displays a success notification.
+8. **Navigate to group details:** The user is redirected to the joined group's details page.
+
+#### Invitation Error Handling
+
+The invitation workflow handles the following scenarios:
+
+- **Missing or invalid URL token:** Invitation verification is skipped when the token is missing, empty, or not a single string value.
+- **Invalid invitation:** If verification fails, an error notification is displayed.
+- **Expired invitation:** The user is notified that the invitation has expired and cannot proceed through the joining workflow.
+- **Cancelled confirmation:** If the user declines the confirmation dialog, the invitation is not accepted and no membership changes are made.
+- **Acceptance failure:** If accepting the invitation fails, an error notification is displayed and navigation to the group details page does not occur.
+- **Successful acceptance:** The user receives a success notification and is redirected to the group details page.
+
+The backend remains responsible for validating invitation tokens, checking expiration, enforcing permissions, and applying membership changes. Frontend confirmation and notifications provide user feedback but do not replace backend authorization.
 
 ### Group Deletion
 
