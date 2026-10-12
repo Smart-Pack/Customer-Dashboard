@@ -35,6 +35,12 @@ type PasswordErrorResponse = {
   detail?: string
 }
 
+export interface UserGroup {
+  id: number
+  name: string
+  role: 'owner' | 'admin' | 'member'
+}
+
 export interface User {
   id: number
   unique_id: string
@@ -54,6 +60,7 @@ export interface User {
   two_factor_enabled: boolean
   status: string
   is_active: boolean
+  groups: UserGroup[]
 }
 
 export type EditUserPayloadBase = {
