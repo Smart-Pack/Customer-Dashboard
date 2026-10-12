@@ -42,8 +42,39 @@ export const SMARTPACKS = {
   detail: (id: string | number): string => `v1/smartpacks/${id}/`,
   assign: (id: string | number): string => `v1/smartpacks/${id}/assign/`,
   unassign: (id: string | number): string => `v1/smartpacks/${id}/unassign/`,
+  assignGroup: (id: string | number): string => `v1/smartpacks/${id}/group/assign/`,
+  unassignGroup: (id: string | number): string => `v1/smartpacks/${id}/group/unassign/`,
 } as const
 
 export const ANALYSIS = {
   ADMIN_GENERAL: 'v1/core/analysis/admin-general/',
+} as const
+
+export const GROUPS = {
+  COLLECTION: 'v1/users/groups/',
+  collectionWithQuery: (params?: object) => {
+    if (!params) return GROUPS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${GROUPS.COLLECTION}?${query.toString()}`
+  },
+  detail: (id: string | number): string => `v1/users/groups/${id}/`,
+} as const
+
+export const GROUP_MEMBERS = {
+  COLLECTION: 'v1/users/groups/members/',
+  collectionWithQuery: (params?: object) => {
+    if (!params) return GROUP_MEMBERS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${GROUP_MEMBERS.COLLECTION}?${query.toString()}`
+  },
+  detail: (id: string | number): string => `v1/users/groups/members/${id}/`,
+  sendInvite: (groupId: string | number): string => `v1/users/groups/${groupId}/invite/`,
 } as const
