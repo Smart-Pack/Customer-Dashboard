@@ -4,11 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosInstance } from 'axios'
 import apiClient from '@/api/client'
 import { GROUP_MEMBERS } from '../endpoints'
-import { edit, leaveGroup, list, removeGroupMember, sendInvite } from '../modules/groupMembers'
+import {
+  edit,
+  leaveGroup,
+  list,
+  removeGroupMember,
+  sendInvite,
+  verifyInvite,
+} from '../modules/groupMembers'
 import type {
   GroupMemberListResult,
   SendGroupInvitePayload,
   UpdateGroupMemberPayload,
+  VerifyInvitePayload,
+  VerifyInviteResponse,
 } from '../modules/groupMembers'
 import type { GroupMember } from '../modules/groups'
 import type { ApiDetailResponse } from '@/api/types'
@@ -308,6 +317,50 @@ describe('groupMembers API', () => {
       vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
 
       await expect(edit(membershipId, payload)).rejects.toThrow('Failed to update group member')
+    })
+  })
+  describe('verifyInvite', () => {
+    const payload: VerifyInvitePayload = {
+      token: 'valid-invitation-token',
+    }
+
+    const mockInvitation: VerifyInviteResponse = {
+      id: 1,
+      group: {
+        id: 10,
+        name: 'SmartPack Team',
+      },
+      email: 'john.doe@example.com',
+      role: 'member',
+      invited_by: {
+        id: 2,
+        uuid: '7b9f3c21-84d6-4a17-b2e8-51c7d9036f42',
+        full_name: 'Jane Doe',
+        email: 'jane.doe@example.com',
+        phone: '+254712345678',
+      },
+      expires_at: '2026-10-19T10:00:00Z',
+      is_expired: false,
+    }
+
+    it('verifies a group invitation', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockInvitation,
+      })
+
+      const result = await verifyInvite(payload)
+
+      expect(apiClient.post).toHaveBeenCalledExactlyOnceWith(GROUP_MEMBERS.verifyInvite, payload)
+
+      expect(result).toEqual(mockInvitation)
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to verify group invitation')
+
+      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+
+      await expect(verifyInvite(payload)).rejects.toThrow('Failed to verify group invitation')
     })
   })
 })

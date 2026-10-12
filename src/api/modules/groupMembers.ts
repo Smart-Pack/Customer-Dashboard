@@ -50,6 +50,29 @@ export interface SendGroupInvitePayload {
   role: 'owner' | 'admin' | 'member'
 }
 
+export interface VerifyInvitePayload {
+  token: string
+}
+
+export interface VerifyInviteResponse {
+  id: number
+  group: {
+    id: number
+    name: string
+  }
+  email: string
+  role: 'owner' | 'admin' | 'member'
+  invited_by: {
+    id: number
+    uuid: string
+    full_name: string
+    email: string
+    phone: string
+  }
+  expires_at: string
+  is_expired: boolean
+}
+
 /**
  * Sends an invitation to a user to join a group.
  *
@@ -134,4 +157,18 @@ export const edit = async (
 
     throw axiosError
   }
+}
+
+/**
+ * Verifies a group invitation using its token.
+ *
+ * @param payload - The invitation verification payload containing the token.
+ * @returns A promise resolving to the verified invitation details, including
+ * the group, invited email, assigned role, inviter, and expiration status.
+ * @throws An error if the invitation token is invalid or verification fails.
+ */
+export const verifyInvite = async (payload: VerifyInvitePayload): Promise<VerifyInviteResponse> => {
+  const response = await apiClient.post<VerifyInviteResponse>(GROUP_MEMBERS.verifyInvite, payload)
+
+  return response.data
 }
