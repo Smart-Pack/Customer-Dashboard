@@ -63,6 +63,8 @@ import TablePageLayout from '@/components/Base/TablePageLayout.vue'
 import type { GroupMemberQueryParams } from '@/api/modules/groupMembers'
 import type { SmartPackQueryParams } from '@/api/modules/smartpacks'
 import Filters from '@/helpers/filters'
+import GroupMembersActions from './MembersActions.vue'
+import { markRaw } from 'vue'
 
 defineOptions({
   name: 'GroupAssets',
@@ -199,14 +201,10 @@ const userHeadings = [
     formatter: (value: unknown) => Filters.dateTime(value as string | null | undefined),
   },
   {
-    key: 'actions',
+    key: 'id',
     label: 'Actions',
     sortable: false,
-    action: {
-      name: 'View',
-      route: 'user-details',
-      idKey: 'user.id',
-    },
+    component: markRaw(GroupMembersActions),
   },
 ]
 

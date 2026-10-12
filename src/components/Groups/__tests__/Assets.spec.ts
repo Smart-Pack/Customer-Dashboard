@@ -144,8 +144,9 @@ describe('GroupAssets', () => {
             label: 'Date Added',
           }),
           expect.objectContaining({
-            key: 'actions',
+            key: 'id',
             label: 'Actions',
+            component: expect.any(Object),
           }),
         ]),
       )
