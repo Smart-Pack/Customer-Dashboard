@@ -4,8 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosInstance } from 'axios'
 import apiClient from '@/api/client'
 import { GROUP_MEMBERS } from '../endpoints'
-import { leaveGroup, list, removeGroupMember, sendInvite } from '../modules/groupMembers'
-import type { GroupMemberListResult, SendGroupInvitePayload } from '../modules/groupMembers'
+import { edit, leaveGroup, list, removeGroupMember, sendInvite } from '../modules/groupMembers'
+import type {
+  GroupMemberListResult,
+  SendGroupInvitePayload,
+  UpdateGroupMemberPayload,
+} from '../modules/groupMembers'
 import type { GroupMember } from '../modules/groups'
 import type { ApiDetailResponse } from '@/api/types'
 
@@ -13,6 +17,7 @@ vi.mock('@/api/client', () => ({
   default: {
     delete: vi.fn<AxiosInstance['delete']>(),
     get: vi.fn<AxiosInstance['get']>(),
+    patch: vi.fn<AxiosInstance['patch']>(),
     post: vi.fn<AxiosInstance['post']>(),
   },
 }))
@@ -141,6 +146,7 @@ describe('groupMembers API', () => {
       await expect(sendInvite(groupId, payload)).rejects.toThrow('Failed to send group invitation')
     })
   })
+
   describe('leaveGroup', () => {
     const membershipId = 2
 
@@ -182,8 +188,10 @@ describe('groupMembers API', () => {
       await expect(leaveGroup(membershipId)).rejects.toThrow('Failed to leave group')
     })
   })
+
   describe('removeGroupMember', () => {
     const membershipId = 2
+
     const mockResponse: ApiDetailResponse = {
       detail: 'Group member removed successfully.',
     }
@@ -216,6 +224,90 @@ describe('groupMembers API', () => {
       vi.mocked(apiClient.delete).mockRejectedValueOnce(error)
 
       await expect(removeGroupMember(membershipId)).rejects.toThrow('Failed to remove group member')
+    })
+  })
+
+  describe('edit', () => {
+    const membershipId = 2
+
+    const payload: UpdateGroupMemberPayload = {
+      role: 'admin',
+    }
+
+    const mockMember: GroupMember = {
+      id: membershipId,
+      user: {
+        id: 10,
+        uuid: '7b9f3c21-84d6-4a17-b2e8-51c7d9036f42',
+        full_name: 'John Doe',
+        email: 'john.doe@example.com',
+        phone: '0712345678',
+      },
+      role: 'admin',
+      created: '2026-10-01T10:00:00Z',
+      updated: '2026-10-12T10:00:00Z',
+    }
+
+    const expectedMessage = "John Doe's role updated to Administrator successfully."
+
+    it("updates a group member's role", async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: mockMember,
+      })
+
+      const result = await edit(membershipId, payload)
+
+      expect(apiClient.patch).toHaveBeenCalledExactlyOnceWith(
+        GROUP_MEMBERS.detail(membershipId),
+        payload,
+      )
+
+      expect(result).toEqual({
+        data: mockMember,
+        message: expectedMessage,
+      })
+    })
+
+    it('supports a string membership ID', async () => {
+      const stringMembershipId = '2'
+
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: mockMember,
+      })
+
+      const result = await edit(stringMembershipId, payload)
+
+      expect(apiClient.patch).toHaveBeenCalledExactlyOnceWith(
+        GROUP_MEMBERS.detail(stringMembershipId),
+        payload,
+      )
+
+      expect(result).toEqual({
+        data: mockMember,
+        message: expectedMessage,
+      })
+    })
+
+    it('sets an error message and reload flag when the membership is not found', async () => {
+      const error = {
+        response: { status: 404 },
+        message: 'Not found',
+      }
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(membershipId, payload)).rejects.toMatchObject({
+        message: 'Group member not found. They may have been deleted.',
+        reload: true,
+      })
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to update group member')
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(membershipId, payload)).rejects.toThrow('Failed to update group member')
     })
   })
 })
