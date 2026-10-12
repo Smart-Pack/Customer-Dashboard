@@ -28,18 +28,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import GroupsTable from '@/components/Groups/Table.vue'
 import GroupCreationForm from '@/components/Groups/CreationForm.vue'
+import { verifyInvite, joinInvite } from '@/api/modules/groupMembers'
+import { useGlobals } from '@/composables/useGlobals'
 
 defineOptions({
   name: 'GroupsView',
 })
 
 /**
- * @module views/Groups/GroupsView
- * @description Controls which group-focused sub-page is visible (list or creation form)
- * while wrapping the content in a consistent card shell for the Groups section.
+ * @module views/Groups/index.vue
+ * @description Controls the Groups list and creation form, and handles
+ * group invitations received through the URL query parameters.
  */
 
 /**
@@ -48,6 +51,63 @@ defineOptions({
  * @type {import('vue').Ref<'showGroups' | 'addGroup'>}
  */
 const activePage = ref<'showGroups' | 'addGroup'>('showGroups')
+
+const route = useRoute()
+const { $notifyError, $notifySuccess, $deleteModal, $router } = useGlobals()
+
+/**
+ * Verifies a group invitation and prompts the user to join the group.
+ *
+ * Reads the invitation token from the URL query parameters. If verification
+ * succeeds, displays a confirmation dialog containing the group name.
+ * Upon confirmation, accepts the invitation and navigates to the Groups page.
+ *
+ * @returns {Promise<void>} Resolves when invitation handling is complete.
+ */
+const handleGroupInvitation = async (): Promise<void> => {
+  const token = route.query.token
+
+  if (typeof token !== 'string' || !token.trim()) {
+    return
+  }
+
+  try {
+    const invitation = await verifyInvite({ token })
+
+    if (invitation.is_expired) {
+      $notifyError('This group invitation has expired.')
+      return
+    }
+
+    const confirmed = await $deleteModal('Join Group', '', {
+      text: `Would you like to join the group "${invitation.group.name}"?`,
+    })
+
+    if (!confirmed) {
+      return
+    }
+
+    await joinInvite({ token })
+
+    $notifySuccess(`You have successfully joined ${invitation.group.name}.`)
+
+    await $router.push({
+      name: 'group-details',
+      params: { id: invitation.group.id },
+    })
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to process the group invitation. Please try again.'
+
+    $notifyError(message)
+  }
+}
+
+onMounted(() => {
+  void handleGroupInvitation()
+})
 </script>
 
 <style></style>
