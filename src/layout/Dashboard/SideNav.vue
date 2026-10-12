@@ -161,8 +161,8 @@ const menuItems: MenuItem[] = [
     icon: markRaw(UserIcon),
   },
   {
-    name: 'users-parent',
-    label: 'User Management',
+    name: 'groups-parent',
+    label: 'Group Management',
     icon: markRaw(UserGroupIcon),
   },
   {

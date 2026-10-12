@@ -144,10 +144,10 @@ describe('SideNav', () => {
       expect(findMenuButton(wrapper, 'My Profile')).toBeDefined()
     })
 
-    it('renders the User Management menu item', () => {
+    it('renders the Group Management menu item', () => {
       const wrapper = mountSideNav()
 
-      expect(findMenuButton(wrapper, 'User Management')).toBeDefined()
+      expect(findMenuButton(wrapper, 'Group Management')).toBeDefined()
     })
 
     it('renders the Logout menu item', () => {
@@ -288,22 +288,22 @@ describe('SideNav', () => {
       })
     })
 
-    it('navigates to User Management and closes the side navigation', async () => {
+    it('navigates to Group Management and closes the side navigation', async () => {
       currentRouteName = 'dashboard'
       uiStore.isSideNavOpen = true
 
       const wrapper = mountSideNav()
 
-      const userManagementButton = findMenuButton(wrapper, 'User Management')
+      const groupManagementButton = findMenuButton(wrapper, 'Group Management')
 
-      expect(userManagementButton).toBeDefined()
+      expect(groupManagementButton).toBeDefined()
 
-      await userManagementButton!.trigger('click')
+      await groupManagementButton!.trigger('click')
 
       expect(uiStore.isSideNavOpen).toBe(false)
       expect(routerPush).toHaveBeenCalledTimes(1)
       expect(routerPush).toHaveBeenCalledWith({
-        name: 'users-parent',
+        name: 'groups-parent',
       })
     })
 
