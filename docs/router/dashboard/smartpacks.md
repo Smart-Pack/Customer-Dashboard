@@ -1,4 +1,4 @@
-# SmartPack Management
+Update <# SmartPack Management
 
 The SmartPack Management section allows administrators and authorized internal users to view and manage registered SmartPack devices. It provides a paginated list of SmartPacks, a dedicated details page, and functionality for claiming unassigned SmartPacks.
 
@@ -111,4 +111,4 @@ The generated QR code can be used by the **Claim SmartPack** workflow to identif
 
 ## Access Control
 
-SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while authorized users can view SmartPack information, claim eligible SmartPacks, and assign a SmartPack to a child according to their assigned permissions.
+SmartPack management actions are permission-aware. Administrative actions such as assigning and unassigning users are available to users with administrator privileges, while authorized users can view SmartPack information, claim eligible SmartPacks, and assign a SmartPack to a child according to their assigned permissions.>
