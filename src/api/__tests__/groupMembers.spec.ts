@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosInstance } from 'axios'
 import apiClient from '@/api/client'
 import { GROUP_MEMBERS } from '../endpoints'
-import { leaveGroup, list, sendInvite } from '../modules/groupMembers'
+import { leaveGroup, list, removeGroupMember, sendInvite } from '../modules/groupMembers'
 import type { GroupMemberListResult, SendGroupInvitePayload } from '../modules/groupMembers'
 import type { GroupMember } from '../modules/groups'
 import type { ApiDetailResponse } from '@/api/types'
@@ -180,6 +180,42 @@ describe('groupMembers API', () => {
       vi.mocked(apiClient.delete).mockRejectedValueOnce(error)
 
       await expect(leaveGroup(membershipId)).rejects.toThrow('Failed to leave group')
+    })
+  })
+  describe('removeGroupMember', () => {
+    const membershipId = 2
+    const mockResponse: ApiDetailResponse = {
+      detail: 'Group member removed successfully.',
+    }
+
+    it('removes a user from a group', async () => {
+      vi.mocked(apiClient.delete).mockResolvedValueOnce({ data: mockResponse })
+
+      const result = await removeGroupMember(membershipId)
+
+      expect(apiClient.delete).toHaveBeenCalledExactlyOnceWith(GROUP_MEMBERS.detail(membershipId))
+      expect(result).toBe('Group member removed successfully.')
+    })
+
+    it('supports a string membership ID', async () => {
+      const stringMembershipId = '2'
+
+      vi.mocked(apiClient.delete).mockResolvedValueOnce({ data: mockResponse })
+
+      const result = await removeGroupMember(stringMembershipId)
+
+      expect(apiClient.delete).toHaveBeenCalledExactlyOnceWith(
+        GROUP_MEMBERS.detail(stringMembershipId),
+      )
+      expect(result).toBe('Group member removed successfully.')
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to remove group member')
+
+      vi.mocked(apiClient.delete).mockRejectedValueOnce(error)
+
+      await expect(removeGroupMember(membershipId)).rejects.toThrow('Failed to remove group member')
     })
   })
 })

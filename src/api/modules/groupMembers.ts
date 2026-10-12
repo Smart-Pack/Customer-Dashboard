@@ -68,3 +68,15 @@ export const leaveGroup = async (id: string | number): Promise<string> => {
 
   return response.data.detail
 }
+
+/**
+ * Removes a user from a group.
+ *
+ * @param id - The ID of the group membership to remove.
+ * @returns A promise resolving with the API response message.
+ */
+export const removeGroupMember = async (id: string | number): Promise<string> => {
+  const response = await apiClient.delete<ApiDetailResponse>(GROUP_MEMBERS.detail(id))
+
+  return response.data.detail
+}
