@@ -1,6 +1,3 @@
-Here is the updated `docs/stores/auth.md`, keeping your existing structure and adding the startup restoration behavior and `skipAuthRedirect` details:
-
-````md
 # Authentication Store
 
 ## Overview
@@ -21,6 +18,8 @@ The authentication store is responsible for:
 - Refreshing the access token when required.
 - Restoring authentication state when the application starts.
 - Providing authentication state to components and other application modules.
+- Exposing the authenticated user's ID.
+- Providing group role authorization checks to determine whether the authenticated user is a group owner or administrator.
 
 ## Structure
 
@@ -34,11 +33,10 @@ src/stores/modules/auth/
 ├── index.ts
 └── state.ts
 ```
-````
 
 - **`state.ts`** — Defines the authentication state.
 - **`constants.ts`** — Defines authentication-related constants, such as allowed account types.
-- **`getters.ts`** — Provides access to derived or exposed state.
+- **`getters.ts`** — Provides access to derived or exposed state, including authentication status, user identification, and group authorization checks.
 - **`actions.ts`** — Handles authentication-related state operations, including the login flow and authentication initialization.
 - **`index.ts`** — Defines and exports the Pinia authentication store.
 
@@ -47,6 +45,18 @@ src/stores/modules/auth/
 The store is exposed through the `useAuthStore` composable and can be used by Vue components and other application logic that requires authentication state.
 
 The store works together with the API authentication and users modules to communicate with the backend.
+
+Example:
+
+```ts
+import { useAuthStore } from '@/stores/modules/auth'
+
+const authStore = useAuthStore()
+
+const currentUserId = authStore.userId
+const isGroupAdmin = authStore.isGroupAdmin(groupId)
+const isGroupOwner = authStore.isGroupOwner(groupId)
+```
 
 ## Authentication Flow
 
@@ -98,10 +108,11 @@ The `refreshToken()` action accepts an optional `skipAuthRedirect` parameter tha
 
 ## Getters
 
+The authentication store exposes getters that provide access to authentication state and group authorization information.
+
 ### `hasChangedPassword`
 
-Indicates whether the authenticated user has changed their password after
-the initial login.
+Indicates whether the authenticated user has changed their password after the initial login.
 
 Returns `false` when no user is logged in.
 
@@ -111,19 +122,131 @@ Indicates whether the user has completed the authentication process.
 
 The result depends on whether two-factor authentication is enabled:
 
-- No logged-in user → `false`
-- 2FA disabled → `true` once the user information is available
-- 2FA enabled → `true` only when an access token is available and its
-  `otp_verified` claim is `true`
-- 2FA enabled without an access token → `false`
+- No logged-in user → `false`.
+- 2FA disabled → `true` once the user information is available.
+- 2FA enabled → `true` only when an access token is available and its `otp_verified` claim is `true`.
+- 2FA enabled without an access token → `false`.
 
 The OTP claim is evaluated by the `isOtpVerified` authentication utility.
+
+### `userId`
+
+Returns the ID of the currently logged-in user.
+
+**Return type:** `number | undefined`
+
+- Logged-in user → The user's numeric ID.
+- No logged-in user → `undefined`.
+
+This getter provides convenient access to the authenticated user's ID without requiring components to access `loggedInUser` directly.
+
+Example:
+
+```ts
+const authStore = useAuthStore()
+
+const currentUserId = authStore.userId
+```
+
+### `isGroupAdmin`
+
+Determines whether the currently logged-in user is an owner or administrator of a specified group.
+
+**Parameter:**
+
+| Name | Type | Description |
+|---|---|---|
+| `groupId` | `string \| number` | The ID of the group to check. |
+
+**Return type:** `boolean`
+
+Returns:
+
+- `true` — The user is an owner or administrator of the specified group.
+- `false` — The user does not have either role in the specified group, or has no matching group membership.
+
+Both string and numeric group IDs are supported. The supplied group ID is converted to a number before comparison.
+
+The getter checks the user's group memberships and returns `true` when a matching group has either the `owner` or `admin` role.
+
+This getter can be used to control access to group administration features, such as:
+
+- Assigning SmartPacks to groups.
+- Unassigning SmartPacks from groups.
+- Managing group members.
+- Displaying administrative controls for a particular group.
+
+Example:
+
+```ts
+const authStore = useAuthStore()
+
+const canManageGroup = authStore.isGroupAdmin(groupId)
+
+if (canManageGroup) {
+  // Display group administration controls.
+}
+```
+
+### `isGroupOwner`
+
+Determines whether the currently logged-in user is the owner of a specified group.
+
+**Parameter:**
+
+| Name | Type | Description |
+|---|---|---|
+| `groupId` | `string \| number` | The ID of the group to check. |
+
+**Return type:** `boolean`
+
+Returns:
+
+- `true` — The user owns the specified group.
+- `false` — The user does not own the specified group, or has no matching group membership.
+
+Both string and numeric group IDs are supported. The supplied group ID is converted to a number before comparison.
+
+Unlike `isGroupAdmin`, this getter returns `true` only when the matching group membership has the `owner` role. An administrator who is not the owner does not satisfy this check.
+
+Use this getter when an operation must be restricted to the group owner rather than allowing both owners and administrators.
+
+Example:
+
+```ts
+const authStore = useAuthStore()
+
+const canManageGroupOwnership = authStore.isGroupOwner(groupId)
+
+if (canManageGroupOwnership) {
+  // Display actions restricted to the group owner.
+}
+```
+
+### Group Authorization Behavior
+
+The group authorization getters rely on the authenticated user's group membership information.
+
+The expected group roles are:
+
+| Role | `isGroupAdmin(groupId)` | `isGroupOwner(groupId)` |
+|---|---|---|
+| `owner` | `true` | `true` |
+| `admin` | `true` | `false` |
+| `member` | `false` | `false` |
+| No matching group membership | `false` | `false` |
+
+The checks apply to the specified group. Having an administrative role in one group does not automatically grant administrative access to another group.
+
+These getters provide **client-side authorization checks** for controlling which interface actions are available to a user. They do not replace backend authorization. The backend must independently validate group permissions before performing protected operations.
 
 ## Related Modules
 
 - **API authentication:** `src/api/modules/auth.ts`
 - **API users:** `src/api/modules/users.ts`
 - **Authentication store:** `src/stores/modules/auth/`
+- **Authentication getters:** `src/stores/modules/auth/getters.ts`
 - **API client:** `src/api/client.ts`
 - **API interceptors:** `src/api/interceptors/`
 - **Application entry point:** `src/main.ts`
+```

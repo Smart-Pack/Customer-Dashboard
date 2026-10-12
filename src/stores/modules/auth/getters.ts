@@ -40,4 +40,33 @@ export const getters = {
     (state: AuthState) =>
     (id: string | number): boolean =>
       state.loggedInUser?.id === id,
+  /**
+   * Returns the ID of the currently logged-in user.
+   */
+  userId: (state: AuthState): number | undefined => state.loggedInUser?.id,
+  /**
+   * Indicates whether the logged-in user is an owner or admin of the specified group.
+   *
+   * @param groupId - The ID of the group to check.
+   * @returns `true` if the user owns or administers the group; otherwise, `false`.
+   */
+  isGroupAdmin:
+    (state: AuthState) =>
+    (groupId: string | number): boolean =>
+      state.loggedInUser?.groups?.some(
+        (group) =>
+          group.id === Number(groupId) && (group.role === 'owner' || group.role === 'admin'),
+      ) ?? false,
+  /**
+   * Indicates whether the logged-in user is the owner of the specified group.
+   *
+   * @param groupId - The ID of the group to check.
+   * @returns `true` if the user is the owner of the group; otherwise, `false`.
+   */
+  isGroupOwner:
+    (state: AuthState) =>
+    (groupId: string | number): boolean =>
+      state.loggedInUser?.groups?.some(
+        (group) => group.id === Number(groupId) && group.role === 'owner',
+      ) ?? false,
 }

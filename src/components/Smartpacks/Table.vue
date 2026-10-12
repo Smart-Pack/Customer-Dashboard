@@ -1,7 +1,7 @@
 <template>
   <TablePageLayout
     :getter="$api.smartpacks.list"
-    page-description="Monitor your SmartPacks and keep track of their connectivity and status."
+    page-description="Monitor your SmartPacks, track their connectivity and assignment status, and manage their group associations."
     :tabs="smartPackTabs"
     name="SmartPacks"
     :item-headings="smartPackHeadings"
@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { SmartPackQueryParams } from '@/api/modules/smartpacks'
+import type { SmartPackQueryParams, SmartPackGroup } from '@/api/modules/smartpacks'
 import Filters from '@/helpers/filters'
 
 defineOptions({
@@ -33,19 +33,19 @@ const smartPackTabs: Array<{
     params: {},
   },
   {
-    id: 'assigned',
-    caption: 'Assigned SmartPacks',
-    label: 'Assigned',
+    id: 'grouped',
+    caption: 'SmartPacks with Groups',
+    label: 'Grouped',
     params: {
-      is_assigned: true,
+      has_group: true,
     },
   },
   {
-    id: 'unassigned',
-    caption: 'Unassigned SmartPacks',
-    label: 'Unassigned',
+    id: 'ungrouped',
+    caption: 'SmartPacks without Groups',
+    label: 'Ungrouped',
     params: {
-      is_assigned: false,
+      has_group: false,
     },
   },
 ]
@@ -54,11 +54,6 @@ const smartPackHeadings = [
   {
     key: 'imei',
     label: 'IMEI',
-    sortable: true,
-  },
-  {
-    key: 'hardware_model',
-    label: 'Hardware Model',
     sortable: true,
     dataClass: 'primary-text font-bold',
   },
@@ -74,6 +69,16 @@ const smartPackHeadings = [
     formatter: (value: unknown) => (value ? 'Online' : 'Offline'),
     dataClass: {
       fmt: (value: unknown) => Filters.activeClass(Boolean(value)),
+    },
+  },
+  {
+    key: 'group',
+    label: 'Group',
+    sortable: true,
+    formatter: (value: unknown) => {
+      const group = value as SmartPackGroup | null
+
+      return group ? group.name : '-'
     },
   },
   {
