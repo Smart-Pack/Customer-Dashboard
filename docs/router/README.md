@@ -13,4 +13,5 @@ This directory contains the routing configuration and navigation logic for the S
 * [User Management](dashboard/users.md) - Allows administrators to view, filter, add, and manage platform users.
 * [Home](dashboard/home.md) - Provides administrators with an overview of platform users and SmartPack statistics, including total users, customers, internal users, assigned SmartPacks, and unassigned SmartPacks.
 * [SmartPack Management](dashboard/smartpacks.md) - Allows administrators to view, filter, and manage SmartPack devices, including viewing device details, assigning or unassigning users, and accessing QR codes.
+* [Groups Page](dashboard/groups.md) - Allows users to view, search, filter, and create groups, track group ownership and membership, view associated SmartPacks, and navigate to group details based on their permissions.
 
