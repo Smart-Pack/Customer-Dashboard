@@ -79,4 +79,5 @@ export const GROUP_MEMBERS = {
   leave: (id: string | number): string => `v1/users/groups/members/${id}/leave/`,
   sendInvite: (groupId: string | number): string => `v1/users/groups/${groupId}/invite/`,
   verifyInvite: `v1/users/groups/invitations/verify/`,
+  joinInvite: `v1/users/groups/invitations/join/`,
 } as const

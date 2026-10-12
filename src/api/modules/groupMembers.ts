@@ -172,3 +172,16 @@ export const verifyInvite = async (payload: VerifyInvitePayload): Promise<Verify
 
   return response.data
 }
+
+/**
+ * Accepts a group invitation and joins the invited user to the group.
+ *
+ * @param payload - The invitation payload containing the token.
+ * @returns A promise resolving to the created group membership.
+ * @throws An error if the invitation cannot be accepted or the user cannot join the group.
+ */
+export const joinInvite = async (payload: VerifyInvitePayload): Promise<GroupMember> => {
+  const response = await apiClient.post<GroupMember>(GROUP_MEMBERS.joinInvite, payload)
+
+  return response.data
+}

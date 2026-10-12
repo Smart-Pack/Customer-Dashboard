@@ -6,6 +6,7 @@ import apiClient from '@/api/client'
 import { GROUP_MEMBERS } from '../endpoints'
 import {
   edit,
+  joinInvite,
   leaveGroup,
   list,
   removeGroupMember,
@@ -361,6 +362,45 @@ describe('groupMembers API', () => {
       vi.mocked(apiClient.post).mockRejectedValueOnce(error)
 
       await expect(verifyInvite(payload)).rejects.toThrow('Failed to verify group invitation')
+    })
+  })
+  describe('joinInvite', () => {
+    const payload: VerifyInvitePayload = {
+      token: 'valid-invitation-token',
+    }
+
+    const mockMember: GroupMember = {
+      id: 1,
+      user: {
+        id: 10,
+        uuid: '7b9f3c21-84d6-4a17-b2e8-51c7d9036f42',
+        full_name: 'John Doe',
+        email: 'john.doe@example.com',
+        phone: '+254712345678',
+      },
+      role: 'member',
+      created: '2026-10-12T10:00:00Z',
+      updated: '2026-10-12T10:00:00Z',
+    }
+
+    it('joins a group using an invitation token', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockMember,
+      })
+
+      const result = await joinInvite(payload)
+
+      expect(apiClient.post).toHaveBeenCalledExactlyOnceWith(GROUP_MEMBERS.joinInvite, payload)
+
+      expect(result).toEqual(mockMember)
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to join group')
+
+      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+
+      await expect(joinInvite(payload)).rejects.toThrow('Failed to join group')
     })
   })
 })
