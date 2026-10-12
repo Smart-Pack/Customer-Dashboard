@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosInstance } from 'axios'
 import apiClient from '@/api/client'
 import { GROUP_MEMBERS } from '../endpoints'
-import { list, sendInvite } from '../modules/groupMembers'
+import { leaveGroup, list, sendInvite } from '../modules/groupMembers'
 import type { GroupMemberListResult, SendGroupInvitePayload } from '../modules/groupMembers'
 import type { GroupMember } from '../modules/groups'
 import type { ApiDetailResponse } from '@/api/types'
@@ -138,6 +138,45 @@ describe('groupMembers API', () => {
       vi.mocked(apiClient.post).mockRejectedValueOnce(error)
 
       await expect(sendInvite(groupId, payload)).rejects.toThrow('Failed to send group invitation')
+    })
+  })
+  describe('leaveGroup', () => {
+    const membershipId = 2
+
+    const mockResponse: ApiDetailResponse = {
+      detail: 'You have left the group successfully.',
+    }
+
+    it('allows the current user to leave a group', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockResponse,
+      })
+
+      const result = await leaveGroup(membershipId)
+
+      expect(apiClient.post).toHaveBeenCalledWith(GROUP_MEMBERS.leave(membershipId))
+      expect(result).toBe('You have left the group successfully.')
+    })
+
+    it('supports a string membership ID', async () => {
+      const stringMembershipId = '2'
+
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockResponse,
+      })
+
+      const result = await leaveGroup(stringMembershipId)
+
+      expect(apiClient.post).toHaveBeenCalledWith(GROUP_MEMBERS.leave(stringMembershipId))
+      expect(result).toBe('You have left the group successfully.')
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to leave group')
+
+      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+
+      await expect(leaveGroup(membershipId)).rejects.toThrow('Failed to leave group')
     })
   })
 })

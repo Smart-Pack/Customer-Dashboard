@@ -7,6 +7,7 @@ export type GroupMemberListResult = PaginatedResponse<GroupMember>
 
 export interface GroupMemberQueryParams extends PaginationQueryParams {
   group?: number
+  has_admin_access?: boolean
   role?: 'owner' | 'admin' | 'member'
 }
 
@@ -52,6 +53,18 @@ export const sendInvite = async (
     GROUP_MEMBERS.sendInvite(groupId),
     payload,
   )
+
+  return response.data.detail
+}
+
+/**
+ * Allows the current user to leave a group.
+ *
+ * @param id - The ID of the group membership to leave.
+ * @returns A promise resolving with the API response detail message.
+ */
+export const leaveGroup = async (id: string | number): Promise<string> => {
+  const response = await apiClient.post<ApiDetailResponse>(GROUP_MEMBERS.leave(id))
 
   return response.data.detail
 }
