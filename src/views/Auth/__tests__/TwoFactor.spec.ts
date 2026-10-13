@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   notifySuccess: vi.fn<(message: string) => void>(),
   notifyError: vi.fn<(message: string) => void>(),
   verifyTwoFaToken: vi.fn<(payload: { otp: string }) => Promise<void>>(),
+  routeQuery: {} as Record<string, unknown>,
 }))
 
 vi.mock('@/api', () => ({
@@ -19,6 +20,9 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('vue-router', () => ({
+  useRoute: vi.fn<() => { query: typeof mocks.routeQuery }>(() => ({
+    query: mocks.routeQuery,
+  })),
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -41,6 +45,7 @@ vi.mock('@/stores/modules/auth', () => ({
 describe('TwoFactor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.routeQuery = {}
   })
 
   const mountComponent = () => shallowMount(TwoFactor)
@@ -117,6 +122,23 @@ describe('TwoFactor', () => {
     expect(authCard.props('currentRoutes')).toEqual({
       prev: { label: 'Back to log in', name: 'login' },
       next: { name: 'dashboard' },
+    })
+  })
+
+  it('preserves the redirect query in the next route', () => {
+    const redirect = '/dashboard/groups?token=invitation-token'
+
+    mocks.routeQuery = { redirect }
+
+    const wrapper = mountComponent()
+    const authCard = wrapper.findComponent(AuthCard)
+
+    expect(authCard.props('currentRoutes')).toEqual({
+      prev: { label: 'Back to log in', name: 'login' },
+      next: {
+        name: 'dashboard',
+        query: { redirect },
+      },
     })
   })
 

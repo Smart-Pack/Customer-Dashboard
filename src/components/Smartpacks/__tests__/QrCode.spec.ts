@@ -87,16 +87,16 @@ describe('SmartPackQrComponent', () => {
       const wrapper = mountQr()
       const qr = findQr(wrapper)
 
-      expect(qr.props('width')).toBe(300)
-      expect(qr.props('height')).toBe(300)
+      expect(qr.props('width')).toBe(500)
+      expect(qr.props('height')).toBe(500)
       expect(qr.props('dotsOptions')).toEqual({
-        type: 'dots',
+        type: 'square',
         color: '#000000',
       })
       expect(qr.props('qrOptions')).toEqual({
         typeNumber: 0,
         mode: 'Byte',
-        errorCorrectionLevel: 'H',
+        errorCorrectionLevel: 'M',
       })
 
       wrapper.unmount()

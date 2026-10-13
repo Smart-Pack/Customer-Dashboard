@@ -6,8 +6,11 @@ import TablePageLayout, { type Getter } from '@/components/Base/TablePageLayout.
 
 const mockSmartPacksList = vi.fn<Getter>()
 
-const mountTable = () =>
+const mountTable = (refreshKey = 0) =>
   mount(SmartPacksTable, {
+    props: {
+      refreshKey,
+    },
     global: {
       mocks: {
         $api: {
@@ -35,29 +38,38 @@ describe('SmartPacksTable', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
 
-      expect(layout.props('pageDescription')).toContain('Manage registered SmartPacks')
+      expect(layout.props('pageDescription')).toContain(
+        'Monitor your SmartPacks, track their connectivity and assignment status, and manage their group associations.',
+      )
       expect(layout.props('name')).toBe('SmartPacks')
       expect(layout.props('navClass')).toBe('grid-cols-3 lg:text-base')
       expect(layout.props('enableSearch')).toBe(true)
     })
 
-    it('passes the smartpacks API getter', () => {
+    it('passes the SmartPacks API getter', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
 
       expect(layout.props('getter')).toBe(mockSmartPacksList)
     })
+
+    it('passes the refresh key through', () => {
+      const wrapper = mountTable(3)
+      const layout = wrapper.findComponent(TablePageLayout)
+
+      expect(layout.props('refreshKey')).toBe(3)
+    })
   })
 
   describe('smartPackTabs', () => {
-    it('passes 3 tabs', () => {
+    it('passes three tabs', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
       const tabs = layout.props('tabs') as Array<{ id: string; label: string }>
 
       expect(tabs).toHaveLength(3)
-      expect(tabs.map((tab) => tab.id)).toEqual(['all', 'assigned', 'unassigned'])
-      expect(tabs.map((tab) => tab.label)).toEqual(['All', 'Assigned', 'Unassigned'])
+      expect(tabs.map((tab) => tab.id)).toEqual(['all', 'grouped', 'ungrouped'])
+      expect(tabs.map((tab) => tab.label)).toEqual(['All', 'Grouped', 'Ungrouped'])
     })
 
     it('passes the correct filter parameters', () => {
@@ -70,13 +82,23 @@ describe('SmartPacksTable', () => {
 
       expect(tabs.find((tab) => tab.id === 'all')?.params).toEqual({})
 
-      expect(tabs.find((tab) => tab.id === 'assigned')?.params).toEqual({
-        is_assigned: true,
+      expect(tabs.find((tab) => tab.id === 'grouped')?.params).toEqual({
+        has_group: true,
       })
 
-      expect(tabs.find((tab) => tab.id === 'unassigned')?.params).toEqual({
-        is_assigned: false,
+      expect(tabs.find((tab) => tab.id === 'ungrouped')?.params).toEqual({
+        has_group: false,
       })
+    })
+
+    it('provides the correct captions for each tab', () => {
+      const wrapper = mountTable()
+      const layout = wrapper.findComponent(TablePageLayout)
+      const tabs = layout.props('tabs') as Array<{ id: string; caption: string }>
+
+      expect(tabs.find((tab) => tab.id === 'all')?.caption).toBe('All SmartPacks')
+      expect(tabs.find((tab) => tab.id === 'grouped')?.caption).toBe('SmartPacks with Groups')
+      expect(tabs.find((tab) => tab.id === 'ungrouped')?.caption).toBe('SmartPacks without Groups')
     })
   })
 
@@ -89,23 +111,26 @@ describe('SmartPacksTable', () => {
       expect(headings).toHaveLength(7)
       expect(headings.map((heading) => heading.key)).toEqual([
         'imei',
-        'hardware_model',
         'firmware_version',
         'is_online',
-        'assigned_to',
+        'group',
+        'child_name',
         'created',
         'actions',
       ])
     })
 
-    it('marks hardware_model with the bold primary-text dataClass', () => {
+    it('marks imei with the bold primary-text dataClass', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
-      const headings = layout.props('itemHeadings') as Array<{ key: string; dataClass?: string }>
+      const headings = layout.props('itemHeadings') as Array<{
+        key: string
+        dataClass?: string
+      }>
 
-      const hardwareModel = headings.find((heading) => heading.key === 'hardware_model')
+      const imei = headings.find((heading) => heading.key === 'imei')
 
-      expect(hardwareModel?.dataClass).toBe('primary-text font-bold')
+      expect(imei?.dataClass).toBe('primary-text font-bold')
     })
 
     it('formats is_online as Online or Offline', () => {
@@ -122,7 +147,7 @@ describe('SmartPacksTable', () => {
       expect(isOnline?.formatter?.(false)).toBe('Offline')
     })
 
-    it('formats assigned_to using the assigned user full name', () => {
+    it('formats group as its name or a dash when no group is assigned', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
       const headings = layout.props('itemHeadings') as Array<{
@@ -130,18 +155,23 @@ describe('SmartPacksTable', () => {
         formatter?: (value: unknown) => unknown
       }>
 
-      const assignedTo = headings.find((heading) => heading.key === 'assigned_to')
+      const group = headings.find((heading) => heading.key === 'group')
 
-      expect(
-        assignedTo?.formatter?.({
-          id: 1,
-          uuid: 'abc-123',
-          full_name: 'Jane Doe',
-          email: 'jane@example.com',
-          phone: '+254712345678',
-        }),
-      ).toBe('Jane Doe')
-      expect(assignedTo?.formatter?.(null)).toBe('Unassigned')
+      expect(group?.formatter?.({ id: 1, name: 'SmartPack Family' })).toBe('SmartPack Family')
+      expect(group?.formatter?.(null)).toBe('-')
+    })
+
+    it('configures group as a sortable column', () => {
+      const wrapper = mountTable()
+      const layout = wrapper.findComponent(TablePageLayout)
+      const headings = layout.props('itemHeadings') as Array<{
+        key: string
+        sortable: boolean
+      }>
+
+      const group = headings.find((heading) => heading.key === 'group')
+
+      expect(group?.sortable).toBe(true)
     })
 
     it('formats created using Filters.dateTime', () => {
@@ -161,23 +191,28 @@ describe('SmartPacksTable', () => {
     it('marks all sortable columns except actions', () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
-      const headings = layout.props('itemHeadings') as Array<{ key: string; sortable: boolean }>
+      const headings = layout.props('itemHeadings') as Array<{
+        key: string
+        sortable: boolean
+      }>
 
       const sortableKeys = headings
         .filter((heading) => heading.sortable)
         .map((heading) => heading.key)
+
       const nonSortableKeys = headings
         .filter((heading) => !heading.sortable)
         .map((heading) => heading.key)
 
       expect(sortableKeys).toEqual([
         'imei',
-        'hardware_model',
         'firmware_version',
         'is_online',
-        'assigned_to',
+        'group',
+        'child_name',
         'created',
       ])
+
       expect(nonSortableKeys).toEqual(['actions'])
     })
 
@@ -191,7 +226,10 @@ describe('SmartPacksTable', () => {
 
       const actions = headings.find((heading) => heading.key === 'actions')
 
-      expect(actions?.action).toEqual({ name: 'View', route: 'smartpack-details' })
+      expect(actions?.action).toEqual({
+        name: 'View',
+        route: 'smartpack-details',
+      })
     })
   })
 })

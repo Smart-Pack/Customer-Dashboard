@@ -134,6 +134,28 @@ const routes: RouteRecordRaw[] = [
           },
         ],
       },
+      // Groups section
+      {
+        path: 'groups',
+        name: 'groups-parent',
+        redirect: { name: 'groups' },
+        component: RouterViewWrapper,
+        meta: { breadcrumb: 'Groups' },
+        children: [
+          {
+            path: '',
+            name: 'groups',
+            component: () => import('@/views/Groups/index.vue'),
+            meta: { title: 'Group Management', breadcrumb: 'Groups' },
+          },
+          {
+            path: ':id/details',
+            name: 'group-details',
+            component: () => import('@/views/Groups/details.vue'),
+            meta: { title: 'Group Details', breadcrumb: 'Group Details' },
+          },
+        ],
+      },
       // SmartPacks section
       {
         path: 'smartpacks',

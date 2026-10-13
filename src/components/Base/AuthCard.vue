@@ -312,7 +312,12 @@ export default {
           }
         }
 
-        $router.push({ name: props.currentRoutes.next.name })
+        $router.push({
+          name: props.currentRoutes.next.name,
+          ...(props.currentRoutes.next.query && {
+            query: props.currentRoutes.next.query,
+          }),
+        })
       } catch (e) {
         const err = isAuthError(e) ? e : { message: 'Something went wrong' }
         $notifyError(err.message)

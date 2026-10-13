@@ -5,10 +5,14 @@ import { mockUser } from '@/tests/constants'
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '@/api/endpoints'
 import {
+  claim,
+  edit,
   list,
   getById,
   assign,
   unassign,
+  assignGroup,
+  unassignGroup,
   type SmartPack,
   type SmartPackListResult,
   type SmartPackQueryParams,
@@ -19,6 +23,7 @@ vi.mock('@/api/client', () => ({
   default: {
     get: vi.fn<AxiosInstance['get']>(),
     patch: vi.fn<AxiosInstance['patch']>(),
+    post: vi.fn<AxiosInstance['post']>(),
   },
 }))
 
@@ -37,6 +42,7 @@ const mockSmartPack: SmartPack = {
     email: mockUser.email,
     phone: mockUser.phone,
   },
+  group: null,
   child_name: 'Amara',
   created: '2026-01-05T09:00:00.000Z',
   updated: '2026-09-18T12:33:13.497Z',
@@ -158,6 +164,124 @@ describe('SmartPacks API', () => {
 
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassign(mockSmartPack.id))
       expect(response).toBe('SmartPack unassigned successfully.')
+    })
+  })
+  describe('claim', () => {
+    it('claims a SmartPack using its device UID and IMEI', async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: {},
+      } as never)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      const response = await claim(deviceUid, payload)
+
+      expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.claim(deviceUid), payload)
+      expect(response).toBe('SmartPack claimed successfully.')
+    })
+
+    it('uses the IMEI validation error message for a 400 response', async () => {
+      const error = {
+        message: 'Request failed with status code 400',
+        response: {
+          status: 400,
+          data: {
+            imei: ['SmartPack with this IMEI does not exist.'],
+          },
+        },
+      }
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      const deviceUid = '550e8400-e29b-41d4-a716-446655440000'
+      const payload = { imei: '236041841851177' }
+
+      await expect(claim(deviceUid, payload)).rejects.toBe(error)
+
+      expect(error.message).toBe('SmartPack with this IMEI does not exist.')
+    })
+  })
+  describe('edit', () => {
+    it('updates the child name of an existing SmartPack', async () => {
+      const smartPack = {
+        ...mockSmartPack,
+        child_name: 'Zuri',
+      }
+
+      const payload = {
+        child_name: smartPack.child_name,
+      }
+
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: smartPack,
+      } as never)
+
+      const result = await edit(smartPack)
+
+      expect(apiClient.patch).toHaveBeenCalledExactlyOnceWith(
+        SMARTPACKS.detail(smartPack.id),
+        payload,
+      )
+
+      expect(result).toEqual({
+        data: smartPack,
+        message: 'SmartPack updated successfully.',
+      })
+    })
+
+    it('throws an error when the SmartPack is not found', async () => {
+      const error = {
+        response: { status: 404 },
+      } as AxiosError
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(mockSmartPack)).rejects.toEqual(
+        expect.objectContaining({
+          message: `SmartPack with ID ${mockSmartPack.id} not found. It may have been deleted.`,
+          reload: true,
+        }),
+      )
+    })
+
+    it('rethrows errors other than 404', async () => {
+      const error = new Error('Internal server error')
+
+      vi.mocked(apiClient.patch).mockRejectedValueOnce(error)
+
+      await expect(edit(mockSmartPack)).rejects.toThrow('Internal server error')
+    })
+  })
+  describe('assignGroup', () => {
+    it('assigns a SmartPack to a group', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: {
+          detail: 'SmartPack assigned to group successfully.',
+        },
+      } as never)
+
+      const payload = { group: 1 }
+
+      const response = await assignGroup(mockSmartPack.id, payload)
+
+      expect(apiClient.post).toHaveBeenCalledWith(SMARTPACKS.assignGroup(mockSmartPack.id), payload)
+      expect(response).toBe('SmartPack assigned to group successfully.')
+    })
+  })
+
+  describe('unassignGroup', () => {
+    it('unassigns a SmartPack from its current group', async () => {
+      vi.mocked(apiClient.patch).mockResolvedValueOnce({
+        data: {
+          detail: 'SmartPack unassigned from group successfully.',
+        },
+      } as never)
+
+      const response = await unassignGroup(mockSmartPack.id)
+
+      expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassignGroup(mockSmartPack.id))
+      expect(response).toBe('SmartPack unassigned from group successfully.')
     })
   })
 })

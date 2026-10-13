@@ -1,6 +1,19 @@
 import apiClient from '@/api/client'
 import { SMARTPACKS } from '../endpoints'
-import type { ItemNotFoundError, PaginatedResponse, PaginationQueryParams } from '@/api/types'
+import type {
+  ApiDetailResponse,
+  ItemNotFoundError,
+  PaginatedResponse,
+  PaginationQueryParams,
+} from '@/api/types'
+
+export type AssignSmartPackGroupPayload = {
+  group: number
+}
+
+export type ClaimSmartPackPayload = {
+  imei: string
+}
 
 export interface SmartPackAssignedUser {
   id: number
@@ -8,6 +21,11 @@ export interface SmartPackAssignedUser {
   full_name: string
   email: string
   phone: string
+}
+
+export interface SmartPackGroup {
+  id: number
+  name: string
 }
 
 export interface SmartPack {
@@ -20,15 +38,22 @@ export interface SmartPack {
   is_online: boolean
   assigned_to: SmartPackAssignedUser | null
   child_name: string
+  group: SmartPackGroup | null
   created: string
   updated: string
+}
+
+export type EditSmartPackPayload = {
+  child_name: string
 }
 
 export type SmartPackListItem = SmartPack
 
 export interface SmartPackQueryParams extends PaginationQueryParams {
   assigned_to?: number
+  group?: number
   is_assigned?: boolean
+  has_group?: boolean
 }
 
 export type SmartPackListResult = PaginatedResponse<SmartPackListItem>
@@ -108,4 +133,96 @@ export const unassign = async (id: string | number): Promise<string> => {
   await apiClient.patch(SMARTPACKS.unassign(id))
 
   return 'SmartPack unassigned successfully.'
+}
+
+/**
+ * Updates an existing SmartPack.
+ *
+ * @param smartPack - The SmartPack data to update.
+ * @param smartPack.id - The ID of the SmartPack.
+ * @param smartPack.child_name - The name of the child assigned to the SmartPack.
+ * @returns A promise resolving with the updated SmartPack and success message.
+ * @throws The error is re-thrown after annotating a 404 response.
+ */
+export const edit = async (smartPack: SmartPack): Promise<{ data: SmartPack; message: string }> => {
+  const payload: EditSmartPackPayload = {
+    child_name: smartPack.child_name,
+  }
+
+  try {
+    const response = await apiClient.patch<SmartPack>(SMARTPACKS.detail(smartPack.id), payload)
+
+    return {
+      data: response.data,
+      message: 'SmartPack updated successfully.',
+    }
+  } catch (error) {
+    const axiosError = error as ItemNotFoundError
+
+    if (axiosError.response?.status === 404) {
+      axiosError.message = `SmartPack with ID ${smartPack.id} not found. It may have been deleted.`
+      axiosError.reload = true
+    }
+
+    throw axiosError
+  }
+}
+
+/**
+ * Claims an unassigned SmartPack for the authenticated customer.
+ *
+ * @param deviceUid - The UUID of the SmartPack device to claim.
+ * @param payload - The IMEI verification payload.
+ * @returns A promise resolving with a success message.
+ */
+export const claim = async (deviceUid: string, payload: ClaimSmartPackPayload): Promise<string> => {
+  try {
+    await apiClient.patch(SMARTPACKS.claim(deviceUid), payload)
+
+    return 'SmartPack claimed successfully.'
+  } catch (error: unknown) {
+    const e = error as {
+      response?: {
+        status?: number
+        data?: {
+          detail?: string
+          imei?: string[]
+        }
+      }
+      message: string
+    }
+    if (e.response?.status === 400 && e.response?.data?.imei?.[0]) {
+      e.message = e.response.data.imei[0]
+    }
+
+    throw e
+  }
+}
+
+/**
+ * Assigns a SmartPack to a group.
+ *
+ * @param id - The ID of the SmartPack to assign.
+ * @param payload - The group assignment payload.
+ * @returns A promise resolving with the response detail message.
+ */
+export const assignGroup = async (
+  id: string | number,
+  payload: AssignSmartPackGroupPayload,
+): Promise<string> => {
+  const response = await apiClient.post<ApiDetailResponse>(SMARTPACKS.assignGroup(id), payload)
+
+  return response.data.detail
+}
+
+/**
+ * Unassigns a SmartPack from its current group.
+ *
+ * @param id - The ID of the SmartPack to unassign.
+ * @returns A promise resolving with the response detail message.
+ */
+export const unassignGroup = async (id: string | number): Promise<string> => {
+  const response = await apiClient.patch<ApiDetailResponse>(SMARTPACKS.unassignGroup(id))
+
+  return response.data.detail
 }

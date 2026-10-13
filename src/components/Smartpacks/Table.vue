@@ -1,18 +1,19 @@
 <template>
   <TablePageLayout
     :getter="$api.smartpacks.list"
-    page-description="Manage registered SmartPacks, monitor their connectivity, and keep track of customer assignments."
+    page-description="Monitor your SmartPacks, track their connectivity and assignment status, and manage their group associations."
     :tabs="smartPackTabs"
     name="SmartPacks"
     :item-headings="smartPackHeadings"
     :enable-search="true"
+    :refresh-key="refreshKey"
     nav-class="grid-cols-3 lg:text-base"
   />
 </template>
 
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { SmartPackAssignedUser, SmartPackQueryParams } from '@/api/modules/smartpacks'
+import type { SmartPackQueryParams, SmartPackGroup } from '@/api/modules/smartpacks'
 import Filters from '@/helpers/filters'
 
 defineOptions({
@@ -32,19 +33,19 @@ const smartPackTabs: Array<{
     params: {},
   },
   {
-    id: 'assigned',
-    caption: 'Assigned SmartPacks',
-    label: 'Assigned',
+    id: 'grouped',
+    caption: 'SmartPacks with Groups',
+    label: 'Grouped',
     params: {
-      is_assigned: true,
+      has_group: true,
     },
   },
   {
-    id: 'unassigned',
-    caption: 'Unassigned SmartPacks',
-    label: 'Unassigned',
+    id: 'ungrouped',
+    caption: 'SmartPacks without Groups',
+    label: 'Ungrouped',
     params: {
-      is_assigned: false,
+      has_group: false,
     },
   },
 ]
@@ -53,11 +54,6 @@ const smartPackHeadings = [
   {
     key: 'imei',
     label: 'IMEI',
-    sortable: true,
-  },
-  {
-    key: 'hardware_model',
-    label: 'Hardware Model',
     sortable: true,
     dataClass: 'primary-text font-bold',
   },
@@ -76,14 +72,19 @@ const smartPackHeadings = [
     },
   },
   {
-    key: 'assigned_to',
-    label: 'Assigned To',
+    key: 'group',
+    label: 'Group',
     sortable: true,
     formatter: (value: unknown) => {
-      const assignedUser = value as SmartPackAssignedUser | null
+      const group = value as SmartPackGroup | null
 
-      return assignedUser ? assignedUser.full_name : 'Unassigned'
+      return group ? group.name : '-'
     },
+  },
+  {
+    key: 'child_name',
+    label: 'Child',
+    sortable: true,
   },
   {
     key: 'created',
@@ -101,4 +102,13 @@ const smartPackHeadings = [
     },
   },
 ]
+/**
+ * Props for the SmartPacks table.
+ */
+const { refreshKey } = defineProps<{
+  /**
+   * Key used to trigger a table refresh after SmartPack changes.
+   */
+  refreshKey: number
+}>()
 </script>
