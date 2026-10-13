@@ -15,6 +15,7 @@
 <script lang="ts">
 import { GoogleSignInButton, type CredentialResponse } from 'vue3-google-signin'
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore } from '@/stores/modules/auth'
 
@@ -32,6 +33,7 @@ export default {
 
   setup() {
     const { $notifySuccess, $notifyError, $router } = useGlobals()
+    const route = useRoute()
     const authStore = useAuthStore()
     const submitting = ref(false)
 
@@ -52,7 +54,15 @@ export default {
 
         $notifySuccess('Google Sign-In successful.')
 
-        $router.push({ name: 'dashboard' })
+        // Preserve the intended destination when navigating to the dashboard after authentication.
+        const redirect = route.query.redirect
+
+        $router.push({
+          name: 'dashboard',
+          ...(typeof redirect === 'string' && {
+            query: { redirect },
+          }),
+        })
       } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error('Google Sign-In failed.')
 

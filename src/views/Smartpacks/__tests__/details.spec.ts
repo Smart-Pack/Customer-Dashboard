@@ -26,6 +26,7 @@ const mockDeleteModal =
 const mockRouterPush = vi.fn<(location: { name: string }) => void>()
 
 const mockAuthStore = {
+  fetchUser: vi.fn<() => Promise<void>>(),
   isGroupAdmin: vi.fn<(groupId: number) => boolean>(() => true),
 }
 
@@ -157,7 +158,7 @@ describe('SmartPackDetails', () => {
     mockUnassignGroup.mockResolvedValue('SmartPack removed from group successfully')
 
     mockDeleteModal.mockResolvedValue(true)
-
+    mockAuthStore.fetchUser.mockResolvedValue(undefined)
     mockAuthStore.isGroupAdmin.mockReturnValue(true)
   })
 
@@ -241,6 +242,18 @@ describe('SmartPackDetails', () => {
       await flushPromises()
 
       expect(mockRouterPush).not.toHaveBeenCalled()
+    })
+    it('continues loading SmartPack details when fetching the user fails', async () => {
+      mockAuthStore.fetchUser.mockRejectedValueOnce(new Error('Failed to fetch user'))
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      expect(mockAuthStore.fetchUser).toHaveBeenCalledExactlyOnceWith()
+      expect(mockGetById).toHaveBeenCalledExactlyOnceWith({ id: '1' })
+      expect(wrapper.text()).toContain(mockSmartPack.hardware_model)
+      expect(mockNotifyError).not.toHaveBeenCalled()
     })
   })
 

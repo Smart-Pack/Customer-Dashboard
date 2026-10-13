@@ -233,7 +233,17 @@ export default defineComponent({
     }
   },
 
+  /**
+   * Refreshes the authenticated user's data to ensure the latest permissions
+   * are available, then fetches the SmartPack details.
+   *
+   * User data fetching runs asynchronously without blocking the SmartPack
+   * details request. Errors during user data fetching are ignored.
+   *
+   * @returns A promise that resolves when the SmartPack details are loaded.
+   */
   async mounted() {
+    this.authStore.fetchUser().catch(() => {})
     await this.getSmartPack()
   },
 

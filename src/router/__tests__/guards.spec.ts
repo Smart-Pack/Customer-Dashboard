@@ -61,6 +61,7 @@ describe('Router Guard', () => {
         two_factor_enabled: false,
       }
     })
+
     it('clears breadcrumbs when navigating to a route without breadcrumb metadata', async () => {
       authStore.loggedInUser = null
 
@@ -87,6 +88,7 @@ describe('Router Guard', () => {
         },
       ])
     })
+
     it('creates the full breadcrumb trail for the user details route', async () => {
       await router.push('/dashboard/users/123/details')
 
@@ -105,6 +107,7 @@ describe('Router Guard', () => {
         },
       ])
     })
+
     it('removes duplicate breadcrumbs and keeps the named route', async () => {
       await router.push('/dashboard')
 
@@ -130,6 +133,31 @@ describe('Router Guard', () => {
       expect(router.currentRoute.value.query.redirect).toBe('/dashboard')
     })
 
+    it('preserves the intended destination when redirecting unauthenticated users to login', async () => {
+      const redirect = '/dashboard/users/123/details'
+
+      await router.push({
+        path: '/dashboard',
+        query: { redirect },
+      })
+
+      expect(router.currentRoute.value.name).toBe('login')
+      expect(router.currentRoute.value.query.redirect).toBe(redirect)
+    })
+
+    it('removes nested redirect parameters when redirecting unauthenticated users to login', async () => {
+      const redirect = '/dashboard/users/123/details'
+      const nestedRedirect = `/dashboard?redirect=${encodeURIComponent(redirect)}`
+
+      await router.push({
+        path: '/dashboard',
+        query: { redirect: nestedRedirect },
+      })
+
+      expect(router.currentRoute.value.name).toBe('login')
+      expect(router.currentRoute.value.query.redirect).toBe(redirect)
+    })
+
     it('redirects fully authenticated users from public routes to dashboard', async () => {
       authStore.loggedInUser = {
         ...mockUser,
@@ -153,6 +181,24 @@ describe('Router Guard', () => {
 
       expect(router.currentRoute.value.name).toBe('change-password')
       expect(router.currentRoute.value.query.redirect).toBe('/dashboard')
+    })
+
+    it('preserves the intended destination when redirecting to change-password', async () => {
+      const redirect = '/dashboard/users/123/details'
+
+      authStore.loggedInUser = {
+        ...mockUser,
+        changed_password_after_initial_login: false,
+        two_factor_enabled: false,
+      }
+
+      await router.push({
+        path: '/dashboard',
+        query: { redirect },
+      })
+
+      expect(router.currentRoute.value.name).toBe('change-password')
+      expect(router.currentRoute.value.query.redirect).toBe(redirect)
     })
 
     it('allows authenticated users who have not changed their password to access change-password', async () => {
@@ -189,6 +235,44 @@ describe('Router Guard', () => {
       await router.push('/dashboard')
 
       expect(router.currentRoute.value.name).toBe('dashboard')
+    })
+
+    it('redirects authenticated users to their intended destination', async () => {
+      const redirect = '/dashboard/users/123/details'
+
+      authStore.loggedInUser = {
+        ...mockUser,
+        changed_password_after_initial_login: true,
+        two_factor_enabled: false,
+      }
+
+      await router.push({
+        path: '/dashboard',
+        query: { redirect },
+      })
+
+      expect(router.currentRoute.value.name).toBe('user-details')
+      expect(router.currentRoute.value.path).toBe(redirect)
+    })
+
+    it('preserves query parameters and the hash when redirecting to the intended destination', async () => {
+      const redirect = '/dashboard/users/123/details?tab=activity#history'
+
+      authStore.loggedInUser = {
+        ...mockUser,
+        changed_password_after_initial_login: true,
+        two_factor_enabled: false,
+      }
+
+      await router.push({
+        path: '/dashboard',
+        query: { redirect },
+      })
+
+      expect(router.currentRoute.value.name).toBe('user-details')
+      expect(router.currentRoute.value.path).toBe('/dashboard/users/123/details')
+      expect(router.currentRoute.value.query.tab).toBe('activity')
+      expect(router.currentRoute.value.hash).toBe('#history')
     })
   })
 })

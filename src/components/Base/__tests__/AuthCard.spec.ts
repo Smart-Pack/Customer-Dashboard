@@ -35,7 +35,7 @@ vi.mock('vee-validate', () => ({
 
 const mockNotifySuccess = vi.fn<(message: string) => void>()
 const mockNotifyError = vi.fn<(message: string) => void>()
-const mockRouterPush = vi.fn<(to: { name: string }) => void>()
+const mockRouterPush = vi.fn<(to: { name: string; query?: Record<string, unknown> }) => void>()
 
 vi.mock('@/composables/useGlobals', () => ({
   useGlobals: () => ({
@@ -465,6 +465,29 @@ describe('AuthCard', () => {
         'non_form_field',
         'This should be ignored.',
       )
+    })
+    it('preserves the next route query when navigating after successful authentication', async () => {
+      const redirect = '/dashboard/groups?token=invitation-token'
+      const authFn = vi.fn<AuthFn>().mockResolvedValue('Logged in!')
+
+      const wrapper = wrapperFactory({
+        authFn,
+        currentRoutes: {
+          prev: { label: 'Forgot Password?', name: 'forgot-password' },
+          next: {
+            name: 'dashboard',
+            query: { redirect },
+          },
+        },
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await mockHandleSubmit({ email: 'a@b.com', password: 'secret' })
+
+      expect(mockRouterPush).toHaveBeenCalledWith({
+        name: 'dashboard',
+        query: { redirect },
+      })
     })
   })
 

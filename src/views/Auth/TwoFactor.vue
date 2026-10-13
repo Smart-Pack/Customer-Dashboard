@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import AuthCard from '@/components/Base/AuthCard.vue'
 import ShieldCheckIcon from '@/components/Icons/ShieldCheckIcon.vue'
@@ -41,15 +41,22 @@ import { useAuthStore } from '@/stores/modules/auth'
 import { twoFactor } from '@/api'
 import { useGlobals } from '@/composables/useGlobals'
 
+const route = useRoute()
 const router = useRouter()
+const redirect = route.query.redirect
 const authStore = useAuthStore()
 const { $notifySuccess, $notifyError } = useGlobals()
 
 const { verifyTwoFaToken } = authStore
-
+// Preserve the intended destination when navigating to the dashboard after authentication.
 const currentRoutes = {
   prev: { label: 'Back to log in', name: 'login' },
-  next: { name: 'dashboard' },
+  next: {
+    name: 'dashboard',
+    ...(typeof redirect === 'string' && {
+      query: { redirect },
+    }),
+  },
 }
 
 const lastResendAt = ref(Date.now())
