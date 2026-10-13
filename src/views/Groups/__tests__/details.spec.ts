@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
 
   dateTime: vi.fn<(value: string) => string>(),
 
+  fetchUser: vi.fn<() => Promise<void>>(),
   isGroupAdmin: vi.fn<(groupId: number) => boolean>(),
   isGroupOwner: vi.fn<(groupId: number) => boolean>(),
 }))
@@ -45,6 +46,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: () => ({
     userId: 11,
+    fetchUser: mocks.fetchUser,
     isGroupAdmin: mocks.isGroupAdmin,
     isGroupOwner: mocks.isGroupOwner,
   }),
@@ -164,6 +166,7 @@ describe('GroupDetails', () => {
 
     mocks.dateTime.mockImplementation((value) => `Formatted: ${value}`)
 
+    mocks.fetchUser.mockResolvedValue(undefined)
     mocks.isGroupAdmin.mockReturnValue(true)
     mocks.isGroupOwner.mockReturnValue(true)
   })
@@ -291,6 +294,18 @@ describe('GroupDetails', () => {
       expect(mocks.routerPush).toHaveBeenCalledExactlyOnceWith({
         name: 'groups',
       })
+    })
+    it('continues loading group details when fetching the user fails', async () => {
+      mocks.fetchUser.mockRejectedValueOnce(new Error('Failed to fetch user'))
+
+      const wrapper = await mountGroupDetails()
+
+      expect(mocks.fetchUser).toHaveBeenCalledExactlyOnceWith()
+      expect(mocks.getById).toHaveBeenCalledExactlyOnceWith({
+        id: '7',
+      })
+      expect(wrapper.text()).toContain('Family Group')
+      expect(mocks.notifyError).not.toHaveBeenCalled()
     })
   })
 

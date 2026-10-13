@@ -210,7 +210,17 @@ export default defineComponent({
     }
   },
 
+  /**
+   * Refreshes the authenticated user's data to ensure the latest permissions
+   * are available, then fetches the group details.
+   *
+   * User data fetching runs asynchronously without blocking the group
+   * details request. Errors during user data fetching are ignored.
+   *
+   * @returns A promise that resolves when the group details are loaded.
+   */
   async mounted() {
+    this.authStore.fetchUser().catch(() => {})
     await this.getGroup()
   },
 
