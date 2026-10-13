@@ -18,9 +18,11 @@ defineOptions({
 import AuthCardBottomLink from '@/components/Auth/BottomLink.vue'
 import AuthCard from '@/components/Base/AuthCard.vue'
 import { useAuthStore } from '@/stores/modules/auth'
+import { useRoute } from 'vue-router'
 
 const authStore = useAuthStore()
-
+const route = useRoute()
+// Preserve the intended destination when navigating to the dashboard after authentication.
 const currentRoutes = {
   prev: {
     label: 'Forgot Password?',
@@ -28,6 +30,9 @@ const currentRoutes = {
   },
   next: {
     name: '2fa',
+    ...(typeof route.query.redirect === 'string' && {
+      query: { redirect: route.query.redirect },
+    }),
   },
 }
 

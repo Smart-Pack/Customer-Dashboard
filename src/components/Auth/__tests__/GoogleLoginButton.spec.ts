@@ -1,9 +1,13 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Router } from 'vue-router'
+import { useRoute, type Router } from 'vue-router'
 import GoogleLoginButton from '../GoogleLoginButton.vue'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore } from '@/stores/modules/auth'
+
+vi.mock('vue-router', () => ({
+  useRoute: vi.fn<typeof import('vue-router').useRoute>(),
+}))
 
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: vi.fn<typeof import('@/stores/modules/auth').useAuthStore>(),
@@ -55,6 +59,10 @@ describe('GoogleLoginButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
+    vi.mocked(useRoute).mockReturnValue({
+      query: {},
+    } as ReturnType<typeof useRoute>)
+
     vi.mocked(useGlobals).mockReturnValue({
       $notifySuccess: notifySuccess,
       $notifyError: notifyError,
@@ -87,12 +95,34 @@ describe('GoogleLoginButton', () => {
     })
 
     expect(notifySuccess).toHaveBeenCalledWith('Google Sign-In successful.')
-    expect(push).toHaveBeenCalledWith({ name: 'dashboard' })
+    expect(push).toHaveBeenCalledExactlyOnceWith({ name: 'dashboard' })
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('preserves the redirect query after successful Google Sign-In', async () => {
+    const redirect = '/dashboard/groups?token=invitation-token'
+
+    vi.mocked(useRoute).mockReturnValue({
+      query: { redirect },
+    } as unknown as ReturnType<typeof useRoute>)
+
+    const wrapper = wrapperFactory()
+
+    await wrapper.find('[data-testid="google-sign-in-button"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(push).toHaveBeenCalledExactlyOnceWith({
+        name: 'dashboard',
+        query: { redirect },
+      })
+    })
+
+    expect(notifySuccess).toHaveBeenCalledWith('Google Sign-In successful.')
     expect(notifyError).not.toHaveBeenCalled()
   })
 
   it('shows the loading state while authenticating', async () => {
-    let resolveLogin: (value: string) => void
+    let resolveLogin!: (value: string) => void
 
     googleLogIn.mockImplementation(
       () =>
@@ -113,7 +143,7 @@ describe('GoogleLoginButton', () => {
       'true',
     )
 
-    resolveLogin!('Google Sign-In successful.')
+    resolveLogin('Google Sign-In successful.')
 
     await vi.waitFor(() => {
       expect(wrapper.find('.submit-spinner').exists()).toBe(false)
