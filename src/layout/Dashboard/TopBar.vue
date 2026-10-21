@@ -37,6 +37,7 @@
         <LightModeIcon v-if="uiStore.isLightMode" class="lg:w-10 lg:h-10" />
         <DarkModeIcon v-else class="lg:w-10 lg:h-10" />
       </button>
+        <NotificationBell class="mr-6" />
 
       <button
         data-testid="account-toggle"
@@ -104,6 +105,7 @@ import HamburgerIcon from '@/components/Icons/HamburgerIcon.vue'
 import LightModeIcon from '@/components/Icons/LightModeIcon.vue'
 import SmartPackLogo from '@/components/Icons/SmartPackLogo.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
+import NotificationBell from '@/components/Notifications/NotificationBell.vue'
 import { auth } from '@/api'
 import { useAuthStore, useUiStore } from '@/stores'
 import { withCacheBust } from '@/utils/urlSecurity'

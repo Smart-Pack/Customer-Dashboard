@@ -81,3 +81,18 @@ export const GROUP_MEMBERS = {
   verifyInvite: `v1/users/groups/invitations/verify/`,
   joinInvite: `v1/users/groups/invitations/join/`,
 } as const
+
+export const PUSH_SUBSCRIPTIONS = {
+  COLLECTION: 'v1/core/push-subscriptions/',
+  collectionWithQuery: (params?: object) => {
+    if (!params) return PUSH_SUBSCRIPTIONS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${PUSH_SUBSCRIPTIONS.COLLECTION}?${query.toString()}`
+  },
+  detail: (id: string | number): string =>
+    `v1/core/push-subscriptions/${id}/`,
+} as const
