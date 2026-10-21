@@ -15,7 +15,7 @@
       </router-link>
     </h1>
 
-        <NotificationBell class="flex mr-6" />
+    <NotificationBell class="flex mr-6" />
     <button
       data-testid="side-nav-toggle"
       class="primary-text lg:hidden"

@@ -9,9 +9,7 @@ const VAPID_PUBLIC_KEY = import.meta.env.VITE_WEBPUSH_VAPID_PUBLIC_KEY
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
 
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
 
   const rawData = window.atob(base64)
   const output = new Uint8Array(rawData.length)
@@ -27,11 +25,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
  * Check whether the browser supports Web Push notifications.
  */
 export function isPushNotificationSupported(): boolean {
-  return (
-    'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    'Notification' in window
-  )
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
 /**
@@ -123,9 +117,7 @@ export async function unsubscribeFromPushNotifications(): Promise<void> {
   // If the API request fails, the browser remains subscribed.
   const subscriptions = await pushSubscriptions.list()
 
-  const existingSubscription = subscriptions.results.find(
-    (item) => item.endpoint === endpoint,
-  )
+  const existingSubscription = subscriptions.results.find((item) => item.endpoint === endpoint)
 
   if (existingSubscription) {
     await pushSubscriptions.remove(existingSubscription.id)
@@ -167,10 +159,7 @@ export async function logSubscriptionCount(): Promise<void> {
       })),
     })
   } catch (error) {
-    console.error(
-      '[SmartPack Push Notifications] Failed to retrieve subscriptions:',
-      error,
-    )
+    console.error('[SmartPack Push Notifications] Failed to retrieve subscriptions:', error)
   }
 }
 

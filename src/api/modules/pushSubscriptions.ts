@@ -32,13 +32,8 @@ export type PushSubscriptionListResult = PaginatedResponse<PushSubscription>
  * @param payload - The browser-generated push subscription.
  * @returns A promise resolving to the saved subscription.
  */
-export const create = async (
-  payload: CreatePushSubscriptionPayload,
-): Promise<PushSubscription> => {
-  const response = await apiClient.post<PushSubscription>(
-    PUSH_SUBSCRIPTIONS.COLLECTION,
-    payload,
-  )
+export const create = async (payload: CreatePushSubscriptionPayload): Promise<PushSubscription> => {
+  const response = await apiClient.post<PushSubscription>(PUSH_SUBSCRIPTIONS.COLLECTION, payload)
 
   return response.data
 }
@@ -49,9 +44,7 @@ export const create = async (
  * @returns A promise resolving to the paginated list of subscriptions.
  */
 export const list = async (): Promise<PushSubscriptionListResult> => {
-  const response = await apiClient.get<PushSubscriptionListResult>(
-    PUSH_SUBSCRIPTIONS.COLLECTION,
-  )
+  const response = await apiClient.get<PushSubscriptionListResult>(PUSH_SUBSCRIPTIONS.COLLECTION)
 
   return response.data
 }
@@ -63,9 +56,7 @@ export const list = async (): Promise<PushSubscriptionListResult> => {
  * @returns A promise resolving to the API response detail message.
  */
 export const remove = async (id: string | number): Promise<string> => {
-  const response = await apiClient.delete<ApiDetailResponse>(
-    PUSH_SUBSCRIPTIONS.detail(id),
-  )
+  const response = await apiClient.delete<ApiDetailResponse>(PUSH_SUBSCRIPTIONS.detail(id))
 
   return response.data.detail
 }

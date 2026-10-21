@@ -93,6 +93,5 @@ export const PUSH_SUBSCRIPTIONS = {
 
     return `${PUSH_SUBSCRIPTIONS.COLLECTION}?${query.toString()}`
   },
-  detail: (id: string | number): string =>
-    `v1/core/push-subscriptions/${id}/`,
+  detail: (id: string | number): string => `v1/core/push-subscriptions/${id}/`,
 } as const

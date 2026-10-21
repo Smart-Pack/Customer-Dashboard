@@ -27,9 +27,7 @@
       role="region"
       aria-label="Notification settings"
     >
-      <h2 class="primary-text text-sm font-semibold mb-2">
-        Notifications
-      </h2>
+      <h2 class="primary-text text-sm font-semibold mb-2">Notifications</h2>
 
       <p class="secondary-text text-sm mb-4">
         {{
@@ -69,10 +67,7 @@
         <span v-else>Turn on notifications</span>
       </button>
 
-      <p
-        v-if="!isPushNotificationSupported()"
-        class="secondary-text text-xs mt-3"
-      >
+      <p v-if="!isPushNotificationSupported()" class="secondary-text text-xs mt-3">
         Browser notifications are not supported by this browser.
       </p>
     </div>
@@ -152,8 +147,12 @@ async function refreshSubscriptionStatus() {
       await syncPushSubscription()
     }
   } catch (error: unknown) {
-  console.error('[toggle] failed:', error instanceof DOMException ? `${error.name}: ${error.message}` : error)
-  errorMessage.value = error instanceof Error ? error.message : 'Unable to update notification settings.'
+    console.error(
+      '[toggle] failed:',
+      error instanceof DOMException ? `${error.name}: ${error.message}` : error,
+    )
+    errorMessage.value =
+      error instanceof Error ? error.message : 'Unable to update notification settings.'
   }
 }
 
@@ -186,9 +185,7 @@ async function toggleNotifications(): Promise<void> {
     }
   } catch (error: unknown) {
     errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Unable to update notification settings.'
+      error instanceof Error ? error.message : 'Unable to update notification settings.'
 
     // Synchronize the icon and button with the actual browser state.
     await refreshSubscriptionStatus()
