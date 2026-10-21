@@ -15,6 +15,7 @@
       </router-link>
     </h1>
 
+        <NotificationBell class="flex mr-6" />
     <button
       data-testid="side-nav-toggle"
       class="primary-text lg:hidden"
@@ -37,7 +38,6 @@
         <LightModeIcon v-if="uiStore.isLightMode" class="lg:w-10 lg:h-10" />
         <DarkModeIcon v-else class="lg:w-10 lg:h-10" />
       </button>
-        <NotificationBell class="mr-6" />
 
       <button
         data-testid="account-toggle"
