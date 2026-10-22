@@ -8,6 +8,7 @@ import {
   claim,
   edit,
   list,
+  listSensorMeasurements,
   getById,
   assign,
   unassign,
@@ -16,6 +17,9 @@ import {
   type SmartPack,
   type SmartPackListResult,
   type SmartPackQueryParams,
+  type SmartPackSensorMeasurement,
+  type SmartPackSensorMeasurementListResult,
+  type SmartPackSensorMeasurementQueryParams,
 } from '@/api/modules/smartpacks'
 import type { ItemNotFoundError } from '@/api/types'
 
@@ -282,6 +286,96 @@ describe('SmartPacks API', () => {
 
       expect(apiClient.patch).toHaveBeenCalledWith(SMARTPACKS.unassignGroup(mockSmartPack.id))
       expect(response).toBe('SmartPack unassigned from group successfully.')
+    })
+  })
+  describe('listSensorMeasurements', () => {
+    const mockMeasurement: SmartPackSensorMeasurement = {
+      id: 1,
+      steps: 120,
+      weight: 8.5,
+      timestamp: '2026-10-22T11:57:51.120Z',
+      created: '2026-10-22T11:57:51.120Z',
+      updated: '2026-10-22T11:57:51.120Z',
+    }
+
+    it('fetches paginated sensor measurements without params', async () => {
+      const result: SmartPackSensorMeasurementListResult = {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [mockMeasurement],
+      }
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      } as never)
+
+      const response = await listSensorMeasurements()
+
+      expect(apiClient.get).toHaveBeenCalledExactlyOnceWith(SMARTPACKS.SENSOR_MEASUREMENTS)
+      expect(response).toEqual(result)
+    })
+
+    it('appends pagination and sensor measurement filters as query params', async () => {
+      const result: SmartPackSensorMeasurementListResult = {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [mockMeasurement],
+      }
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      } as never)
+
+      const params: SmartPackSensorMeasurementQueryParams = {
+        page: 2,
+        page_size: 20,
+        smartpack: mockSmartPack.id,
+        timestamp_gte: '2026-10-01T00:00:00Z',
+        timestamp_lte: '2026-10-22T23:59:59Z',
+      }
+
+      const response = await listSensorMeasurements(params)
+
+      const query = new URLSearchParams({
+        page: '2',
+        page_size: '20',
+        smartpack: String(mockSmartPack.id),
+        timestamp_gte: '2026-10-01T00:00:00Z',
+        timestamp_lte: '2026-10-22T23:59:59Z',
+      })
+
+      expect(apiClient.get).toHaveBeenCalledExactlyOnceWith(
+        `${SMARTPACKS.SENSOR_MEASUREMENTS}?${query.toString()}`,
+      )
+      expect(response).toEqual(result)
+    })
+
+    it('returns an empty paginated result when no measurements are available', async () => {
+      const result: SmartPackSensorMeasurementListResult = {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      }
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      } as never)
+
+      const response = await listSensorMeasurements()
+
+      expect(response).toEqual(result)
+      expect(response.results).toEqual([])
+    })
+
+    it('propagates API errors', async () => {
+      const error = new Error('Failed to fetch sensor measurements')
+
+      vi.mocked(apiClient.get).mockRejectedValueOnce(error)
+
+      await expect(listSensorMeasurements()).rejects.toThrow('Failed to fetch sensor measurements')
     })
   })
 })

@@ -38,6 +38,18 @@ export const USERS = {
 
 export const SMARTPACKS = {
   COLLECTION: 'v1/smartpacks/',
+  SENSOR_MEASUREMENTS: 'v1/smartpacks/sensor-measurements/',
+
+  sensorMeasurementsWithQuery: (params?: object): string => {
+    if (!params) return SMARTPACKS.SENSOR_MEASUREMENTS
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${SMARTPACKS.SENSOR_MEASUREMENTS}?${query.toString()}`
+  },
+
   claim: (deviceUid: string): string => `v1/smartpacks/${deviceUid}/claim/`,
   detail: (id: string | number): string => `v1/smartpacks/${id}/`,
   assign: (id: string | number): string => `v1/smartpacks/${id}/assign/`,
