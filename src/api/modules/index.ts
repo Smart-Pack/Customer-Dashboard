@@ -8,6 +8,7 @@ import * as auth from './auth'
 import * as groups from './groups'
 import * as groupMembers from './groupMembers'
 import * as twoFactor from './twoFactor'
+import * as pushSubscriptions from './pushSubscriptions'
 import * as users from './users'
 import * as smartpacks from './smartpacks'
 
@@ -17,10 +18,11 @@ const api = {
   groups,
   groupMembers,
   twoFactor,
+  pushSubscriptions,
   users,
   smartpacks,
 }
 
-export { analysis, auth, groups, groupMembers, twoFactor, users, smartpacks }
+export { analysis, auth, groups, groupMembers, twoFactor, pushSubscriptions, users, smartpacks }
 
 export default api
