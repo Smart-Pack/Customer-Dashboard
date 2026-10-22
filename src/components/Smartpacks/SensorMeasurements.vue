@@ -297,7 +297,7 @@ async function fetchMeasurements(): Promise<void> {
   }
 }
 
-const POLLING_INTERVAL = 5_000
+const POLLING_INTERVAL = 30_000
 const POLL_TIMEOUT = 15_000
 
 let pollingTimer: ReturnType<typeof setTimeout> | undefined
