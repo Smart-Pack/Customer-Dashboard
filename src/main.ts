@@ -14,12 +14,14 @@ import VueTelInput from 'vue-tel-input'
 import GoogleSignInPlugin from 'vue3-google-signin'
 import { useAuthStore } from './stores'
 import { setupRouterGuard } from './router/guards'
+import VueApexCharts from 'vue3-apexcharts'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
 app.use(VueTelInput)
+app.use(VueApexCharts)
 // Google OAuth client ID used for Google Sign-In.
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 app.use(GoogleSignInPlugin, {

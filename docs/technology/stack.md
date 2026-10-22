@@ -21,6 +21,7 @@ This document describes the technologies and tools used to develop and operate t
 | VeeValidate | — Form validation and field state management |
 | @vee-validate/rules | — Built-in validation rules for VeeValidate |
 | Vue Tel Input | — International telephone number input with country selection and formatting |
+| Vue3 ApexCharts | — Vue 3 charting library for interactive data visualization and sensor measurement charts |
 | QRCode Vue 3 | `qrcode-vue3` | Vue 3 QR code generation component for displaying device/user QR codes |
 | `vue3-google-signin` | Vue 3 Google Sign-In integration using Google Identity Services ([Guide](https://vue3-google-signin.wavezync.com/guide/)) |
 | `vue-qrcode-reader` | Vue 3 QR code reader with camera scanning and image/file QR code detection ([Guide](https://www.npmjs.com/package/vue-qrcode-reader)) |
