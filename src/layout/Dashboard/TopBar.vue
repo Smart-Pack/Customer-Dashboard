@@ -14,81 +14,83 @@
         SMARTPACK
       </router-link>
     </h1>
-
-    <button
-      data-testid="side-nav-toggle"
-      class="primary-text lg:hidden"
-      type="button"
-      :aria-expanded="uiStore.isSideNavOpen"
-      :aria-label="uiStore.isSideNavOpen ? 'Close navigation menu' : 'Open navigation menu'"
-      @click="toggleSideNav"
-    >
-      <HamburgerIcon v-if="!uiStore.isSideNavOpen" class="w-6 h-6 field-icon" />
-      <CloseIcon v-else class="w-6 h-6 field-icon" />
-    </button>
-
-    <div class="relative hidden lg:flex items-center">
+    <div class="flex items-center">
+      <NotificationBell class="mr-4 lg:mr-6" />
       <button
-        data-testid="theme-toggle"
-        class="primary-text flex flex-col items-center justify-center mr-12"
+        data-testid="side-nav-toggle"
+        class="primary-text lg:hidden"
         type="button"
-        @click="toggleTheme"
+        :aria-expanded="uiStore.isSideNavOpen"
+        :aria-label="uiStore.isSideNavOpen ? 'Close navigation menu' : 'Open navigation menu'"
+        @click="toggleSideNav"
       >
-        <LightModeIcon v-if="uiStore.isLightMode" class="lg:w-10 lg:h-10" />
-        <DarkModeIcon v-else class="lg:w-10 lg:h-10" />
+        <HamburgerIcon v-if="!uiStore.isSideNavOpen" class="w-6 h-6 field-icon cursor-pointer" />
+        <CloseIcon v-else class="w-6 h-6 field-icon cursor-pointer" />
       </button>
 
-      <button
-        data-testid="account-toggle"
-        class="secondary-text flex flex-col items-center justify-center text-center gap-1"
-        type="button"
-        aria-haspopup="true"
-        :aria-expanded="isDropdownOpen"
-        aria-controls="account-dropdown"
-        @click="toggleDropdown"
-      >
-        <img
-          v-if="authStore.loggedInUser?.profile_pic"
-          :src="withCacheBust(authStore.loggedInUser.profile_pic)"
-          :key="authStore.loggedInUser.profile_pic"
-          alt="Profile Picture"
-          class="w-12 h-12 object-cover inline rounded-full"
-        />
-        <UserIcon v-else class="lg:w-10 lg:h-10 field-icon" />
-      </button>
+      <div class="relative hidden lg:flex items-center">
+        <button
+          data-testid="theme-toggle"
+          class="primary-text flex flex-col items-center justify-center mr-12"
+          type="button"
+          @click="toggleTheme"
+        >
+          <LightModeIcon v-if="uiStore.isLightMode" class="lg:w-10 lg:h-10 cursor-pointer" />
+          <DarkModeIcon v-else class="lg:w-10 lg:h-10 cursor-pointer" />
+        </button>
 
-      <span class="secondary-text text-sm ml-4">
-        Welcome
-        <span class="block primary-text font-semibold">
-          {{ authStore.loggedInUser?.first_name }}
+        <button
+          data-testid="account-toggle"
+          class="secondary-text flex flex-col items-center justify-center text-center gap-1 cursor-pointer"
+          type="button"
+          aria-haspopup="true"
+          :aria-expanded="isDropdownOpen"
+          aria-controls="account-dropdown"
+          @click="toggleDropdown"
+        >
+          <img
+            v-if="authStore.loggedInUser?.profile_pic"
+            :src="withCacheBust(authStore.loggedInUser.profile_pic)"
+            :key="authStore.loggedInUser.profile_pic"
+            alt="Profile Picture"
+            class="w-12 h-12 object-cover inline rounded-full"
+          />
+          <UserIcon v-else class="lg:w-10 lg:h-10 field-icon" />
+        </button>
+
+        <span class="secondary-text text-sm ml-4">
+          Welcome
+          <span class="block primary-text font-semibold">
+            {{ authStore.loggedInUser?.first_name }}
+          </span>
         </span>
-      </span>
 
-      <div
-        id="account-dropdown"
-        role="menu"
-        class="hidden lg:absolute lg:block top-[105%] right-0 card-base !rounded-none min-w-36 secondary-text text-sm"
-        :class="isDropdownOpen ? 'lg:block' : 'lg:hidden'"
-      >
-        <button
-          data-testid="profile-button"
-          type="button"
-          class="px-4 py-2 hover:text-primary dark:hover:text-primary-dark w-full"
-          role="menuitem"
-          @click="goToProfile"
+        <div
+          id="account-dropdown"
+          role="menu"
+          class="hidden lg:absolute lg:block top-[105%] right-0 card-base !rounded-none min-w-36 secondary-text text-sm"
+          :class="isDropdownOpen ? 'lg:block' : 'lg:hidden'"
         >
-          My Profile
-        </button>
+          <button
+            data-testid="profile-button"
+            type="button"
+            class="px-4 py-2 hover:text-primary dark:hover:text-primary-dark w-full"
+            role="menuitem"
+            @click="goToProfile"
+          >
+            My Profile
+          </button>
 
-        <button
-          data-testid="logout-button"
-          type="button"
-          class="px-4 py-2 hover:text-primary dark:hover:text-primary-dark w-full"
-          role="menuitem"
-          @click.stop="logout"
-        >
-          Sign Out
-        </button>
+          <button
+            data-testid="logout-button"
+            type="button"
+            class="px-4 py-2 hover:text-primary dark:hover:text-primary-dark w-full"
+            role="menuitem"
+            @click.stop="logout"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -104,6 +106,7 @@ import HamburgerIcon from '@/components/Icons/HamburgerIcon.vue'
 import LightModeIcon from '@/components/Icons/LightModeIcon.vue'
 import SmartPackLogo from '@/components/Icons/SmartPackLogo.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
+import NotificationBell from '@/components/Notifications/NotificationBell.vue'
 import { auth } from '@/api'
 import { useAuthStore, useUiStore } from '@/stores'
 import { withCacheBust } from '@/utils/urlSecurity'
