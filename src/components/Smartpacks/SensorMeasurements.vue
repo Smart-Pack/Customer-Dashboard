@@ -210,7 +210,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from 'vue'
 import ApexCharts from 'vue3-apexcharts'
 import type { ApexOptions } from 'apexcharts'
 
@@ -288,6 +294,150 @@ async function fetchMeasurements(): Promise<void> {
     if (currentRequestId === requestId) {
       loading.value = false
     }
+  }
+}
+
+const POLLING_INTERVAL = 5_000
+const POLL_TIMEOUT = 15_000
+
+let pollingTimer: ReturnType<typeof setTimeout> | undefined
+let polling = false
+let componentUnmounted = false
+
+/**
+ * Rejects if the promise does not settle within the given time, so a hung
+ * request cannot keep the polling flag set forever.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Polling request timed out'))
+    }, ms)
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err: unknown) => {
+        clearTimeout(timer)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      },
+    )
+  })
+}
+
+async function pollNewMeasurements(): Promise<void> {
+  // Poll only the first page, which contains the latest measurements.
+  console.log(2)
+  if (
+    componentUnmounted ||
+    polling ||
+    loading.value ||
+    currentPage.value !== 1 ||
+    !props.smartpackId
+  ) {
+  console.log(4)
+    return
+  }
+
+  const latestTimestamp = measurements.value.reduce<string | null>(
+    (latest, measurement) => {
+      if (
+        !latest ||
+        new Date(measurement.timestamp).getTime() >
+          new Date(latest).getTime()
+      ) {
+        return measurement.timestamp
+      }
+
+      return latest
+    },
+    null,
+  )
+
+  // Capture the context so a response that arrives after the SmartPack
+  // changed, or after a full fetch started, can be discarded.
+  const polledSmartpackId = props.smartpackId
+  const startedRequestId = requestId
+
+  polling = true
+
+  try {
+    // With no baseline (empty list or previous load error) the request is
+    // unfiltered, so the first measurements still appear without a reload.
+    const response = await withTimeout(
+      listSensorMeasurements({
+        smartpack: polledSmartpackId,
+        ...(latestTimestamp ? { timestamp_gte: latestTimestamp } : {}),
+        page: 1,
+        page_size: PAGE_SIZE,
+      }),
+      POLL_TIMEOUT,
+    )
+
+    // The component, SmartPack, page, or a full fetch may have changed
+    // while this request was in flight.
+    if (
+      componentUnmounted ||
+      currentPage.value !== 1 ||
+      props.smartpackId !== polledSmartpackId ||
+      requestId !== startedRequestId
+    ) {
+      return
+    }
+
+    // Include only unseen records. timestamp_gte is inclusive, so the
+    // existing newest record may appear in the response again.
+    const existingIds = new Set(
+      measurements.value.map((measurement) => measurement.id),
+    )
+
+    const newMeasurements = response.results.filter(
+      (measurement) => !existingIds.has(measurement.id),
+    )
+
+    // If nothing new arrived, preserve the current data and charts.
+    if (newMeasurements.length === 0) return
+
+    // Merge and deduplicate records, keeping the latest page-sized window.
+    const mergedMeasurements = new Map(
+      measurements.value.map((measurement) => [
+        measurement.id,
+        measurement,
+      ]),
+    )
+
+    for (const measurement of newMeasurements) {
+      mergedMeasurements.set(measurement.id, measurement)
+    }
+
+    measurements.value = [...mergedMeasurements.values()]
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() -
+          new Date(a.timestamp).getTime(),
+      )
+      .slice(0, PAGE_SIZE)
+
+    if (latestTimestamp) {
+      // The polling response is filtered, so its count is not the overall
+      // measurement count. Increase the existing count by newly found IDs.
+      totalCount.value += newMeasurements.length
+    } else {
+      // Unfiltered request: the response count is the real total.
+      totalCount.value = response.count
+      nextPage.value = response.next
+      previousPage.value = response.previous
+    }
+
+    // Data arrived, so clear any earlier load error.
+    error.value = ''
+  } catch (err: unknown) {
+    // A transient polling failure should not clear the existing measurements.
+    console.error('Failed to poll SmartPack sensor measurements:', err)
+  } finally {
+    polling = false
   }
 }
 
@@ -502,4 +652,18 @@ watch(
   },
   { immediate: true },
 )
+
+onMounted(() => {
+  pollingTimer = setInterval(() => {
+    void pollNewMeasurements()
+  }, POLLING_INTERVAL)
+})
+
+onUnmounted(() => {
+  componentUnmounted = true
+
+  if (pollingTimer !== undefined) {
+    clearInterval(pollingTimer)
+  }
+})
 </script>
