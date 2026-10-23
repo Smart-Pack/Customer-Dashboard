@@ -12,6 +12,7 @@ The `src/components/Base` directory contains reusable UI and form components.
 | [Table](Table.md) | Reusable and configurable table component for displaying collections of data. |
 | [TablePageLayout](base/TablePageLayout.md) | Reusable layout component for tabbed, paginated tables with API data fetching and search support. |
 | [CreationFormLayout](base/CreationFormLayout.md) | Reusable form layout for creating and updating resources with grouped fields, validation, API submission, and optional modal actions. |
+| InfoTooltip | Reusable informational tooltip that displays supporting text on hover or when clicked, with optional custom content and accessible labeling. |
 
 ## Adding Components
 
