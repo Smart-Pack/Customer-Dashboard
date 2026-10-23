@@ -95,3 +95,7 @@ export const PUSH_SUBSCRIPTIONS = {
   },
   detail: (id: string | number): string => `v1/core/push-subscriptions/${id}/`,
 } as const
+
+export const NOTIFICATION_PREFERENCES = {
+  ME: 'v1/users/me/notification-preferences/',
+} as const
