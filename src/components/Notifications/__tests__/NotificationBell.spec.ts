@@ -177,7 +177,7 @@ describe('NotificationBell', () => {
 
       expect(mounted.findComponent(RouterLinkStub).props('to')).toEqual({
         name: 'my-profile',
-        query: { tabs: 'notification' },
+        query: { tabs: 'notifications' },
       })
     })
 

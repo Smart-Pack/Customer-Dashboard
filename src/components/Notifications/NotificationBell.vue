@@ -32,7 +32,7 @@
         <RouterLink
           :to="{
             name: 'my-profile',
-            query: { tabs: 'notification' },
+            query: { tabs: 'notifications' },
           }"
         >
           <CogIcon class="primary-text w-5 h-5 cursor-pointer" />

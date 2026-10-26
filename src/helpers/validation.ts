@@ -73,7 +73,6 @@ const defaultMessages: Record<string, ValidationMessage> = {
     const requiredAge = Number(rule?.params?.[0]) || 18
     return `${field} requires you to be at least ${requiredAge} years old`
   },
-
   positive_integer: (field) => `${field} must be a positive whole number`,
 }
 
@@ -376,6 +375,56 @@ const registerCustomRules = (): void => {
 
     return Number.isInteger(number) && number >= 0
   })
+  /**
+   * Registers a no-op validation rule that always passes validation.
+   *
+   * This rule does not perform any validation and can be used when a
+   * validation rule is required but no validation should be applied.
+   *
+   * @returns `true` to indicate that validation always succeeds.
+   */
+  defineRule('noop', () => true)
+  /**
+   * Validates that the selected notification channel has a corresponding phone number.
+   *
+   * @param value - The selected notification channel.
+   * @param params - Rule parameters. `params[0]` is the SMS phone number field,
+   *   and `params[1]` is the WhatsApp phone number field.
+   * @param ctx - Validation context containing the form values.
+   */
+  defineRule(
+    'channel_requires_value',
+    (
+      value: unknown,
+      [smsField, whatsappField]: [string | undefined, string | undefined],
+      ctx: ValidationContext,
+    ) => {
+      if (!value) {
+        return true
+      }
+
+      let targetField: string | undefined
+
+      if (value === 'sms') {
+        targetField = smsField
+      } else if (value === 'whatsapp') {
+        targetField = whatsappField
+      } else {
+        return true
+      }
+
+      if (!targetField) {
+        return false
+      }
+
+      const requiredValue = ctx.form[targetField]
+
+      return (
+        (typeof requiredValue === 'string' && requiredValue.trim().length > 0) ||
+        `A verified ${value === 'sms' ? 'SMS' : 'WhatsApp'} phone number is required for ${value === 'sms' ? 'SMS' : 'WhatsApp'} notifications.`
+      )
+    },
+  )
 }
 
 /**

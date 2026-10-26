@@ -58,6 +58,8 @@ SmartPack-specific rules include:
 * `image_type` — Validates supported image file types.
 * `file_max_size` — Validates the maximum allowed file size.
 * `positive_integer` — Validates positive integer values.
+* `channel_requires_value` — Requires a corresponding phone number when SMS or WhatsApp is selected as the notification channel.
+* `noop` — Always passes validation without performing any checks.
 
 ## Using Validation
 
