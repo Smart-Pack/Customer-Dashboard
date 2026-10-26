@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import apiClient from '@/api/client'
 import {
   clearSmsPhoneNumber,
+  clearWhatsAppPhoneNumber,
   get,
   patch,
   requestSmsOtp,
+  requestWhatsAppOtp,
   verifySmsOtp,
+  verifyWhatsAppOtp,
   type NotificationPreferences,
   type PhoneNumberOperationResponse,
   type RequestSmsOtpPayload,
+  type RequestWhatsappOtpPayload,
   type UpdateNotificationPreferencesPayload,
   type VerifySmsOtpPayload,
 } from '@/api/modules/notificationPreferences'
@@ -203,6 +207,97 @@ describe('Notification Preferences API', () => {
       await expect(verifySmsOtp(payload)).rejects.toBe(error)
 
       expect(apiClient.post).toHaveBeenCalledWith(NOTIFICATION_PREFERENCES.SMS.VERIFY_OTP, payload)
+    })
+  })
+  describe('clearWhatsAppPhoneNumber', () => {
+    it('clears the authenticated user WhatsApp phone number successfully', async () => {
+      vi.mocked(apiClient.delete).mockResolvedValueOnce({
+        data: mockOperationResponse,
+      } as never)
+
+      const response = await clearWhatsAppPhoneNumber()
+
+      expect(apiClient.delete).toHaveBeenCalledWith(NOTIFICATION_PREFERENCES.WHATSAPP.CLEAR)
+      expect(apiClient.delete).toHaveBeenCalledTimes(1)
+      expect(response).toEqual(mockOperationResponse)
+    })
+
+    it('propagates errors when clearing the WhatsApp phone number fails', async () => {
+      const error = new Error('Unable to clear WhatsApp phone number')
+
+      vi.mocked(apiClient.delete).mockRejectedValueOnce(error)
+
+      await expect(clearWhatsAppPhoneNumber()).rejects.toBe(error)
+
+      expect(apiClient.delete).toHaveBeenCalledWith(NOTIFICATION_PREFERENCES.WHATSAPP.CLEAR)
+    })
+  })
+
+  describe('requestWhatsAppOtp', () => {
+    const payload: RequestWhatsappOtpPayload = {
+      whatsapp_phone_number: '+254723456789',
+    }
+
+    it('requests a WhatsApp verification OTP successfully', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockOperationResponse,
+      } as never)
+
+      const response = await requestWhatsAppOtp(payload)
+
+      expect(apiClient.post).toHaveBeenCalledWith(
+        NOTIFICATION_PREFERENCES.WHATSAPP.REQUEST_OTP,
+        payload,
+      )
+      expect(apiClient.post).toHaveBeenCalledTimes(1)
+      expect(response).toEqual(mockOperationResponse)
+    })
+
+    it('propagates errors when requesting a WhatsApp verification OTP fails', async () => {
+      const error = new Error('Unable to send WhatsApp verification OTP')
+
+      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+
+      await expect(requestWhatsAppOtp(payload)).rejects.toBe(error)
+
+      expect(apiClient.post).toHaveBeenCalledWith(
+        NOTIFICATION_PREFERENCES.WHATSAPP.REQUEST_OTP,
+        payload,
+      )
+    })
+  })
+
+  describe('verifyWhatsAppOtp', () => {
+    const payload: VerifySmsOtpPayload = {
+      otp: '123456',
+    }
+
+    it('verifies a WhatsApp OTP and updates the phone number successfully', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        data: mockOperationResponse,
+      } as never)
+
+      const response = await verifyWhatsAppOtp(payload)
+
+      expect(apiClient.post).toHaveBeenCalledWith(
+        NOTIFICATION_PREFERENCES.WHATSAPP.VERIFY_OTP,
+        payload,
+      )
+      expect(apiClient.post).toHaveBeenCalledTimes(1)
+      expect(response).toEqual(mockOperationResponse)
+    })
+
+    it('propagates errors when WhatsApp OTP verification fails', async () => {
+      const error = new Error('Invalid or expired WhatsApp verification OTP')
+
+      vi.mocked(apiClient.post).mockRejectedValueOnce(error)
+
+      await expect(verifyWhatsAppOtp(payload)).rejects.toBe(error)
+
+      expect(apiClient.post).toHaveBeenCalledWith(
+        NOTIFICATION_PREFERENCES.WHATSAPP.VERIFY_OTP,
+        payload,
+      )
     })
   })
 })

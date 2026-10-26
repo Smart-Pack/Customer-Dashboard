@@ -98,4 +98,16 @@ export const PUSH_SUBSCRIPTIONS = {
 
 export const NOTIFICATION_PREFERENCES = {
   ME: 'v1/users/me/notification-preferences/',
+
+  SMS: {
+    CLEAR: 'v1/users/me/notification-preferences/sms/clear/',
+    REQUEST_OTP: 'v1/users/me/notification-preferences/sms/request-otp/',
+    VERIFY_OTP: 'v1/users/me/notification-preferences/sms/verify-otp/',
+  },
+
+  WHATSAPP: {
+    CLEAR: 'v1/users/me/notification-preferences/whatsapp/clear/',
+    REQUEST_OTP: 'v1/users/me/notification-preferences/whatsapp/request-otp/',
+    VERIFY_OTP: 'v1/users/me/notification-preferences/whatsapp/verify-otp/',
+  },
 } as const

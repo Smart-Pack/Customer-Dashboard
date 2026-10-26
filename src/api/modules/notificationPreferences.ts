@@ -19,7 +19,9 @@ export interface UpdateNotificationPreferencesPayload {
 export interface RequestSmsOtpPayload {
   sms_phone_number: string
 }
-
+export interface RequestWhatsappOtpPayload {
+  whatsapp_phone_number: string
+}
 export interface VerifySmsOtpPayload {
   otp: string
 }
@@ -104,6 +106,58 @@ export const verifySmsOtp = async (
 ): Promise<PhoneNumberOperationResponse> => {
   const response = await apiClient.post<PhoneNumberOperationResponse>(
     NOTIFICATION_PREFERENCES.SMS.VERIFY_OTP,
+    payload,
+  )
+
+  return response.data
+}
+
+/**
+ * Clears the authenticated user's WhatsApp phone number.
+ *
+ * The operation fails if either general or SmartPack notifications
+ * currently use WhatsApp.
+ *
+ * @returns The API response message.
+ */
+export const clearWhatsAppPhoneNumber = async (): Promise<PhoneNumberOperationResponse> => {
+  const response = await apiClient.delete<PhoneNumberOperationResponse>(
+    NOTIFICATION_PREFERENCES.WHATSAPP.CLEAR,
+  )
+
+  return response.data
+}
+
+/**
+ * Requests an OTP to verify a new WhatsApp phone number.
+ *
+ * The submitted number must differ from the currently linked WhatsApp number.
+ *
+ * @param payload - The new phone number to verify.
+ * @returns The API response message.
+ */
+export const requestWhatsAppOtp = async (
+  payload: RequestWhatsappOtpPayload,
+): Promise<PhoneNumberOperationResponse> => {
+  const response = await apiClient.post<PhoneNumberOperationResponse>(
+    NOTIFICATION_PREFERENCES.WHATSAPP.REQUEST_OTP,
+    payload,
+  )
+
+  return response.data
+}
+
+/**
+ * Verifies an OTP and updates the authenticated user's WhatsApp phone number.
+ *
+ * @param payload - The verification OTP.
+ * @returns The API response message.
+ */
+export const verifyWhatsAppOtp = async (
+  payload: VerifySmsOtpPayload,
+): Promise<PhoneNumberOperationResponse> => {
+  const response = await apiClient.post<PhoneNumberOperationResponse>(
+    NOTIFICATION_PREFERENCES.WHATSAPP.VERIFY_OTP,
     payload,
   )
 
