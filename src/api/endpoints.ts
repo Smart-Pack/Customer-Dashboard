@@ -113,5 +113,5 @@ export const NOTIFICATION_PREFERENCES = {
 } as const
 
 export const MQTT = {
-  CONFIG: 'v1/mqtt/config/',
+  CONFIG: 'v1/core/mqtt/config/',
 } as const
