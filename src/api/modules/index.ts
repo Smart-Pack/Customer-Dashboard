@@ -8,6 +8,7 @@ import * as auth from './auth'
 import * as groups from './groups'
 import * as groupMembers from './groupMembers'
 import * as twoFactor from './twoFactor'
+import * as mqtt from './mqtt'
 import * as notificationPreferences from './notificationPreferences'
 import * as pushSubscriptions from './pushSubscriptions'
 import * as users from './users'
@@ -19,6 +20,7 @@ const api = {
   groups,
   groupMembers,
   twoFactor,
+  mqtt,
   notificationPreferences,
   pushSubscriptions,
   users,
@@ -30,6 +32,7 @@ export {
   auth,
   groups,
   groupMembers,
+  mqtt,
   twoFactor,
   notificationPreferences,
   pushSubscriptions,

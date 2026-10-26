@@ -111,3 +111,7 @@ export const NOTIFICATION_PREFERENCES = {
     VERIFY_OTP: 'v1/users/me/notification-preferences/whatsapp/verify-otp/',
   },
 } as const
+
+export const MQTT = {
+  CONFIG: 'v1/mqtt/config/',
+} as const
