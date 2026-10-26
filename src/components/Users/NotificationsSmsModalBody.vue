@@ -84,7 +84,7 @@
 
   <!-- Footer -->
   <footer
-    class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 secondary-text flex-shrink-0"
+    class="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 secondary-text flex-shrink-0"
   >
     <button
       type="button"
