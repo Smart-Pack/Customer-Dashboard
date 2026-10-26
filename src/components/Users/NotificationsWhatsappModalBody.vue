@@ -5,6 +5,40 @@
       Update your WhatsApp phone number. A verification code will be sent to your new number before
       the change takes effect.
     </p>
+    <!-- Initiate WhatsApp conversation -->
+    <div class="space-y-3 text-center">
+      <p class="font-semibold">Step 1: Start a WhatsApp conversation</p>
+
+      <p class="text-xs opacity-70">
+        Click the button below and send us a WhatsApp message, or scan the QR code using your phone.
+        You can then request your verification code.
+      </p>
+
+      <!-- QR code: visible on medium screens and larger -->
+      <a
+        href="https://wa.me/message/DMGZ23OVIBZYE1"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hidden md:block"
+        aria-label="Open WhatsApp using the QR code"
+      >
+        <img
+          src="/whatsapp-otp-qr.png"
+          alt="Scan this QR code to open the SmartPack WhatsApp conversation"
+          class="mx-auto h-40 w-40 rounded-lg border border-gray-200 object-contain"
+        />
+      </a>
+
+      <!-- WhatsApp button: centered below the QR code -->
+      <a
+        href="https://wa.me/message/DMGZ23OVIBZYE1"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="form-submit mx-auto inline-flex w-fit items-center justify-center rounded-full px-5 py-2 text-sm font-semibold"
+      >
+        Open WhatsApp
+      </a>
+    </div>
 
     <!-- Current number -->
     <div class="space-y-2">
@@ -30,6 +64,13 @@
     <!-- New number and Verify button -->
     <form class="space-y-5" @submit.prevent="requestOtp">
       <div class="space-y-2">
+        <p class="font-semibold">Step 2: Verify your phone number</p>
+
+        <p class="text-xs opacity-70">
+          After sending your WhatsApp message, enter the WhatsApp number you want to register and
+          click Verify to request an OTP.
+        </p>
+
         <label
           for="whatsapp_phone_number"
           class="secondary-text font-semibold text-left block pl-2 text-sm"
