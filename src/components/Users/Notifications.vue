@@ -111,6 +111,17 @@
             />
           </div>
         </div>
+        <!-- Manage both contact numbers -->
+        <div class="flex justify-end pt-2">
+          <button
+            type="button"
+            data-testid="manage-contact-numbers-button"
+            class="form-submit px-5 py-2 text-sm font-semibold"
+            @click="showContactNumbersModal = true"
+          >
+            Manage Contact Numbers
+          </button>
+        </div>
       </section>
 
       <div v-if="isActive" class="flex items-center secondary-text text-sm">
@@ -131,6 +142,13 @@
         </button>
       </div>
     </form>
+    <NotificationsModal
+      v-if="showContactNumbersModal"
+      :sms-phone-number="preferences.sms_phone_number || ''"
+      :whatsapp-phone-number="preferences.whatsapp_phone_number || ''"
+      @close="showContactNumbersModal = false"
+      @success="getPreferences"
+    />
   </div>
 </template>
 
@@ -158,6 +176,7 @@ import InfoTooltip from '@/components/Base/InfoTooltip.vue'
 import InputField from '@/components/Base/InputField.vue'
 import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import WhatsAppIcon from '@/components/Icons/WhatsAppIcon.vue'
+import NotificationsModal from '@/components/Users/NotificationsModal.vue'
 import type { AxiosError } from 'axios'
 import { useGlobals } from '@/composables/useGlobals'
 
@@ -217,7 +236,7 @@ const hasChanges = computed(() => {
       originalPreferences.value.preferred_smartpack_channel
   )
 })
-
+const showContactNumbersModal = ref(false)
 /**
  * Syncs a server response into the local model, the vee-validate fields,
  * and the baseline used for change detection.

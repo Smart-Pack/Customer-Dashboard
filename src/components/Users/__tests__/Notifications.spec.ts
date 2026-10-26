@@ -31,7 +31,8 @@ const mockPreferences: NotificationPreferences = {
 const GENERAL_SELECT = '[data-testid="general-channel-select"]'
 const SMARTPACK_SELECT = '[data-testid="smartpack-channel-select"]'
 const SAVE_BUTTON = '[data-testid="save-notification-preferences-button"]'
-
+const MANAGE_CONTACT_NUMBERS_BUTTON = '[data-testid="manage-contact-numbers-button"]'
+const NOTIFICATIONS_MODAL = '[data-testid="notifications-modal"]'
 // --- Mocks -------------------------------------------------------------
 
 const mockGet = vi.hoisted(() => vi.fn<() => Promise<NotificationPreferences>>())
@@ -176,7 +177,47 @@ const createIconStub = (name: string, className: string) =>
       return () => h('svg', { class: className })
     },
   })
+const mockNotificationsModal = vi.hoisted(() => ({
+  close: vi.fn<() => void>(),
+  success: vi.fn<() => void>(),
+}))
 
+vi.mock('@/components/Users/NotificationsModal.vue', () => ({
+  default: {
+    name: 'NotificationsModal',
+    props: {
+      smsPhoneNumber: {
+        type: String,
+        required: true,
+      },
+      whatsappPhoneNumber: {
+        type: String,
+        required: true,
+      },
+    },
+    emits: ['close', 'success'],
+    setup(
+      _props: {
+        smsPhoneNumber: string
+        whatsappPhoneNumber: string
+      },
+      { emit }: { emit: (event: 'close' | 'success') => void },
+    ) {
+      return {
+        emit,
+        mockNotificationsModal,
+      }
+    },
+    template: `
+      <div data-testid="notifications-modal">
+        <span data-testid="modal-sms-phone">{{ smsPhoneNumber }}</span>
+        <span data-testid="modal-whatsapp-phone">{{ whatsappPhoneNumber }}</span>
+        <button data-testid="modal-close" @click="emit('close')">Close</button>
+        <button data-testid="modal-success" @click="emit('success')">Success</button>
+      </div>
+    `,
+  },
+}))
 // --- Helpers -----------------------------------------------------------
 
 const globalStubs = {
@@ -621,6 +662,100 @@ describe('Notifications', () => {
       await flushPromises()
 
       expect(wrapper.get(SAVE_BUTTON).attributes('disabled')).toBeUndefined()
+    })
+  })
+  describe('contact numbers modal', () => {
+    it('renders the Manage Contact Numbers button', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+
+      const button = wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON)
+
+      expect(button.text()).toBe('Manage Contact Numbers')
+      expect(button.attributes('type')).toBe('button')
+    })
+
+    it('does not render the modal initially', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+
+      expect(wrapper.find(NOTIFICATIONS_MODAL).exists()).toBe(false)
+    })
+
+    it('opens the modal when Manage Contact Numbers is clicked', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+
+      expect(wrapper.find(NOTIFICATIONS_MODAL).exists()).toBe(true)
+    })
+
+    it('passes both configured phone numbers to the modal', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+
+      expect(wrapper.get('[data-testid="modal-sms-phone"]').text()).toBe('+254700000000')
+      expect(wrapper.get('[data-testid="modal-whatsapp-phone"]').text()).toBe('+254711111111')
+    })
+
+    it('passes empty phone numbers to the modal when none are configured', async () => {
+      mockGet.mockResolvedValue({
+        ...mockPreferences,
+        sms_phone_number: null,
+        whatsapp_phone_number: null,
+      } as unknown as NotificationPreferences)
+
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+
+      expect(wrapper.get('[data-testid="modal-sms-phone"]').text()).toBe('')
+      expect(wrapper.get('[data-testid="modal-whatsapp-phone"]').text()).toBe('')
+    })
+
+    it('closes the modal when the modal emits close', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+
+      expect(wrapper.find(NOTIFICATIONS_MODAL).exists()).toBe(true)
+
+      await wrapper.get('[data-testid="modal-close"]').trigger('click')
+
+      expect(wrapper.find(NOTIFICATIONS_MODAL).exists()).toBe(false)
+    })
+
+    it('reloads preferences when the modal emits success', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+
+      expect(mockGet).toHaveBeenCalledTimes(1)
+
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+      await wrapper.get('[data-testid="modal-success"]').trigger('click')
+      await flushPromises()
+
+      expect(mockGet).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps the modal open when the modal emits success', async () => {
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await wrapper.get(MANAGE_CONTACT_NUMBERS_BUTTON).trigger('click')
+      await wrapper.get('[data-testid="modal-success"]').trigger('click')
+
+      await flushPromises()
+
+      expect(wrapper.find(NOTIFICATIONS_MODAL).exists()).toBe(true)
     })
   })
 })
