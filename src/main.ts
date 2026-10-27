@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 import 'vue-tel-input/dist/vue-tel-input.css'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import './assets/css/main.css'
-
 import App from './App.vue'
 import api from './api'
 import { notifySuccess, notifyError, deleteModal } from './helpers/swalNotifier'
@@ -11,6 +10,7 @@ import Filters from './helpers/filters'
 import { setupValidation } from './helpers/validation'
 import router from './router'
 import VueTelInput from 'vue-tel-input'
+import VueApexCharts from 'vue3-apexcharts'
 import GoogleSignInPlugin from 'vue3-google-signin'
 import { useAuthStore } from './stores'
 import { setupRouterGuard } from './router/guards'
@@ -20,6 +20,7 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(VueTelInput)
+app.use(VueApexCharts)
 // Google OAuth client ID used for Google Sign-In.
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 app.use(GoogleSignInPlugin, {

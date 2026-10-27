@@ -46,7 +46,22 @@ export interface SmartPack {
 export type EditSmartPackPayload = {
   child_name: string
 }
+export interface SmartPackSensorMeasurement {
+  id: number
+  steps: number
+  weight: number
+  timestamp: string
+  created: string
+  updated: string
+}
 
+export interface SmartPackSensorMeasurementQueryParams extends PaginationQueryParams {
+  smartpack?: number
+  timestamp_gte?: string
+  timestamp_lte?: string
+}
+
+export type SmartPackSensorMeasurementListResult = PaginatedResponse<SmartPackSensorMeasurement>
 export type SmartPackListItem = SmartPack
 
 export interface SmartPackQueryParams extends PaginationQueryParams {
@@ -225,4 +240,27 @@ export const unassignGroup = async (id: string | number): Promise<string> => {
   const response = await apiClient.patch<ApiDetailResponse>(SMARTPACKS.unassignGroup(id))
 
   return response.data.detail
+}
+
+/**
+ * Fetches paginated sensor measurements available to the authenticated user.
+ *
+ * Internal users can view measurements for all SmartPacks, while customers
+ * can only view measurements for SmartPacks assigned to their account or
+ * belonging to a group they are members of.
+ *
+ * Results are ordered by timestamp, newest first.
+ *
+ * @param params - Optional query parameters for pagination, SmartPack filtering,
+ * and timestamp range filtering.
+ * @returns A promise resolving with the paginated sensor measurement list.
+ */
+export const listSensorMeasurements = async (
+  params?: SmartPackSensorMeasurementQueryParams,
+): Promise<SmartPackSensorMeasurementListResult> => {
+  const url = SMARTPACKS.sensorMeasurementsWithQuery(params)
+
+  const response = await apiClient.get<SmartPackSensorMeasurementListResult>(url)
+
+  return response.data
 }
