@@ -148,7 +148,13 @@
 
       <AssignChildForm :initial-values="{ ...smartPack }" @close="handlePageChange" />
     </div>
-
+    <!-- Sensor Measurements -->
+    <SmartPackSensorMeasurements
+      v-if="smartPack.id && smartPack.device_uid && activePage === 'showDetails'"
+      class="mt-8 mx-auto max-w-6xl"
+      :smartpack-id="smartPack.id"
+      :smartpack-uid="smartPack.device_uid"
+    />
     <!-- Assign Group Modal -->
     <AssignGroup
       v-if="showAssignGroupTable"
@@ -173,7 +179,7 @@ import { defineComponent } from 'vue'
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
-
+import SmartPackSensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
@@ -193,6 +199,7 @@ export default defineComponent({
     UserGroupIcon,
     AssignGroup,
     SmartPackQrComponent,
+    SmartPackSensorMeasurements,
   },
 
   computed: {
