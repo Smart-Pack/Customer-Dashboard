@@ -20,6 +20,7 @@ This document describes the technologies and tools used to develop and operate t
 | Vue Router | Client-side routing                        |
 | VeeValidate | — Form validation and field state management |
 | @vee-validate/rules | — Built-in validation rules for VeeValidate |
+| mqtt | MQTT client for JavaScript, enabling real-time messaging between your Vue frontend and an MQTT broker over WebSockets.
 | Vue Tel Input | — International telephone number input with country selection and formatting |
 | QRCode Vue 3 | `qrcode-vue3` | Vue 3 QR code generation component for displaying device/user QR codes |
 | `vue3-google-signin` | Vue 3 Google Sign-In integration using Google Identity Services ([Guide](https://vue3-google-signin.wavezync.com/guide/)) |
