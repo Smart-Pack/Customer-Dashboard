@@ -54,7 +54,10 @@ export interface SmartPackSensorMeasurement {
   created: string
   updated: string
 }
-
+export const getStepsDelta = (
+  current: SmartPackSensorMeasurement,
+  previous: SmartPackSensorMeasurement,
+): number => Math.max(0, current.steps - previous.steps)
 export interface SmartPackSensorMeasurementQueryParams extends PaginationQueryParams {
   smartpack?: number
   timestamp_gte?: string
