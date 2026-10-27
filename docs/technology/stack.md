@@ -19,6 +19,7 @@ This document describes the technologies and tools used to develop and operate t
 | SweetAlert2 | — Alert, toast, and confirmation notifications |
 | Vue Router | Client-side routing                        |
 | VeeValidate | — Form validation and field state management |
+| Vue3 ApexCharts | — Vue 3 charting library for interactive data visualization and sensor measurement charts |
 | @vee-validate/rules | — Built-in validation rules for VeeValidate |
 | mqtt | MQTT client for JavaScript, enabling real-time messaging between your Vue frontend and an MQTT broker over WebSockets.
 | Vue Tel Input | — International telephone number input with country selection and formatting |
