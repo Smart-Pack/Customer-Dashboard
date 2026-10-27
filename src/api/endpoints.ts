@@ -111,3 +111,23 @@ export const NOTIFICATION_PREFERENCES = {
     VERIFY_OTP: 'v1/users/me/notification-preferences/whatsapp/verify-otp/',
   },
 } as const
+
+export const MQTT = {
+  CONFIG: 'v1/core/mqtt/config/',
+} as const
+
+export const NOTIFICATIONS = {
+  COLLECTION: 'v1/core/notifications/',
+
+  collectionWithQuery: (params?: object) => {
+    if (!params) return NOTIFICATIONS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${NOTIFICATIONS.COLLECTION}?${query.toString()}`
+  },
+
+  detail: (id: string | number): string => `v1/core/notifications/${id}/`,
+} as const

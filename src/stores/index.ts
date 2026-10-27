@@ -5,3 +5,4 @@
 
 export { useAuthStore } from './modules/auth'
 export { useUiStore } from './modules/ui'
+export { useMqttStore } from './modules/mqtt'

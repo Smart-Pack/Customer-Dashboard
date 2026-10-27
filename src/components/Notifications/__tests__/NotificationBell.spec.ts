@@ -23,7 +23,24 @@ vi.mock('@/composables/useGlobals', () => ({
     $notifyError: notifyError,
   }),
 }))
-
+vi.mock('@/components/Notifications/NotificationContent.vue', () => ({
+  default: {
+    name: 'NotificationContent',
+    props: ['unreadCount'],
+    emits: ['unread-count-change'],
+    template: `
+      <div data-testid="notification-content">
+        <span data-testid="content-unread-count">{{ unreadCount }}</span>
+        <button
+          data-testid="emit-unread-count"
+          @click="$emit('unread-count-change', 5)"
+        >
+          Update unread count
+        </button>
+      </div>
+    `,
+  },
+}))
 vi.mock('@/services/pushNotifications', () => ({
   isPushNotificationSupported: vi.fn<() => boolean>(),
   isSubscribedToPushNotifications: vi.fn<() => Promise<boolean>>(),
@@ -153,23 +170,27 @@ describe('NotificationBell', () => {
       expect(mounted.find(DROPDOWN).exists()).toBe(false)
     })
 
-    it('shows the "turn on" content when not subscribed', async () => {
+    it('renders the notification content and browser push controls', async () => {
       const mounted = await openDropdown()
 
-      expect(mounted.text()).toContain(
-        'Receive important SmartPack alerts directly in your browser.',
-      )
+      expect(mounted.text()).toContain('Notifications')
+      expect(mounted.find('[data-testid="notification-content"]').exists()).toBe(true)
       expect(mounted.get(ACTION).text()).toBe('Turn on notifications')
-      expect(mounted.get(ACTION).attributes('disabled')).toBeUndefined()
     })
 
-    it('shows the "turn off" content when subscribed', async () => {
-      vi.mocked(isSubscribedToPushNotifications).mockResolvedValue(true)
-
+    it('shows the unread count when notifications are unread', async () => {
       const mounted = await openDropdown()
 
-      expect(mounted.text()).toContain('Browser notifications are enabled on this device.')
-      expect(mounted.get(ACTION).text()).toBe('Turn off notifications')
+      await mounted.get('[data-testid="emit-unread-count"]').trigger('click')
+
+      expect(mounted.get(`${DROPDOWN} h2`).text()).toContain('5')
+      expect(mounted.get('[data-testid="content-unread-count"]').text()).toBe('5')
+    })
+
+    it('does not display an unread count when there are no unread notifications', async () => {
+      const mounted = await openDropdown()
+
+      expect(mounted.get(`${DROPDOWN} h2`).text()).toBe('Notifications')
     })
 
     it('links to the notification tab of the profile page', async () => {
@@ -179,6 +200,10 @@ describe('NotificationBell', () => {
         name: 'my-profile',
         query: { tabs: 'notifications' },
       })
+
+      expect(mounted.findComponent(RouterLinkStub).attributes('aria-label')).toBe(
+        'Notification settings',
+      )
     })
 
     it('disables the action and explains when push is unsupported', async () => {

@@ -25,32 +25,36 @@
       id="notification-dropdown"
       class="absolute top-[calc(100%+0.75rem)] right-0 z-50 w-72 card-base p-4 shadow-lg"
       role="region"
-      aria-label="Notification settings"
+      aria-label="Notifications"
     >
       <div class="flex justify-between items-center mb-2">
-        <h2 class="primary-text text-sm font-semibold">Notifications</h2>
+        <h2 class="primary-text text-sm font-semibold">
+          Notifications
+          <span v-if="unreadNotifications > 0"> ({{ unreadNotifications }}) </span>
+        </h2>
+
         <RouterLink
           :to="{
             name: 'my-profile',
             query: { tabs: 'notifications' },
           }"
+          aria-label="Notification settings"
         >
           <CogIcon class="primary-text w-5 h-5 cursor-pointer" />
         </RouterLink>
       </div>
 
-      <p class="secondary-text text-sm mb-4">
-        {{
-          isSubscribed
-            ? 'Browser notifications are enabled on this device.'
-            : 'Receive important SmartPack alerts directly in your browser.'
-        }}
-      </p>
+      <!-- Notification content -->
+      <NotificationContent
+        :unread-count="unreadNotifications"
+        @unread-count-change="handleUnreadCountChange"
+      />
 
+      <!-- Browser push notification controls -->
       <button
         data-testid="notification-action"
         type="button"
-        class="form-submit w-full text-sm py-2 px-3"
+        class="form-submit w-full text-sm py-2 px-3 mt-4"
         :disabled="isLoading || !isPushNotificationSupported()"
         :aria-busy="isLoading"
         @click="toggleNotifications"
@@ -77,6 +81,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import BellIcon from '@/components/Icons/BellIcon.vue'
 import CogIcon from '@/components/Icons/CogIcon.vue'
 import BellSlashIcon from '@/components/Icons/BellSlashIcon.vue'
+import NotificationContent from '@/components/Notifications/NotificationContent.vue'
 import { useGlobals } from '@/composables/useGlobals'
 import {
   syncPushSubscription,
@@ -85,6 +90,7 @@ import {
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
 } from '@/services/pushNotifications'
+
 defineOptions({
   name: 'NotificationBell',
 })
@@ -105,9 +111,16 @@ const isSubscribed = ref(false)
 const isLoading = ref(false)
 
 /**
+ * Tracks the number of unread notifications.
+ */
+const unreadNotifications = ref(0)
+
+/**
  * Root element used to detect clicks outside the dropdown.
  */
 const containerRef = ref<HTMLElement | null>(null)
+
+const { $notifySuccess, $notifyError } = useGlobals()
 
 /**
  * Opens or closes the notification dropdown.
@@ -115,7 +128,13 @@ const containerRef = ref<HTMLElement | null>(null)
 function toggleDropdown(): void {
   isDropdownOpen.value = !isDropdownOpen.value
 }
-const { $notifySuccess, $notifyError } = useGlobals()
+
+/**
+ * Updates the unread notification count emitted by NotificationContent.
+ */
+function handleUnreadCountChange(count: number): void {
+  unreadNotifications.value = Math.max(0, count)
+}
 
 /**
  * Refreshes the browser's push subscription status and synchronizes
@@ -170,6 +189,7 @@ async function toggleNotifications(): Promise<void> {
         ? 'Browser notifications have been enabled.'
         : 'Browser notifications have been disabled.',
     )
+
     isDropdownOpen.value = false
   } catch (error: unknown) {
     $notifyError(error instanceof Error ? error.message : 'Unable to update notification settings.')

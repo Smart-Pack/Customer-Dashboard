@@ -69,4 +69,8 @@ export const getters = {
       state.loggedInUser?.groups?.some(
         (group) => group.id === Number(groupId) && group.role === 'owner',
       ) ?? false,
+  /**
+   * Returns the UUID of the currently logged-in user.
+   */
+  userUuid: (state: AuthState): string | undefined => state.loggedInUser?.unique_id,
 }
