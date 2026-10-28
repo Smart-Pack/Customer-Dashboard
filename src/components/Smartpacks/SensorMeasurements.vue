@@ -27,8 +27,8 @@
     </div>
     <div class="p-4">
       <div v-if="loading" class="flex items-center justify-center p-8">
-        <div class="loading-animation flex h-16 w-16 items-center justify-center rounded-full">
-          <span class="animate-pulse text-xl font-bold">SP</span>
+        <div class="loading-animation flex h-20 w-20 items-center justify-center rounded-full">
+          <AnalyticsIcon class="h-8 w-8 animate-pulse" />
         </div>
       </div>
 
@@ -193,7 +193,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import mqtt from 'mqtt'
 import type { MqttClient } from 'mqtt'
 import type { ApexOptions } from 'apexcharts'
-
+import AnalyticsIcon from '@/components/Icons/AnalyticsIcon.vue'
 import { listSensorMeasurements } from '@/api/modules/smartpacks'
 import type {
   SmartPackSensorMeasurement,
