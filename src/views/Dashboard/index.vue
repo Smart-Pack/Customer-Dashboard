@@ -2,6 +2,11 @@
 defineOptions({
   name: 'HomeView',
 })
+import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
+import UserIcon from '@/components/Icons/UserIcon.vue'
+import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
+import ScaleIcon from '@/components/Icons/ScaleIcon.vue'
+import WalkingIcon from '@/components/Icons/WalkingIcon.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import VueApexCharts from 'vue3-apexcharts'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -591,72 +596,92 @@ onMounted(async () => {
 <template>
   <main class="space-y-6">
     <header>
-      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <h1 class="sub-heading text-xl lg:text-2xl">Dashboard</h1>
 
-      <p class="mt-1 text-sm text-gray-500">
+      <p class="mt-1 text-sm secondary-text">
         An overview of your groups, SmartPacks, backpack load, and steps.
       </p>
     </header>
 
     <!-- Summary cards -->
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p class="text-sm font-medium text-gray-500">Group memberships</p>
+      <article
+        class="flex flex-col justify-between p-4 dashboard-card transform sm:hover:scale-105"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="sub-heading text-sm lg:text-base">Group memberships</h3>
+          <UserGroupIcon class="dashboard-icon h-10 w-10 p-1 lg:h-12 lg:w-12" />
+        </div>
 
-        <p class="mt-2 text-3xl font-bold text-gray-900">
+        <span class="mt-4 text-2xl font-bold secondary-text">
           {{ totalGroupMemberships }}
-        </p>
+        </span>
       </article>
 
-      <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p class="text-sm font-medium text-gray-500">Admin memberships</p>
+      <article
+        class="flex flex-col justify-between p-4 dashboard-card transform sm:hover:scale-105"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="sub-heading text-sm lg:text-base">Admin memberships</h3>
+          <UserIcon class="dashboard-icon h-10 w-10 p-1 lg:h-12 lg:w-12" />
+        </div>
 
-        <p class="mt-2 text-3xl font-bold text-purple-700">
+        <span class="mt-4 text-2xl font-bold secondary-text">
           {{ adminGroupCount }}
-        </p>
+        </span>
       </article>
 
-      <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p class="text-sm font-medium text-gray-500">Total SmartPacks</p>
+      <article
+        class="flex flex-col justify-between p-4 dashboard-card transform sm:hover:scale-105"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="sub-heading text-sm lg:text-base">Total SmartPacks</h3>
+          <BackPackIcon class="dashboard-icon h-10 w-10 p-1 lg:h-12 lg:w-12" />
+        </div>
 
-        <p class="mt-2 text-3xl font-bold text-gray-900">
-          <span v-if="isLoadingSmartPacks">—</span>
-          <span v-else>{{ totalSmartPacks }}</span>
-        </p>
+        <span v-if="isLoadingSmartPacks" class="mt-4 h-4 w-1/2 rounded loading-animation"></span>
+        <span v-else class="mt-4 text-2xl font-bold secondary-text">
+          {{ totalSmartPacks }}
+        </span>
       </article>
 
-      <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p class="text-sm font-medium text-gray-500">Assigned to children</p>
+      <article
+        class="flex flex-col justify-between p-4 dashboard-card transform sm:hover:scale-105"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="sub-heading text-sm lg:text-base">Assigned to children</h3>
+          <BackPackIcon class="dashboard-icon h-10 w-10 p-1 lg:h-12 lg:w-12" />
+        </div>
 
-        <p class="mt-2 text-3xl font-bold text-green-700">
-          <span v-if="isLoadingSmartPacks">—</span>
-          <span v-else>{{ assignedSmartPackCount }}</span>
-        </p>
+        <span v-if="isLoadingSmartPacks" class="mt-4 h-4 w-1/2 rounded loading-animation"></span>
+        <span v-else class="mt-4 text-2xl font-bold secondary-text">
+          {{ assignedSmartPackCount }}
+        </span>
       </article>
     </section>
 
     <!-- Group memberships and SmartPack assignments -->
     <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <article class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-900">Group Memberships</h2>
+      <article class="p-6 dashboard-card">
+        <h2 class="sub-heading text-base lg:text-lg">Group Memberships</h2>
 
-        <p class="mt-1 text-sm text-gray-500">Your roles across your groups.</p>
+        <p class="mt-1 text-sm secondary-text">Your roles across your groups.</p>
 
         <div class="mt-4 grid grid-cols-2 gap-4">
-          <div class="rounded-lg bg-purple-50 p-4">
-            <p class="text-sm font-medium text-purple-700">Admin</p>
+          <div class="flex flex-col justify-between p-4 dashboard-card">
+            <h4 class="sub-heading text-sm lg:text-base">Admin</h4>
 
-            <p class="mt-2 text-2xl font-bold text-purple-900">
+            <span class="mt-4 text-2xl font-bold secondary-text">
               {{ adminGroupCount }}
-            </p>
+            </span>
           </div>
 
-          <div class="rounded-lg bg-gray-50 p-4">
-            <p class="text-sm font-medium text-gray-600">Regular member</p>
+          <div class="flex flex-col justify-between p-4 dashboard-card">
+            <h4 class="sub-heading text-sm lg:text-base">Regular member</h4>
 
-            <p class="mt-2 text-2xl font-bold text-gray-900">
+            <span class="mt-4 text-2xl font-bold secondary-text">
               {{ regularMemberCount }}
-            </p>
+            </span>
           </div>
         </div>
 
@@ -671,26 +696,28 @@ onMounted(async () => {
 
         <p
           v-else
-          class="flex min-h-48 items-center justify-center text-center text-sm text-gray-500"
+          class="flex min-h-48 items-center justify-center text-center text-sm secondary-text"
         >
           No group memberships available
         </p>
       </article>
 
-      <article class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-900">SmartPack Assignments</h2>
+      <article class="p-6 dashboard-card">
+        <h2 class="sub-heading text-base lg:text-lg">SmartPack Assignments</h2>
 
-        <p class="mt-1 text-sm text-gray-500">SmartPacks with and without an assigned child.</p>
+        <p class="mt-1 text-sm secondary-text">SmartPacks with and without an assigned child.</p>
 
         <p v-if="smartPackError" class="mt-4 text-sm text-red-600">
           {{ smartPackError }}
         </p>
 
-        <div
-          v-else-if="isLoadingSmartPacks"
-          class="flex min-h-48 items-center justify-center text-sm text-gray-500"
-        >
-          Loading SmartPacks...
+        <div v-else-if="isLoadingSmartPacks" class="mt-4 grid gap-4">
+          <span class="h-64 w-full rounded loading-animation"></span>
+
+          <div class="grid grid-cols-2 gap-4">
+            <span class="h-20 w-full rounded loading-animation"></span>
+            <span class="h-20 w-full rounded loading-animation"></span>
+          </div>
         </div>
 
         <template v-else>
@@ -705,26 +732,26 @@ onMounted(async () => {
 
           <p
             v-else
-            class="flex min-h-48 items-center justify-center text-center text-sm text-gray-500"
+            class="flex min-h-48 items-center justify-center text-center text-sm secondary-text"
           >
             No SmartPacks available
           </p>
 
           <div class="mt-4 grid grid-cols-2 gap-4">
-            <div class="rounded-lg bg-green-50 p-4">
-              <p class="text-sm font-medium text-green-700">Assigned</p>
+            <div class="flex flex-col justify-between p-4 dashboard-card">
+              <h4 class="sub-heading text-sm lg:text-base">Assigned</h4>
 
-              <p class="mt-2 text-2xl font-bold text-green-900">
+              <span class="mt-4 text-2xl font-bold secondary-text">
                 {{ assignedSmartPackCount }}
-              </p>
+              </span>
             </div>
 
-            <div class="rounded-lg bg-gray-50 p-4">
-              <p class="text-sm font-medium text-gray-600">Unassigned</p>
+            <div class="flex flex-col justify-between p-4 dashboard-card">
+              <h4 class="sub-heading text-sm lg:text-base">Unassigned</h4>
 
-              <p class="mt-2 text-2xl font-bold text-gray-900">
+              <span class="mt-4 text-2xl font-bold secondary-text">
                 {{ unassignedSmartPackCount }}
-              </p>
+              </span>
             </div>
           </div>
         </template>
@@ -733,16 +760,16 @@ onMounted(async () => {
 
     <!-- Shared filters for the weight and steps charts -->
     <section
-      class="flex flex-col justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center"
+      class="flex flex-col justify-between gap-4 p-4 dashboard-card sm:flex-row sm:items-center"
     >
       <div>
-        <h2 class="text-lg font-semibold text-gray-900">Activity Analytics</h2>
+        <h2 class="sub-heading text-base lg:text-lg">Activity Analytics</h2>
 
-        <p class="mt-1 text-sm text-gray-500">Filters apply to both the load and steps charts.</p>
+        <p class="mt-1 text-sm secondary-text">Filters apply to both the load and steps charts.</p>
       </div>
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label class="flex items-center gap-2 text-sm text-gray-600">
+        <label class="flex items-center gap-2 text-sm secondary-text">
           <span>SmartPack</span>
 
           <select
@@ -758,7 +785,7 @@ onMounted(async () => {
           </select>
         </label>
 
-        <label class="flex items-center gap-2 text-sm text-gray-600">
+        <label class="flex items-center gap-2 text-sm secondary-text">
           <span>Date range</span>
 
           <select
@@ -774,32 +801,48 @@ onMounted(async () => {
     </section>
 
     <!-- Weight analytics -->
-    <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div>
-        <h2 class="text-lg font-semibold text-gray-900">Backpack Load Analysis</h2>
+    <section class="p-6 dashboard-card">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="sub-heading text-base lg:text-lg">Backpack Load Analysis</h2>
 
-        <p class="mt-1 text-sm text-gray-500">
-          Daily average recorded load for the selected SmartPack(s).
-        </p>
-      </div>
-
-      <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="rounded-lg bg-purple-50 p-4">
-          <p class="text-sm font-medium text-purple-700">Average daily load</p>
-
-          <p class="mt-2 text-2xl font-bold text-purple-900">
-            <span v-if="isLoadingMeasurements">—</span>
-            <span v-else>{{ averageWeightAcrossDays.toFixed(2) }} kg</span>
+          <p class="mt-1 text-sm secondary-text">
+            Daily average recorded load for the selected SmartPack(s).
           </p>
         </div>
 
-        <div class="rounded-lg bg-gray-50 p-4">
-          <p class="text-sm font-medium text-gray-600">Measurements recorded</p>
+        <ScaleIcon class="dashboard-icon h-10 w-10 flex-shrink-0 p-1 lg:h-12 lg:w-12" />
+      </div>
 
-          <p class="mt-2 text-2xl font-bold text-gray-900">
-            <span v-if="isLoadingMeasurements">—</span>
-            <span v-else>{{ measurements.length }}</span>
-          </p>
+      <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col justify-between p-4 dashboard-card">
+          <div class="flex items-center justify-between">
+            <h4 class="sub-heading text-sm lg:text-base">Average daily load</h4>
+            <ScaleIcon class="dashboard-icon h-8 w-8 flex-shrink-0" />
+          </div>
+
+          <span
+            v-if="isLoadingMeasurements"
+            class="mt-4 h-4 w-1/2 rounded loading-animation"
+          ></span>
+          <span v-else class="mt-4 text-2xl font-bold secondary-text">
+            {{ averageWeightAcrossDays.toFixed(2) }} kg
+          </span>
+        </div>
+
+        <div class="flex flex-col justify-between p-4 dashboard-card">
+          <div class="flex items-center justify-between">
+            <h4 class="sub-heading text-sm lg:text-base">Measurements recorded</h4>
+            <BackPackIcon class="dashboard-icon h-8 w-8 flex-shrink-0" />
+          </div>
+
+          <span
+            v-if="isLoadingMeasurements"
+            class="mt-4 h-4 w-1/2 rounded loading-animation"
+          ></span>
+          <span v-else class="mt-4 text-2xl font-bold secondary-text">
+            {{ measurements.length }}
+          </span>
         </div>
       </div>
 
@@ -807,12 +850,10 @@ onMounted(async () => {
         {{ measurementError }}
       </p>
 
-      <div
+      <span
         v-else-if="isLoadingMeasurements"
-        class="flex min-h-64 items-center justify-center text-sm text-gray-500"
-      >
-        Loading weight measurements...
-      </div>
+        class="mt-6 block h-64 w-full rounded loading-animation"
+      ></span>
 
       <VueApexCharts
         v-else
@@ -823,35 +864,55 @@ onMounted(async () => {
         :series="weightChartSeries"
       />
 
-      <p class="mt-3 text-xs text-gray-500">
+      <p class="mt-3 text-xs secondary-text">
         Weight values are converted from grams to kilograms. Days without measurements are displayed
         as zero on the chart.
       </p>
     </section>
 
     <!-- Steps analytics -->
-    <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 class="text-lg font-semibold text-gray-900">Daily Steps</h2>
+    <section class="p-6 dashboard-card">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="sub-heading text-base lg:text-lg">Daily Steps</h2>
 
-      <p class="mt-1 text-sm text-gray-500">Steps taken per day for the selected SmartPack(s).</p>
-
-      <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="rounded-lg bg-green-50 p-4">
-          <p class="text-sm font-medium text-green-700">Total steps</p>
-
-          <p class="mt-2 text-2xl font-bold text-green-900">
-            <span v-if="isLoadingMeasurements">—</span>
-            <span v-else>{{ totalSteps.toLocaleString() }}</span>
+          <p class="mt-1 text-sm secondary-text">
+            Steps taken per day for the selected SmartPack(s).
           </p>
         </div>
 
-        <div class="rounded-lg bg-gray-50 p-4">
-          <p class="text-sm font-medium text-gray-600">Average steps per active day</p>
+        <WalkingIcon class="dashboard-icon h-10 w-10 flex-shrink-0 p-1 lg:h-12 lg:w-12" />
+      </div>
 
-          <p class="mt-2 text-2xl font-bold text-gray-900">
-            <span v-if="isLoadingMeasurements">—</span>
-            <span v-else>{{ averageDailySteps.toLocaleString() }}</span>
-          </p>
+      <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col justify-between p-4 dashboard-card">
+          <div class="flex items-center justify-between">
+            <h4 class="sub-heading text-sm lg:text-base">Total steps</h4>
+            <WalkingIcon class="dashboard-icon h-8 w-8 flex-shrink-0" />
+          </div>
+
+          <span
+            v-if="isLoadingMeasurements"
+            class="mt-4 h-4 w-1/2 rounded loading-animation"
+          ></span>
+          <span v-else class="mt-4 text-2xl font-bold secondary-text">
+            {{ totalSteps.toLocaleString() }}
+          </span>
+        </div>
+
+        <div class="flex flex-col justify-between p-4 dashboard-card">
+          <div class="flex items-center justify-between">
+            <h4 class="sub-heading text-sm lg:text-base">Average steps per active day</h4>
+            <WalkingIcon class="dashboard-icon h-8 w-8 flex-shrink-0" />
+          </div>
+
+          <span
+            v-if="isLoadingMeasurements"
+            class="mt-4 h-4 w-1/2 rounded loading-animation"
+          ></span>
+          <span v-else class="mt-4 text-2xl font-bold secondary-text">
+            {{ averageDailySteps.toLocaleString() }}
+          </span>
         </div>
       </div>
 
@@ -859,12 +920,10 @@ onMounted(async () => {
         {{ measurementError }}
       </p>
 
-      <div
+      <span
         v-else-if="isLoadingMeasurements"
-        class="flex min-h-64 items-center justify-center text-sm text-gray-500"
-      >
-        Loading step measurements...
-      </div>
+        class="mt-6 block h-64 w-full rounded loading-animation"
+      ></span>
 
       <VueApexCharts
         v-else
@@ -875,7 +934,7 @@ onMounted(async () => {
         :series="stepsChartSeries"
       />
 
-      <p class="mt-3 text-xs text-gray-500">
+      <p class="mt-3 text-xs secondary-text">
         Steps are calculated from the difference between consecutive cumulative readings. Decreases
         in the counter are ignored.
       </p>
