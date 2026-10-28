@@ -2,11 +2,12 @@
   <div class="main-card p-6 lg:p-10 space-y-6 mx-auto lg:w-[90%]">
     <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <h1 class="main-heading text-2xl lg:text-3xl">My Account</h1>
-      <div class="flex gap-2">
+
+      <div class="flex flex-wrap gap-2">
         <button
           data-testid="profile-tab"
           type="button"
-          class="px-4 py-2 rounded-full text-sm font-semibold transition"
+          class="rounded-full px-4 py-2 text-sm font-semibold transition"
           :class="
             activeTab === 'profile' ? 'form-submit' : 'secondary-text bg-page dark:bg-page-dark'
           "
@@ -18,7 +19,7 @@
         <button
           data-testid="password-tab"
           type="button"
-          class="px-4 py-2 rounded-full text-sm font-semibold transition"
+          class="rounded-full px-4 py-2 text-sm font-semibold transition"
           :class="
             activeTab === 'password' ? 'form-submit' : 'secondary-text bg-page dark:bg-page-dark'
           "
@@ -30,7 +31,7 @@
         <button
           data-testid="notifications-tab"
           type="button"
-          class="px-4 py-2 rounded-full text-sm font-semibold transition"
+          class="basis-full max-w-max rounded-full px-4 py-2 text-sm font-semibold transition md:basis-auto"
           :class="
             activeTab === 'notifications'
               ? 'form-submit'

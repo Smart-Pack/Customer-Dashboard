@@ -37,8 +37,8 @@
           New SMS Phone Number
         </label>
 
-        <div class="flex items-start gap-2">
-          <div class="flex-1 min-w-0">
+        <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
+          <div class="min-w-0 flex-1">
             <InputField
               name="sms_phone_number"
               placeholder="+254712345678"
@@ -52,7 +52,7 @@
 
           <button
             type="submit"
-            class="form-submit px-4 py-2 text-sm font-semibold flex-shrink-0"
+            class="form-submit flex-shrink-0 px-4 py-2 text-sm font-semibold"
             :disabled="submitting || otpRequested"
           >
             <span>{{ otpRequested ? 'Sent' : 'Verify' }}</span>
