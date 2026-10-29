@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
+    "build-only": "vite build",
+    "android:build": "pnpm exec vite build --mode mobile && pnpm exec cap sync android",
+    "android:install": "pnpm android:build && cd android && ./gradlew installDebug",
+    "android:install:debug": "cd android && ./gradlew installDebug",
     "preview": "vite preview",
     "test:unit": "vitest",
     "build-only": "vite build",
@@ -21,9 +25,12 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@vee-validate/rules": "^4.15.1",
     "apexcharts": "^8.5.0",
     "axios": "^1.20.0",
+    "bluetooth-serial": "^1.0.0",
     "jwt-decode": "^4.0.0",
     "mqtt": "^5.16.1",
     "pinia": "^4.0.2",
@@ -39,6 +46,7 @@
     "vue3-google-signin": "^2.1.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/node24": "^24.0.4",
     "@types/jsdom": "^28.0.3",
