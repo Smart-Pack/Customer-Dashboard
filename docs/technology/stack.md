@@ -35,6 +35,9 @@ This document describes the technologies and tools used to develop and operate t
 | `@capacitor/android` | Android platform integration for building and running the application on Android devices. |
 | `@capacitor/cli` | Command-line tooling for initializing Capacitor, synchronizing web assets and plugins, and managing native platform projects. |
 | `bluetooth-serial` | Bluetooth Classic serial communication between the Android application and ESP32-based SmartPack devices, including device discovery, connection, and data exchange. |
+| `@capacitor/assets` | Generates native Android and iOS application icons and splash screen assets from source images. |
+| `sharp` | High-performance image processing library used to convert the SmartPack SVG logo into PNG assets and prepare adaptive icon foreground and background images. |
+| `sharp-cli` | Command-line interface for Sharp, enabling image processing and conversion tasks directly from the terminal. |
 
 ## Testing
 
