@@ -41,3 +41,29 @@ __screenshots__/
 # Environment variables
 .env*
 !.env.example
+
+# Android local configuration
+android/local.properties
+
+# Android / Gradle build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+
+# Android dependencies
+android/node_modules/
+android/pnpm-lock.yaml
+
+# Generated Capacitor web assets
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# Android IDE files
+android/.idea/
+android/*.iml
+
+# Android build artifacts
+*.apk
+*.aab
