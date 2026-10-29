@@ -10,6 +10,7 @@
     "android:build": "pnpm exec vite build --mode mobile && pnpm exec cap sync android",
     "android:install": "pnpm android:build && cd android && ./gradlew installDebug",
     "android:install:debug": "cd android && ./gradlew installDebug",
+    "android:assemble": "pnpm exec cap sync android && cd android && ./gradlew assembleDebug && cd .. && mkdir -p build && cp android/app/build/outputs/apk/debug/app-debug.apk build/",
     "preview": "vite preview",
     "test:unit": "vitest",
     "build-only": "vite build",

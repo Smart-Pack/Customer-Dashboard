@@ -132,6 +132,23 @@ Install the already-built debug APK on a connected device:
 pnpm android:install:debug
 ```
 
+### Assemble the Android APK
+
+Build the Android application using `.env.mobile`, synchronize the web assets and Capacitor plugins, and generate the debug APK without installing it:
+
+```bash
+pnpm android:assemble
+```
+
+This script runs the following steps:
+
+1. Synchronizes the Android project using Capacitor.
+2. Builds the debug APK using Gradle.
+3. Copies the generated APK to `build/app-debug.apk`.
+
+The APK can then be transferred to an Android device or installed manually.
+
+
 ### Available Android Commands
 
 | Command | Description |
