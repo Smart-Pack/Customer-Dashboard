@@ -45,4 +45,29 @@ await sharp({
   .png()
   .toFile('assets/icon-background.png')
 
+/**
+ * Generates the splash screen source image.
+ *
+ * Creates a white 2732 × 2732 canvas with the SmartPack logo centered.
+ */
+await sharp({
+  create: {
+    width: 2732,
+    height: 2732,
+    channels: 4,
+    background: '#ffffff',
+  },
+})
+  .composite([
+    {
+      input: await sharp('public/favicon.svg')
+        .resize(600, 600, { fit: 'contain' })
+        .png()
+        .toBuffer(),
+      gravity: 'centre',
+    },
+  ])
+  .png()
+  .toFile('assets/splash.png')
+
 console.log('SmartPack Android icons generated.')
