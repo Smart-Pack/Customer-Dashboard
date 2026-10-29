@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.3",
     "@vee-validate/rules": "^4.15.1",
     "apexcharts": "^8.5.0",

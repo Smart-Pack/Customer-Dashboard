@@ -38,6 +38,7 @@ This document describes the technologies and tools used to develop and operate t
 | `@capacitor/assets` | Generates native Android and iOS application icons and splash screen assets from source images. |
 | `sharp` | High-performance image processing library used to convert the SmartPack SVG logo into PNG assets and prepare adaptive icon foreground and background images. |
 | `sharp-cli` | Command-line interface for Sharp, enabling image processing and conversion tasks directly from the terminal. |
+| `@capacitor/app` | Provides APIs for handling application state, lifecycle events, and native Android back-button events in Capacitor applications. |
 
 ## Testing
 
