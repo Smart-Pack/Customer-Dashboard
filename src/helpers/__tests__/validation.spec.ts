@@ -472,4 +472,116 @@ describe('validation helpers', () => {
       expect(result.errors[0]).toBe('Original File does not match new Media Type')
     })
   })
+  describe('channel_requires_value', () => {
+    const rule = 'channel_requires_value:sms_phone_number,whatsapp_phone_number'
+
+    it('accepts SMS when an SMS phone number is provided', async () => {
+      const result = await validate('sms', rule, {
+        name: 'preferred_general_channel',
+        values: {
+          sms_phone_number: '+254712345678',
+          whatsapp_phone_number: '',
+        },
+      })
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('rejects SMS when the SMS phone number is empty', async () => {
+      const result = await validate('sms', rule, {
+        name: 'preferred_general_channel',
+        values: {
+          sms_phone_number: '',
+          whatsapp_phone_number: '+254712345678',
+        },
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toBe(
+        'A verified SMS phone number is required for SMS notifications.',
+      )
+    })
+
+    it('rejects SMS when the SMS phone number contains only whitespace', async () => {
+      const result = await validate('sms', rule, {
+        name: 'preferred_general_channel',
+        values: {
+          sms_phone_number: '   ',
+          whatsapp_phone_number: '+254712345678',
+        },
+      })
+
+      expect(result.valid).toBe(false)
+    })
+
+    it('accepts WhatsApp when a WhatsApp phone number is provided', async () => {
+      const result = await validate('whatsapp', rule, {
+        name: 'preferred_smartpack_channel',
+        values: {
+          sms_phone_number: '',
+          whatsapp_phone_number: '+254712345678',
+        },
+      })
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('rejects WhatsApp when the WhatsApp phone number is empty', async () => {
+      const result = await validate('whatsapp', rule, {
+        name: 'preferred_smartpack_channel',
+        values: {
+          sms_phone_number: '+254712345678',
+          whatsapp_phone_number: '',
+        },
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toBe(
+        'A verified WhatsApp phone number is required for WhatsApp notifications.',
+      )
+    })
+
+    it('accepts email without requiring a phone number', async () => {
+      const result = await validate('email', rule, {
+        name: 'preferred_general_channel',
+        values: {
+          sms_phone_number: '',
+          whatsapp_phone_number: '',
+        },
+      })
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('accepts an empty channel value', async () => {
+      const result = await validate('', rule, {
+        name: 'preferred_general_channel',
+        values: {
+          sms_phone_number: '',
+          whatsapp_phone_number: '',
+        },
+      })
+
+      expect(result.valid).toBe(true)
+    })
+  })
+  describe('noop', () => {
+    it('always passes validation for a non-empty value', async () => {
+      const result = await validate('some value', 'noop')
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('always passes validation for an empty value', async () => {
+      const result = await validate('', 'noop')
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('always passes validation for an undefined value', async () => {
+      const result = await validate(undefined, 'noop')
+
+      expect(result.valid).toBe(true)
+    })
+  })
 })

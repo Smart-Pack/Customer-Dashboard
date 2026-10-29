@@ -71,6 +71,10 @@ const stubs = {
     name: 'UserIcon',
     template: '<svg data-testid="user-icon" />',
   },
+  NotificationBell: {
+    name: 'NotificationBell',
+    template: '<button data-testid="notification-bell">Notifications</button>',
+  },
 }
 
 describe('TopBar', () => {
@@ -146,6 +150,11 @@ describe('TopBar', () => {
       expect(image.attributes('alt')).toBe('Profile Picture')
 
       vi.restoreAllMocks()
+    })
+    it('renders the notification bell', () => {
+      const wrapper = mountTopBar()
+
+      expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(true)
     })
   })
 

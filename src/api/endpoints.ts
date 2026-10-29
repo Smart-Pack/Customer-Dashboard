@@ -44,6 +44,17 @@ export const SMARTPACKS = {
   unassign: (id: string | number): string => `v1/smartpacks/${id}/unassign/`,
   assignGroup: (id: string | number): string => `v1/smartpacks/${id}/group/assign/`,
   unassignGroup: (id: string | number): string => `v1/smartpacks/${id}/group/unassign/`,
+  SENSOR_MEASUREMENTS: 'v1/smartpacks/sensor-measurements/',
+
+  sensorMeasurementsWithQuery: (params?: object): string => {
+    if (!params) return SMARTPACKS.SENSOR_MEASUREMENTS
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${SMARTPACKS.SENSOR_MEASUREMENTS}?${query.toString()}`
+  },
 } as const
 
 export const ANALYSIS = {
@@ -80,4 +91,54 @@ export const GROUP_MEMBERS = {
   sendInvite: (groupId: string | number): string => `v1/users/groups/${groupId}/invite/`,
   verifyInvite: `v1/users/groups/invitations/verify/`,
   joinInvite: `v1/users/groups/invitations/join/`,
+} as const
+
+export const PUSH_SUBSCRIPTIONS = {
+  COLLECTION: 'v1/core/push-subscriptions/',
+  collectionWithQuery: (params?: object) => {
+    if (!params) return PUSH_SUBSCRIPTIONS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${PUSH_SUBSCRIPTIONS.COLLECTION}?${query.toString()}`
+  },
+  detail: (id: string | number): string => `v1/core/push-subscriptions/${id}/`,
+} as const
+
+export const NOTIFICATION_PREFERENCES = {
+  ME: 'v1/users/me/notification-preferences/',
+
+  SMS: {
+    CLEAR: 'v1/users/me/notification-preferences/sms/clear/',
+    REQUEST_OTP: 'v1/users/me/notification-preferences/sms/request-otp/',
+    VERIFY_OTP: 'v1/users/me/notification-preferences/sms/verify-otp/',
+  },
+
+  WHATSAPP: {
+    CLEAR: 'v1/users/me/notification-preferences/whatsapp/clear/',
+    REQUEST_OTP: 'v1/users/me/notification-preferences/whatsapp/request-otp/',
+    VERIFY_OTP: 'v1/users/me/notification-preferences/whatsapp/verify-otp/',
+  },
+} as const
+
+export const MQTT = {
+  CONFIG: 'v1/core/mqtt/config/',
+} as const
+
+export const NOTIFICATIONS = {
+  COLLECTION: 'v1/core/notifications/',
+
+  collectionWithQuery: (params?: object) => {
+    if (!params) return NOTIFICATIONS.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${NOTIFICATIONS.COLLECTION}?${query.toString()}`
+  },
+
+  detail: (id: string | number): string => `v1/core/notifications/${id}/`,
 } as const

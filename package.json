@@ -22,8 +22,10 @@
   },
   "dependencies": {
     "@vee-validate/rules": "^4.15.1",
+    "apexcharts": "^8.5.0",
     "axios": "^1.20.0",
     "jwt-decode": "^4.0.0",
+    "mqtt": "^5.16.1",
     "pinia": "^4.0.2",
     "qrcode-vue3": "^1.7.1",
     "sweetalert2": "^11.26.25",
@@ -33,6 +35,7 @@
     "vue-qrcode-reader": "^5.7.3",
     "vue-router": "^5.2.0",
     "vue-tel-input": "^6.0.5",
+    "vue3-apexcharts": "^1.11.3",
     "vue3-google-signin": "^2.1.1"
   },
   "devDependencies": {

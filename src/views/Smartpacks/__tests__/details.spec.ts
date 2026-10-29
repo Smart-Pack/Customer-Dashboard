@@ -9,6 +9,23 @@ import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
+vi.mock('@/components/Smartpacks/SensorMeasurements.vue', async () => {
+  const { defineComponent, h } = await import('vue')
+
+  return {
+    default: defineComponent({
+      name: 'SmartPackSensorMeasurements',
+      props: {
+        smartpackId: { type: Number, required: true },
+        smartpackUid: { type: String, required: true },
+      },
+      setup() {
+        return () => h('div', { 'data-testid': 'sensor-measurements' })
+      },
+    }),
+  }
+})
+import SensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 
 const mockGetById = vi.fn<(params: { id: string }) => Promise<SmartPack>>()
 
@@ -254,6 +271,17 @@ describe('SmartPackDetails', () => {
       expect(mockGetById).toHaveBeenCalledExactlyOnceWith({ id: '1' })
       expect(wrapper.text()).toContain(mockSmartPack.hardware_model)
       expect(mockNotifyError).not.toHaveBeenCalled()
+    })
+    it('renders sensor measurements for the current SmartPack', async () => {
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const measurements = wrapper.findComponent(SensorMeasurements)
+
+      expect(measurements.exists()).toBe(true)
+      expect(measurements.props('smartpackId')).toBe(mockSmartPack.id)
+      expect(measurements.props('smartpackUid')).toBe(mockSmartPack.device_uid)
     })
   })
 
