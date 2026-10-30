@@ -148,6 +148,7 @@ describe('auth API', () => {
 
   /**
    * Verifies that refresh sends the request to the refresh endpoint
+   * using the authentication cookie when no refresh token is provided
    * and returns the refreshed authentication tokens.
    */
   it('refreshes authentication tokens using the refresh cookie', async () => {
@@ -165,6 +166,35 @@ describe('auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith(AUTH.REFRESH, undefined, {
       skipAuthRedirect: false,
     })
+    expect(result.access).toBe('new-access-token')
+    expect(result.refresh).toBe('new-refresh-token')
+  })
+
+  /**
+   * Verifies that refresh sends the provided refresh token in the request
+   * payload and returns the refreshed authentication tokens.
+   */
+  it('refreshes authentication tokens using the provided refresh token', async () => {
+    const refreshToken = 'stored-refresh-token'
+
+    const response = {
+      data: {
+        access: 'new-access-token',
+        refresh: 'new-refresh-token',
+      },
+    }
+
+    vi.mocked(apiClient.post).mockResolvedValue(response)
+
+    const result = await refresh(refreshToken)
+
+    expect(apiClient.post).toHaveBeenCalledWith(
+      AUTH.REFRESH,
+      { refresh: refreshToken },
+      {
+        skipAuthRedirect: false,
+      },
+    )
     expect(result.access).toBe('new-access-token')
     expect(result.refresh).toBe('new-refresh-token')
   })

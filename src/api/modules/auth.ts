@@ -94,16 +94,21 @@ export const logout = async () => {
 }
 
 /**
- * Refreshes the authentication tokens using the refresh token
- * stored in the authentication cookie.
+ * Refreshes the authentication tokens using either the provided
+ * refresh token or the authentication cookie.
  *
+ * @param refreshToken - Optional refresh token for native authentication.
  * @param options - Optional configuration for the refresh request.
  * @returns Refreshed authentication tokens.
  */
-export const refresh = async (options?: RefreshOptions) => {
-  const response = await apiClient.post<LoginResponse>(AUTH.REFRESH, undefined, {
-    skipAuthRedirect: options?.skipAuthRedirect ?? false,
-  })
+export const refresh = async (refreshToken?: string, options?: RefreshOptions) => {
+  const response = await apiClient.post<LoginResponse>(
+    AUTH.REFRESH,
+    refreshToken ? { refresh: refreshToken } : undefined,
+    {
+      skipAuthRedirect: options?.skipAuthRedirect ?? false,
+    },
+  )
 
   return response.data
 }
