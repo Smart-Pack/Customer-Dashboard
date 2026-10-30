@@ -46,4 +46,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required to access the device camera for scanning QR codes. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Declare camera hardware as optional to allow installation on devices without a camera. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <!-- Declare autofocus as optional; it improves QR code scanning but is not mandatory. -->
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
 </manifest>
