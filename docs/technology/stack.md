@@ -1,5 +1,3 @@
-Based on those dependencies, I’d structure the Admin Dashboard stack like this:
-
 # Technology Stack
 
 This document describes the technologies and tools used to develop and operate the SmartPack Customer Dashboard.
@@ -26,6 +24,20 @@ This document describes the technologies and tools used to develop and operate t
 | QRCode Vue 3 | `qrcode-vue3` | Vue 3 QR code generation component for displaying device/user QR codes |
 | `vue3-google-signin` | Vue 3 Google Sign-In integration using Google Identity Services ([Guide](https://vue3-google-signin.wavezync.com/guide/)) |
 | `vue-qrcode-reader` | Vue 3 QR code reader with camera scanning and image/file QR code detection ([Guide](https://www.npmjs.com/package/vue-qrcode-reader)) |
+
+
+## Mobile Development
+
+| Technology | Purpose |
+| ---------- | ------- |
+| Capacitor | Native runtime for packaging the Vue application as an Android mobile app while reusing the existing web codebase. |
+| `@capacitor/core` | Core Capacitor runtime APIs for communication between the web application and native platform functionality. |
+| `@capacitor/android` | Android platform integration for building and running the application on Android devices. |
+| `@capacitor/cli` | Command-line tooling for initializing Capacitor, synchronizing web assets and plugins, and managing native platform projects. |
+| `bluetooth-serial` | Bluetooth Classic serial communication between the Android application and ESP32-based SmartPack devices, including device discovery, connection, and data exchange. |
+| `@capacitor/assets` | Generates native Android and iOS application icons and splash screen assets from source images. |
+| `sharp` | High-performance image processing library used to convert the SmartPack SVG logo into PNG assets and prepare adaptive icon foreground and background images. |
+| `sharp-cli` | Command-line interface for Sharp, enabling image processing and conversion tasks directly from the terminal. |
 
 ## Testing
 
