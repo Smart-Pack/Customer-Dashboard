@@ -261,20 +261,26 @@ export const actions: AuthActions = {
   /**
    * Logs out the authenticated user.
    *
-   * 1. Attempts to invalidate the server-side authentication session.
-   * 2. Removes the securely stored refresh token on native platforms.
-   * 3. Clears the local authentication state regardless of failures.
+   * 1. Retrieves the native refresh token if available.
+   * 2. Attempts to invalidate the server-side authentication session.
+   * 3. Removes the locally stored refresh token.
+   * 4. Clears the local authentication state.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    */
   async logOut(this: AuthStoreContext): Promise<void> {
     try {
-      await auth.logout()
-      await secureTokenStorage.removeRefreshToken()
+      const refreshToken = await secureTokenStorage.getRefreshToken()
+
+      await auth.logout(refreshToken ?? undefined)
     } catch {
-      // Continue with local logout if server logout or token removal fails.
+      // Continue with local logout if server logout fails.
     } finally {
-      this.clearStore()
+      try {
+        await secureTokenStorage.removeRefreshToken()
+      } finally {
+        this.clearStore()
+      }
     }
   },
 }

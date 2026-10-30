@@ -84,12 +84,15 @@ export const googleLogin = async (data: GoogleLoginRequest) => {
 }
 
 /**
- * Logs out the current user by clearing the authentication cookies.
+ * Logs out the current user by invalidating the refresh token
+ * and clearing the authentication cookies.
  *
+ * @param refresh - Optional refresh token for native authentication.
  * @returns Logout confirmation.
  */
-export const logout = async () => {
-  const response = await apiClient.post<ApiDetailResponse>(AUTH.LOGOUT)
+export const logout = async (refresh?: string) => {
+  const response = await apiClient.post<ApiDetailResponse>(AUTH.LOGOUT, refresh ? { refresh } : {})
+
   return response.data
 }
 

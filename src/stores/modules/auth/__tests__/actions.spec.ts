@@ -460,13 +460,19 @@ describe('auth store actions', () => {
     it('logs out, removes the stored refresh token, and clears the store', async () => {
       store.loggedInUser = mockUser
 
+      const refreshToken = 'test-refresh-token'
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(refreshToken)
+
       vi.mocked(auth.logout).mockResolvedValue({
         detail: 'Successfully logged out.',
       })
 
       await store.logOut()
 
-      expect(auth.logout).toHaveBeenCalledExactlyOnceWith()
+      expect(secureTokenStorage.getRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(auth.logout).toHaveBeenCalledExactlyOnceWith(refreshToken)
 
       expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
 
@@ -474,12 +480,35 @@ describe('auth store actions', () => {
       expect(store.loggedInUser).toBeNull()
     })
 
-    it('clears the local store when server logout fails', async () => {
+    it('logs out without a refresh token when none is stored', async () => {
       store.loggedInUser = mockUser
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(null)
+
+      vi.mocked(auth.logout).mockResolvedValue({
+        detail: 'Successfully logged out.',
+      })
+
+      await store.logOut()
+
+      expect(auth.logout).toHaveBeenCalledExactlyOnceWith(undefined)
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('removes the stored refresh token and clears the store when server logout fails', async () => {
+      store.loggedInUser = mockUser
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue('test-refresh-token')
 
       vi.mocked(auth.logout).mockRejectedValue(new Error('Server logout failed'))
 
       await expect(store.logOut()).resolves.toBeUndefined()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()
