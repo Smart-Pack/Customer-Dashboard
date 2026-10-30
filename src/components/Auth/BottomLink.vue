@@ -7,13 +7,20 @@
       </router-link>
     </span>
 
-    <GoogleLoginButton v-if="mode === 'signIn'" />
-    <GoogleSignupButton v-if="mode === 'create'" />
+    <GoogleLoginButton v-if="mode === 'signIn' && !isMobile" />
+
+    <GoogleSocialLoginButton v-else-if="mode === 'signIn' && isMobile" />
+
+    <GoogleSignupButton v-if="mode === 'create' && !isMobile" />
+
+    <GoogleSocialSignupButton v-else-if="mode === 'create' && isMobile" />
   </div>
 </template>
 
 <script lang="ts">
 import GoogleLoginButton from './GoogleLoginButton.vue'
+import GoogleSocialLoginButton from './GoogleSocialLoginButton.vue'
+import GoogleSocialSignupButton from './GoogleSocialSignupButton.vue'
 import GoogleSignupButton from './GoogleSignupButton.vue'
 
 /**
@@ -26,7 +33,14 @@ export default {
 
   components: {
     GoogleLoginButton,
+    GoogleSocialLoginButton,
+    GoogleSocialSignupButton,
     GoogleSignupButton,
+  },
+  data() {
+    return {
+      isMobile: import.meta.env.MODE === 'mobile',
+    }
   },
 
   props: {
