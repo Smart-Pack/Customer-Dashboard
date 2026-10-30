@@ -10,6 +10,7 @@ import type { User } from '@/api/modules/users'
 import { getMe } from '@/api/modules/users'
 import type { AuthState } from './state'
 import { ALLOWED_ACCOUNT_TYPES } from './constants'
+import { secureTokenStorage } from '@/services/secureTokenStorage'
 
 export interface AuthActions {
   clearStore(): void
@@ -18,6 +19,7 @@ export interface AuthActions {
   initializeAuth(): Promise<void>
   googleLogIn(credential: string): Promise<string>
   logIn(payload: LoginRequest): Promise<string>
+  logOut(): Promise<void>
   refreshToken(skipAuthRedirect?: boolean): Promise<void>
   setLoggedInUser(user: User): void
   validateAccountType(): void
@@ -66,20 +68,37 @@ export const actions: AuthActions = {
   },
 
   /**
-   * Refreshes the authentication token using the refresh token.
+   * Refreshes the authentication token using the securely stored
+   * refresh token on native platforms or the authentication cookie on web.
    *
-   * @param skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
+   * 1. Clears the current access token.
+   * 2. Retrieves the refresh token from native secure storage.
+   * 3. Sends the refresh token when available; otherwise uses cookie authentication.
+   * 4. Updates the access token.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {boolean} skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
    * @throws The error returned by the refresh request.
    */
   async refreshToken(this: AuthStoreContext, skipAuthRedirect = false) {
     this.accessToken = null
 
     try {
-      const { access } = await auth.refresh({ skipAuthRedirect })
+      const refreshToken = await secureTokenStorage.getRefreshToken()
+
+      const { access, refresh } = await auth.refresh(refreshToken ?? undefined, {
+        skipAuthRedirect,
+      })
 
       this.accessToken = access
+
+      // Persist rotated refresh tokens on native platforms.
+      await secureTokenStorage.setRefreshToken(refresh)
     } catch (error) {
       this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
       throw error
     }
   },
@@ -113,23 +132,27 @@ export const actions: AuthActions = {
   },
   /**
    * Orchestrates the entire login flow.
-   * 1. Calls the API service to log in with credentials.
-   * 2. Stores the access token.
-   * 3. Fetches the logged-in user's profile.
-   * 4. Requests the 2FA token.
+   *
+   * 1. Authenticates the user with their credentials.
+   * 2. Stores the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   * 4. Fetches the logged-in user's profile.
+   * 5. Requests the 2FA token.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    * @param {LoginRequest} payload - The user's login credentials.
-   * @returns {Promise<{ detail: string }>} The 2FA request confirmation.
+   * @returns {Promise<string>} The 2FA request confirmation.
    * @throws {Error} Throws an error on failure.
    */
   async logIn(this: AuthStoreContext, payload: LoginRequest) {
     this.loginBtn = 'Logging In...'
 
     try {
-      const { access } = await auth.login(payload)
+      const { access, refresh } = await auth.login(payload)
 
       this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
 
       this.loginBtn = 'Fetching user info...'
       await this.fetchUser()
@@ -140,46 +163,76 @@ export const actions: AuthActions = {
       return 'OTP sent successfully.'
     } catch (error) {
       this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
       throw error
     } finally {
       this.loginBtn = 'Log In'
     }
   },
   /**
-   * Logs in a customer using Google authentication.
-   * 1. Authenticates with the Google credential.
-   * 2. Stores the access token.
-   * 3. Fetches the logged-in user's profile.
-   * 4. Validates the user's account type.
+   * Orchestrates the entire Google Sign-In flow.
    *
-   * @param credential - Google ID token credential.
+   * 1. Authenticates the user using their Google credential.
+   * 2. Stores the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   * 4. Fetches the logged-in user's profile.
+   * 5. Validates the user's account type.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {string} credential - Google ID token credential.
    * @returns {Promise<string>} Google Sign-In confirmation message.
    * @throws {Error} Throws an error on failure.
    */
   async googleLogIn(this: AuthStoreContext, credential: string) {
     try {
-      const { access } = await auth.googleLogin({ credential })
+      const { access, refresh } = await auth.googleLogin({ credential })
 
       this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
+
       await this.fetchUser()
       this.validateAccountType()
+
       return 'Google Sign-In successful.'
     } catch (error) {
       this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
       throw error
     }
   },
   /**
    * Verifies the 2FA token using the API service.
-   * On success, updates the access token.
    *
-   * @param payload - The 2FA token payload.
+   * 1. Verifies the submitted 2FA token.
+   * 2. Updates the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {TwoFactorVerifyRequest} payload - The 2FA token payload.
    * @returns A promise that resolves when verification is complete.
+   * @throws {Error} Throws an error if verification fails.
    */
   async verifyTwoFaToken(this: AuthStoreContext, payload: TwoFactorVerifyRequest): Promise<string> {
-    const { access } = await twoFactor.verify(payload)
-    this.accessToken = access
-    return 'OTP confirmed successfully'
+    try {
+      const { access, refresh } = await twoFactor.verify(payload)
+
+      this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
+
+      return 'OTP confirmed successfully'
+    } catch (error) {
+      this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
+      throw error
+    }
   },
   /**
    * Restores the authentication state on application startup.
@@ -204,5 +257,24 @@ export const actions: AuthActions = {
    */
   setLoggedInUser(this: AuthStoreContext, user: User): void {
     this.loggedInUser = user
+  },
+  /**
+   * Logs out the authenticated user.
+   *
+   * 1. Attempts to invalidate the server-side authentication session.
+   * 2. Removes the securely stored refresh token on native platforms.
+   * 3. Clears the local authentication state regardless of failures.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   */
+  async logOut(this: AuthStoreContext): Promise<void> {
+    try {
+      await auth.logout()
+      await secureTokenStorage.removeRefreshToken()
+    } catch {
+      // Continue with local logout if server logout or token removal fails.
+    } finally {
+      this.clearStore()
+    }
   },
 }
