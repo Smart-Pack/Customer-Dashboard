@@ -39,6 +39,7 @@ This document describes the technologies and tools used to develop and operate t
 | `sharp` | High-performance image processing library used to convert the SmartPack SVG logo into PNG assets and prepare adaptive icon foreground and background images. |
 | `sharp-cli` | Command-line interface for Sharp, enabling image processing and conversion tasks directly from the terminal. |
 | `@capacitor/app` | Provides APIs for handling application state, lifecycle events, and native Android back-button events in Capacitor applications. |
+| `capacitor-secure-storage-plugin` | Provides secure storage for sensitive application data, such as authentication refresh tokens, using native Android Keystore-backed encryption and iOS Keychain. |
 
 ## Testing
 
