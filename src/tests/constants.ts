@@ -89,6 +89,7 @@ export const mockSmartPack: SmartPack = {
   hardware_model: 'SmartPack V1',
   imei: '123456789012345',
   firmware_version: '1.0.0',
+  bluetooth_mac_address: null,
   last_seen: '2026-10-02T08:00:00Z',
   group: {
     id: 1,

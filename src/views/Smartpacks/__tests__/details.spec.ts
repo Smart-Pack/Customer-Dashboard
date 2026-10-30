@@ -67,6 +67,7 @@ const mockSmartPack: SmartPack = {
   hardware_model: 'SP-X1',
   imei: '490154203237518',
   firmware_version: '1.4.2',
+  bluetooth_mac_address: null,
   last_seen: '2026-09-23T14:30:00Z',
   is_online: true,
   assigned_to: null,
