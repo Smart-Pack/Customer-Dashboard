@@ -6,6 +6,8 @@ The authentication store manages the application's client-side authentication st
 
 It provides a centralized place for the dashboard to access authentication information and perform authentication-related state operations.
 
+The store supports both web and native Android authentication. These platforms use different refresh token storage mechanisms to accommodate their authentication requirements.
+
 ## Responsibilities
 
 The authentication store is responsible for:
@@ -20,6 +22,7 @@ The authentication store is responsible for:
 - Providing authentication state to components and other application modules.
 - Exposing the authenticated user's ID.
 - Providing group role authorization checks to determine whether the authenticated user is a group owner or administrator.
+- Persisting and managing refresh tokens securely on native platforms.
 
 ## Structure
 
@@ -39,6 +42,14 @@ src/stores/modules/auth/
 - **`getters.ts`** — Provides access to derived or exposed state, including authentication status, user identification, and group authorization checks.
 - **`actions.ts`** — Handles authentication-related state operations, including the login flow and authentication initialization.
 - **`index.ts`** — Defines and exports the Pinia authentication store.
+
+Refresh token persistence is handled separately by:
+
+```text
+src/services/secureTokenStorage.ts
+```
+
+This service provides a platform-aware interface for storing, retrieving, and removing refresh tokens.
 
 ## Store Usage
 
@@ -64,15 +75,88 @@ At a high level:
 
 1. The user submits their email and password.
 2. The authentication store calls the authentication API to authenticate the user.
-3. On successful authentication, the store maintains the access token.
-4. The store fetches and maintains the currently logged-in user's information.
-5. The store validates that the user's account type is allowed to access the dashboard.
-6. The store requests a two-factor authentication token.
-7. The user completes two-factor authentication.
-8. Application features use the store to access the authenticated user's state.
-9. The store can refresh the access token when required.
-10. Authentication state is restored when the application starts.
-11. Authentication state is cleared when the session becomes invalid or the user logs out.
+3. On successful authentication, the store maintains the access token in application state.
+4. The store securely persists the returned refresh token on native platforms.
+5. The store fetches and maintains the currently logged-in user's information.
+6. The store validates that the user's account type is allowed to access the dashboard.
+7. The store requests a two-factor authentication token.
+8. The user completes two-factor authentication.
+9. The refresh token returned after successful two-factor verification is also persisted on native platforms.
+10. Application features use the store to access the authenticated user's state.
+11. The store can refresh the access token when required.
+12. Rotated refresh tokens are persisted when a refresh request succeeds.
+13. Authentication state is restored when the application starts.
+14. Authentication state and stored refresh tokens are cleared when the session becomes invalid or the user logs out.
+
+## Platform-Specific Refresh Token Management
+
+The application supports web and native Android authentication through different refresh token persistence mechanisms.
+
+This distinction is necessary because the Capacitor Android application runs using the `https://localhost` origin, while the backend API is hosted on a different domain.
+
+### Web Authentication
+
+On the web platform, authentication uses the existing HTTP cookie-based refresh token mechanism.
+
+The browser manages the refresh token through HTTP cookies, and the application does not need to persist the refresh token manually.
+
+When refreshing an access token without explicitly providing a refresh token, the authentication API sends the refresh request using the cookie-based mechanism.
+
+### Native Android Authentication
+
+The Capacitor Android application runs inside a WebView using the `https://localhost` origin.
+
+Because the backend API is hosted on a different domain, the backend's refresh token cookie is not reliably available to the application's WebView through the normal cookie-based authentication flow.
+
+To support native Android authentication independently of this cross-domain cookie behavior, the application explicitly persists the refresh token using secure native storage.
+
+The implementation uses:
+
+- **`capacitor-secure-storage-plugin`** — Provides secure storage for sensitive authentication data on native platforms.
+- **`src/services/secureTokenStorage.ts`** — Encapsulates refresh token storage operations.
+- **Pinia authentication store** — Coordinates refresh token retrieval, persistence, rotation, and removal.
+
+The refresh token is stored securely rather than in browser local storage or session storage.
+
+The platform-specific behavior is:
+
+| Operation | Web | Native Android |
+|---|---|---|
+| Access token | Pinia state | Pinia state |
+| Refresh token persistence | HTTP cookies | Capacitor secure storage |
+| Refresh token retrieval | Browser cookie mechanism | Secure storage |
+| Refresh request | Cookie-based request | Explicit refresh token in request body |
+| Refresh token rotation | Managed through cookie-based authentication | Updated token persisted securely |
+| Refresh token removal | Managed through cookie-based authentication | Removed from secure storage |
+
+The secure storage service skips its operations on web platforms.
+
+### Secure Refresh Token Storage
+
+The secure storage service exposes three operations:
+
+| Method | Description |
+|---|---|
+| `setRefreshToken(token)` | Stores the refresh token securely on a native platform. |
+| `getRefreshToken()` | Retrieves the stored refresh token, returning `null` when unavailable or retrieval fails. |
+| `removeRefreshToken()` | Removes the stored refresh token from native secure storage. |
+
+Example:
+
+```ts
+import { secureTokenStorage } from '@/services/secureTokenStorage'
+
+// Persist a refresh token.
+await secureTokenStorage.setRefreshToken(refreshToken)
+
+// Retrieve a stored refresh token.
+const refreshToken = await secureTokenStorage.getRefreshToken()
+
+// Remove the stored refresh token.
+await secureTokenStorage.removeRefreshToken()
+```
+
+These operations are intended for native platforms. On web, the service skips secure storage operations.
 
 ## Authentication Initialization
 
@@ -80,11 +164,15 @@ The store provides an `initializeAuth()` action to restore authentication state 
 
 The initialization flow is:
 
-1. The store attempts to refresh the access token using the existing refresh token.
-2. The refresh request sets `skipAuthRedirect` to `true`.
-3. If the token refresh succeeds, the store fetches the authenticated user's information.
-4. If either operation fails, the initialization error is silently ignored.
-5. The application continues loading without an authenticated session.
+1. The store attempts to retrieve the stored refresh token from secure storage.
+2. If a refresh token is available, it is explicitly supplied to the refresh API.
+3. If no stored refresh token is available, the refresh API uses the cookie-based authentication mechanism.
+4. The refresh request sets `skipAuthRedirect` to `true`.
+5. If the token refresh succeeds, the store updates the access token.
+6. The newly returned refresh token is persisted securely on native platforms.
+7. The store fetches the authenticated user's information.
+8. If either operation fails, the initialization error is silently ignored.
+9. The application continues loading without an authenticated session.
 
 The action is called from `main.ts` before the application is mounted:
 
@@ -105,6 +193,70 @@ The `refreshToken()` action accepts an optional `skipAuthRedirect` parameter tha
 - **`true`** — A failed refresh does not trigger the redirect.
 
 `initializeAuth()` uses `refreshToken(true)` because authentication restoration occurs during application startup. A failed restoration should not trigger an additional navigation; the application can instead continue as an unauthenticated session.
+
+### Refresh Token Rotation
+
+The backend may return a new refresh token after a successful refresh operation.
+
+The authentication store persists the returned refresh token on native platforms, replacing the previously stored token.
+
+This ensures that subsequent refresh requests use the latest refresh token rather than an outdated one.
+
+The web platform continues to use its cookie-based refresh token mechanism.
+
+## Login and Two-Factor Authentication
+
+### Email and Password Login
+
+When login succeeds:
+
+1. The authentication API returns an access token and refresh token.
+2. The store updates its access token state.
+3. The refresh token is persisted using secure storage on native platforms.
+4. The store fetches the authenticated user's information.
+5. The store proceeds with the two-factor authentication flow.
+
+If login fails, the store clears authentication state and attempts to remove any previously stored refresh token.
+
+### Google Sign-In
+
+Google authentication follows the same refresh token persistence approach.
+
+After successful Google authentication, the store:
+
+1. Updates the access token.
+2. Persists the refresh token securely on native platforms.
+3. Fetches the authenticated user's information.
+4. Validates the user's account type.
+
+If authentication fails, the store clears its authentication state and removes the stored refresh token.
+
+### Two-Factor Authentication Verification
+
+After successful OTP verification:
+
+1. The two-factor authentication API returns an access token and refresh token.
+2. The store updates its access token.
+3. The returned refresh token is persisted securely on native platforms.
+4. The user can continue with the authenticated application session.
+
+If verification fails, the store clears authentication state and removes the stored refresh token.
+
+## Logout
+
+The authentication store exposes a `logOut()` action to centralize logout handling.
+
+The action:
+
+1. Attempts to perform server-side logout.
+2. Removes the locally stored refresh token.
+3. Clears the authentication store state.
+
+Local logout is completed even if the server-side logout request or secure storage cleanup fails.
+
+The `SideNav` and `TopBar` components delegate logout operations to this action and navigate the user to the login page afterward.
+
+This avoids duplicating authentication cleanup logic across dashboard components.
 
 ## Getters
 
@@ -245,8 +397,9 @@ These getters provide **client-side authorization checks** for controlling which
 - **API authentication:** `src/api/modules/auth.ts`
 - **API users:** `src/api/modules/users.ts`
 - **Authentication store:** `src/stores/modules/auth/`
+- **Authentication actions:** `src/stores/modules/auth/actions.ts`
 - **Authentication getters:** `src/stores/modules/auth/getters.ts`
+- **Secure token storage:** `src/services/secureTokenStorage.ts`
 - **API client:** `src/api/client.ts`
 - **API interceptors:** `src/api/interceptors/`
 - **Application entry point:** `src/main.ts`
-```

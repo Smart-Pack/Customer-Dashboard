@@ -76,7 +76,6 @@
 import { markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { auth } from '@/api'
 import HomeIcon from '@/components/Icons/HomeIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import DarkModeIcon from '@/components/Icons/DarkModeIcon.vue'
@@ -128,14 +127,8 @@ function navigateTo(item: MenuItem): void {
  * to the login page even if the server-side logout request fails.
  */
 async function logout(): Promise<void> {
-  try {
-    await auth.logout()
-  } catch {
-    // Continue with local logout if the server logout request fails.
-  } finally {
-    authStore.clearStore()
-    await router.push({ name: 'login' })
-  }
+  await authStore.logOut()
+  await router.push({ name: 'login' })
 }
 
 function splitLabel(label: string): string[] {

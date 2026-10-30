@@ -129,25 +129,48 @@ describe('auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith(AUTH.LOGIN, credentials)
   })
 
-  /**
-   * Verifies that logout sends the request to the logout endpoint
-   * and returns the response data.
-   */
-  it('logs out the current user', async () => {
-    const response = {
-      data: {},
-    }
+  describe('logout', () => {
+    /**
+     * Verifies that logout sends the request without a refresh token
+     * and returns the response data.
+     */
+    it('logs out the current user without a refresh token', async () => {
+      const response = {
+        data: {},
+      }
 
-    vi.mocked(apiClient.post).mockResolvedValue(response)
+      vi.mocked(apiClient.post).mockResolvedValue(response)
 
-    const result = await logout()
+      const result = await logout()
 
-    expect(apiClient.post).toHaveBeenCalledWith(AUTH.LOGOUT)
-    expect(result).toEqual(response.data)
+      expect(apiClient.post).toHaveBeenCalledWith(AUTH.LOGOUT, {})
+      expect(result).toEqual(response.data)
+    })
+
+    /**
+     * Verifies that logout includes the refresh token in the request
+     * and returns the response data.
+     */
+    it('logs out the current user with a refresh token', async () => {
+      const refreshToken = 'test-refresh-token'
+      const response = {
+        data: {},
+      }
+
+      vi.mocked(apiClient.post).mockResolvedValue(response)
+
+      const result = await logout(refreshToken)
+
+      expect(apiClient.post).toHaveBeenCalledWith(AUTH.LOGOUT, {
+        refresh: refreshToken,
+      })
+      expect(result).toEqual(response.data)
+    })
   })
 
   /**
    * Verifies that refresh sends the request to the refresh endpoint
+   * using the authentication cookie when no refresh token is provided
    * and returns the refreshed authentication tokens.
    */
   it('refreshes authentication tokens using the refresh cookie', async () => {
@@ -165,6 +188,35 @@ describe('auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith(AUTH.REFRESH, undefined, {
       skipAuthRedirect: false,
     })
+    expect(result.access).toBe('new-access-token')
+    expect(result.refresh).toBe('new-refresh-token')
+  })
+
+  /**
+   * Verifies that refresh sends the provided refresh token in the request
+   * payload and returns the refreshed authentication tokens.
+   */
+  it('refreshes authentication tokens using the provided refresh token', async () => {
+    const refreshToken = 'stored-refresh-token'
+
+    const response = {
+      data: {
+        access: 'new-access-token',
+        refresh: 'new-refresh-token',
+      },
+    }
+
+    vi.mocked(apiClient.post).mockResolvedValue(response)
+
+    const result = await refresh(refreshToken)
+
+    expect(apiClient.post).toHaveBeenCalledWith(
+      AUTH.REFRESH,
+      { refresh: refreshToken },
+      {
+        skipAuthRedirect: false,
+      },
+    )
     expect(result.access).toBe('new-access-token')
     expect(result.refresh).toBe('new-refresh-token')
   })

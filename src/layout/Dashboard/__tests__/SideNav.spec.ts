@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 
 import SideNav from '../SideNav.vue'
@@ -358,12 +358,12 @@ describe('SideNav', () => {
       expect(logoutButton).toBeDefined()
 
       await logoutButton!.trigger('click')
+      await flushPromises()
 
       expect(auth.logout).toHaveBeenCalledTimes(1)
       expect(clearStoreSpy).toHaveBeenCalledTimes(1)
 
-      expect(routerPush).toHaveBeenCalledTimes(1)
-      expect(routerPush).toHaveBeenCalledWith({
+      expect(routerPush).toHaveBeenCalledExactlyOnceWith({
         name: 'login',
       })
     })
@@ -380,6 +380,7 @@ describe('SideNav', () => {
       expect(logoutButton).toBeDefined()
 
       await logoutButton!.trigger('click')
+      await flushPromises()
 
       expect(auth.logout).toHaveBeenCalledTimes(1)
       expect(clearStoreSpy).toHaveBeenCalledTimes(1)

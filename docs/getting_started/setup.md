@@ -1,5 +1,4 @@
-
-etup
+# Setup
 
 This guide explains how to set up the SmartPack Customer Dashboard for local development, including Android development using Capacitor.
 
@@ -219,6 +218,128 @@ The dashboard supports the following environments:
 Environment-specific variables should be configured through the appropriate local or deployment environment.
 
 Never commit environment files containing secrets or private credentials.
+
+Add the following section to your Android setup documentation. It covers configuring Google Sign-In for both Android and web using the same Google Cloud project.
+
+## Google Sign-In Configuration
+
+SmartPack uses Google OAuth 2.0 for authentication on both Android and web. Configure both Android and Web OAuth clients in the **same Google Cloud project**.
+
+### 1. Get the Android package name
+
+The Android package name is defined by the `appId` property in `capacitor.config.ts`.
+
+```ts
+const config: CapacitorConfig = {
+  appId: 'com.razaoul.smartpack',
+  // Other configuration...
+}
+```
+
+For this project, the Android package name is:
+
+```text
+com.razaoul.smartpack
+```
+
+If you change the `appId`, ensure that the Android OAuth client uses the updated package name.
+
+### 2. Get the Android SHA-1 fingerprint
+
+Run the following command from the project root:
+
+```bash
+pnpm android:sha1
+```
+
+This extracts the SHA-1 fingerprint for the Android debug signing configuration.
+
+Alternatively, run:
+
+```bash
+cd android
+./gradlew signingReport
+```
+
+Locate the `debug` variant and copy its `SHA1` fingerprint.
+
+> **Note:** The SHA-1 fingerprint depends on the signing certificate. When configuring release builds, obtain the SHA-1 fingerprint for the release signing certificate as well.
+
+### 3. Configure OAuth clients in Google Cloud Console
+
+Open the [Google Cloud Console](https://console.cloud.google.com/) and select or create a project.
+
+Configure the following OAuth 2.0 clients under **Google Auth Platform → Clients**.
+
+#### Android OAuth Client
+
+Create an OAuth client with:
+
+- Application type: Android
+- Package name: `com.razaoul.smartpack`
+- SHA-1 certificate fingerprint: Obtained in Step 2.
+
+This client identifies and verifies the Android application.
+
+#### Web OAuth Client
+
+Create another OAuth client with:
+
+- Application type: Web application
+- Authorized JavaScript origins: Your web application origins.
+- Authorized redirect URIs: Configure these if required by your web authentication flow.
+
+Copy the generated Web Client ID.
+
+**Important:** The Android and Web OAuth clients must belong to the same Google Cloud project. The Web Client ID is used as the `webClientId` for native Google Sign-In and as the client ID for web Google Sign-In.
+
+### 4. Configure environment variables
+
+Add the Web Client ID to your environment configuration:
+
+```env
+VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+```
+
+Use this same Web Client ID for both Android and web authentication.
+
+For example, native initialization:
+
+```ts
+await SocialLogin.initialize({
+  google: {
+    webClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    mode: 'online',
+  },
+})
+```
+
+And web initialization:
+
+```ts
+app.use(GoogleSignInPlugin, {
+  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+})
+```
+
+### 5. Verify the configuration
+
+Before testing Google Sign-In, verify that:
+
+- The Android OAuth client has the correct package name.
+- The Android OAuth client has the correct debug SHA-1 fingerprint.
+- The Web OAuth client belongs to the same Google Cloud project.
+- The Web Client ID is used in both Android and web configurations.
+- The Google authentication configuration and consent screen are properly configured.
+
+After making changes to the Android configuration, synchronize and rebuild the application:
+
+```bash
+pnpm android:build
+pnpm android:install:debug
+```
+
+**Key distinction:** You need two OAuth clients, not one: an Android client (package name + SHA-1) and a Web client (whose Client ID is shared by your web and native application configurations).
 
 ## Recommended IDE Setup
 

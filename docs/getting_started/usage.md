@@ -159,5 +159,6 @@ The APK can then be transferred to an Android device or installed manually.
 | `pnpm android:install:debug` | Installs the existing debug APK on a connected Android device. |
 | `pnpm android:assets` | Generates Android launcher icon assets from the SmartPack SVG logo and synchronizes the assets with the native Android project. |
 | `pnpm android:assemble` | Synchronizes Capacitor with Android, builds the debug APK, and copies the generated APK into the `build/` directory. |
+| `pnpm android:sha1` | Generates and displays the SHA-1 signing certificate fingerprint for the Android debug variant, useful when configuring Google OAuth credentials. |
 
 **Note:** The `android:build` script only synchronizes Capacitor; it does not build the APK itself. The `android:install` script invokes Gradle through `./gradlew installDebug`, which builds and installs the debug APK. Ensure the Android SDK is configured correctly before running these commands.

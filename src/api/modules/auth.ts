@@ -84,26 +84,34 @@ export const googleLogin = async (data: GoogleLoginRequest) => {
 }
 
 /**
- * Logs out the current user by clearing the authentication cookies.
+ * Logs out the current user by invalidating the refresh token
+ * and clearing the authentication cookies.
  *
+ * @param refresh - Optional refresh token for native authentication.
  * @returns Logout confirmation.
  */
-export const logout = async () => {
-  const response = await apiClient.post<ApiDetailResponse>(AUTH.LOGOUT)
+export const logout = async (refresh?: string) => {
+  const response = await apiClient.post<ApiDetailResponse>(AUTH.LOGOUT, refresh ? { refresh } : {})
+
   return response.data
 }
 
 /**
- * Refreshes the authentication tokens using the refresh token
- * stored in the authentication cookie.
+ * Refreshes the authentication tokens using either the provided
+ * refresh token or the authentication cookie.
  *
+ * @param refreshToken - Optional refresh token for native authentication.
  * @param options - Optional configuration for the refresh request.
  * @returns Refreshed authentication tokens.
  */
-export const refresh = async (options?: RefreshOptions) => {
-  const response = await apiClient.post<LoginResponse>(AUTH.REFRESH, undefined, {
-    skipAuthRedirect: options?.skipAuthRedirect ?? false,
-  })
+export const refresh = async (refreshToken?: string, options?: RefreshOptions) => {
+  const response = await apiClient.post<LoginResponse>(
+    AUTH.REFRESH,
+    refreshToken ? { refresh: refreshToken } : undefined,
+    {
+      skipAuthRedirect: options?.skipAuthRedirect ?? false,
+    },
+  )
 
   return response.data
 }
