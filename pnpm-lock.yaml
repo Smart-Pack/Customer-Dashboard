@@ -118,6 +118,9 @@ importers:
       '@capacitor/core':
         specifier: ^8.5.3
         version: 8.5.3
+      '@capgo/capacitor-social-login':
+        specifier: ^8.7.5
+        version: 8.7.5(@capacitor/core@8.5.3)
       '@vee-validate/rules':
         specifier: ^4.15.1
         version: 4.15.1(vue@3.5.41(typescript@6.0.3))
@@ -474,6 +477,11 @@ packages:
 
   '@capacitor/core@8.5.3':
     resolution: {integrity: sha512-oBE1oGuYE4ZzYYrulC75OuHdSsD6zLUy7d5o1tFwDLG4govGoubY15cxpiI5l0+q87Lm5p0bhbehMdzJg4aFag==}
+
+  '@capgo/capacitor-social-login@8.7.5':
+    resolution: {integrity: sha512-1Qd0l4AZ/ch3ILdSOa7UwrWoENFXb+/gOo1P7w/yTKENy0561JXIXWy+VhUx17E/FBMyx8DVgbrALiuCByKZ3A==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@csstools/color-helpers@6.1.1':
     resolution: {integrity: sha512-gLNsunvwf3mCi5u5o46/Z/JcJMnhbHSaZ69rkgPzNM3J4s8hWwpPUQB6/tt0EDFyCiWzxANlx+2LJwpYj4zS1w==}
@@ -4172,6 +4180,11 @@ snapshots:
 
   '@capacitor/core@8.5.3':
     dependencies:
+      tslib: 2.8.1
+
+  '@capgo/capacitor-social-login@8.7.5(@capacitor/core@8.5.3)':
+    dependencies:
+      '@capacitor/core': 8.5.3
       tslib: 2.8.1
 
   '@csstools/color-helpers@6.1.1': {}
