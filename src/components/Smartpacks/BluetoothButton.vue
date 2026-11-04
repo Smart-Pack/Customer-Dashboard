@@ -26,7 +26,11 @@
  * @module components/Smartpacks/BluetoothButton
  * @description Connect/disconnect button for a SmartPack's Bluetooth Classic
  * connection. Shows the phone's Bluetooth on/off state, notifies when it
- * changes, and emits connection state and received data to the parent.
+ * changes, and emits each complete JSON message received from the device.
+ *
+ * Incoming data arrives in arbitrary chunks, so it is buffered until a
+ * newline marks the end of a message, then parsed. The device must send one
+ * JSON object per line (e.g. `SerialBT.println("{\"type\":\"sensors\"}")`).
  *
  * Designed to be mounted once at a time, since it polls the adapter state
  * and owns the shared Bluetooth serial connection.
@@ -34,9 +38,9 @@
  * Parent usage:
  * ```vue
  * <BluetoothButton
- *   :mac-address="smartpack.macAddress"
+ *   :mac-address="smartPack.bluetooth_mac_address"
  *   v-model:isBluetoothConnected="isBluetoothConnected"
- *   v-model:bluetoothData="bluetoothData"
+ *   @message="onBluetoothMessage"
  * />
  * ```
  */
@@ -50,8 +54,11 @@ import BluetoothOffIcon from '@/components/Icons/BluetoothOffIcon.vue'
 /** How often (ms) the phone's Bluetooth adapter state is checked. */
 const STATUS_POLL_INTERVAL_MS = 2000
 
-/** Maximum number of characters of received data kept and emitted. */
-const MAX_DATA_LENGTH = 5000
+/**
+ * Maximum characters held while waiting for a newline. Protects against a
+ * device that never sends one.
+ */
+const MAX_LINE_LENGTH = 10000
 
 export default defineComponent({
   name: 'BluetoothButton',
@@ -77,17 +84,13 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
-
-    /**
-     * Data received from the SmartPack.
-     */
-    bluetoothData: {
-      type: String,
-      default: '',
-    },
   },
 
-  emits: ['update:isBluetoothConnected', 'update:bluetoothData'] as const,
+  /**
+   * - `update:isBluetoothConnected`: connection state changed.
+   * - `message`: a complete, parsed JSON message received from the SmartPack.
+   */
+  emits: ['update:isBluetoothConnected', 'message'] as const,
 
   data() {
     return {
@@ -169,7 +172,6 @@ export default defineComponent({
 
     if (this.isBluetoothConnected) {
       this.updateConnectionState(false)
-      this.updateBluetoothData('')
     }
 
     void bluetoothSerialService.disconnect()
@@ -183,15 +185,6 @@ export default defineComponent({
      */
     updateConnectionState(connected: boolean): void {
       this.$emit('update:isBluetoothConnected', connected)
-    },
-
-    /**
-     * Emits updated Bluetooth data.
-     *
-     * @param data - The full data string to show.
-     */
-    updateBluetoothData(data: string): void {
-      this.$emit('update:bluetoothData', data)
     },
 
     /**
@@ -230,7 +223,8 @@ export default defineComponent({
     /**
      * Connects to or disconnects from the SmartPack.
      *
-     * When connected, starts listening for incoming string data.
+     * When connected, starts listening for incoming data and emits each
+     * complete JSON message as a `message` event.
      *
      * @returns A promise that resolves when the connection action completes.
      */
@@ -245,7 +239,6 @@ export default defineComponent({
           await bluetoothSerialService.disconnect()
 
           this.updateConnectionState(false)
-          this.updateBluetoothData('')
 
           this.$notifySuccess('Bluetooth disconnected successfully.')
           return
@@ -263,8 +256,6 @@ export default defineComponent({
           this.updateConnectionState(connected)
 
           if (!connected) {
-            this.updateBluetoothData('')
-
             // Avoid a duplicate toast when the phone's Bluetooth was switched
             // off; checkBluetoothStatus() already reports that.
             if (reason !== 'bluetooth-off') {
@@ -275,15 +266,79 @@ export default defineComponent({
 
         this.updateConnectionState(true)
 
-        // Local buffer, so chunks arriving before the parent re-renders
-        // are not lost, and the data stays bounded.
-        let buffer = this.bluetoothData
+        // Holds an incomplete line until its newline arrives.
+        // Declared per connection, so it starts empty on every connect.
+        let lineBuffer = ''
 
         // Listen for incoming serial data.
         bluetoothSerialService.startReading({
-          onData: (data) => {
-            buffer = (buffer + data).slice(-MAX_DATA_LENGTH)
-            this.updateBluetoothData(buffer)
+          onData: (chunk) => {
+            // Append incoming Bluetooth data to the receive buffer.
+            lineBuffer += chunk
+
+            /**
+             * Attempts to parse a complete JSON message.
+             *
+             * @param text - The text to parse.
+             * @returns The parsed JSON object if valid; otherwise, null.
+             */
+            const parseMessage = (text: string): unknown | null => {
+              try {
+                const message: unknown = JSON.parse(text)
+
+                // SmartPack messages must be JSON objects.
+                if (typeof message !== 'object' || message === null || Array.isArray(message)) {
+                  return null
+                }
+
+                return message
+              } catch {
+                return null
+              }
+            }
+
+            // 1. Check whether the accumulated buffer contains a complete JSON message.
+            // This supports terminal applications that send JSON without a newline.
+            const trimmedBuffer = lineBuffer.trim()
+
+            if (trimmedBuffer) {
+              const message = parseMessage(trimmedBuffer)
+
+              if (message !== null) {
+                this.$emit('message', message)
+                lineBuffer = ''
+                return
+              }
+            }
+
+            // 2. Extract complete newline-delimited messages.
+            // This is the preferred communication format for ESP32 firmware.
+            const lines = lineBuffer.split(/\r?\n/)
+
+            // Retain the incomplete final piece for the next Bluetooth callback.
+            lineBuffer = lines.pop() ?? ''
+
+            // 3. Prevent unlimited buffer growth if a newline never arrives.
+            if (lineBuffer.length > MAX_LINE_LENGTH) {
+              console.warn('[Bluetooth] Incomplete message exceeded maximum length.')
+              lineBuffer = ''
+            }
+
+            // 4. Parse and emit each complete newline-delimited message.
+            for (const line of lines) {
+              const text = line.trim()
+
+              if (!text) continue
+
+              const message = parseMessage(text)
+
+              if (message === null) {
+                console.warn('[Bluetooth] Invalid JSON message:', text)
+                continue
+              }
+
+              this.$emit('message', message)
+            }
           },
 
           // Lost connections are reported by the connect callback above.
