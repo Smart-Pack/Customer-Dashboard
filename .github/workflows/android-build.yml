@@ -26,8 +26,6 @@ jobs:
       # 2. Install pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: '12.3.4'
 
       # 3. Install Node.js
       - name: Setup Node.js
