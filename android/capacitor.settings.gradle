@@ -2,6 +2,9 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/.pnpm/@capacitor+android@8.5.3_@capacitor+core@8.5.3/node_modules/@capacitor/android/capacitor')
 
+include ':capacitor-firebase-messaging'
+project(':capacitor-firebase-messaging').projectDir = new File('../node_modules/.pnpm/@capacitor-firebase+messaging@8.6.0_@capacitor+core@8.5.3/node_modules/@capacitor-firebase/messaging/android')
+
 include ':capacitor-app'
 project(':capacitor-app').projectDir = new File('../node_modules/.pnpm/@capacitor+app@8.1.2_@capacitor+core@8.5.3/node_modules/@capacitor/app/android')
 
@@ -10,6 +13,7 @@ project(':capgo-capacitor-social-login').projectDir = new File('../node_modules/
 
 include ':bluetooth-serial'
 project(':bluetooth-serial').projectDir = new File('../node_modules/.pnpm/bluetooth-serial@1.0.0_patch_hash=79b5f19817a586dfe54088f0f06fd011e043ca5ebcf4df7d5b4dc6fd3e478f07_@capacitor+core@8.5.3/node_modules/bluetooth-serial/android')
+
 
 include ':capacitor-secure-storage-plugin'
 project(':capacitor-secure-storage-plugin').projectDir = new File('../node_modules/.pnpm/capacitor-secure-storage-plugin@0.13.0_@capacitor+core@8.5.3/node_modules/capacitor-secure-storage-plugin/android')

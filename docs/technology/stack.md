@@ -34,6 +34,7 @@ This document describes the technologies and tools used to develop and operate t
 | `@capacitor/core` | Core Capacitor runtime APIs for communication between the web application and native platform functionality. |
 | `@capacitor/android` | Android platform integration for building and running the application on Android devices. |
 | `@capacitor/cli` | Command-line tooling for initializing Capacitor, synchronizing web assets and plugins, and managing native platform projects. |
+| `@capacitor-firebase/messaging` | Firebase Cloud Messaging integration for obtaining FCM registration tokens, handling token refreshes, receiving push notifications, and handling notification interactions on Android devices. |
 | `bluetooth-serial` | Bluetooth Classic serial communication between the Android application and ESP32-based SmartPack devices, including device discovery, connection, and data exchange. |
 | `@capacitor/assets` | Generates native Android and iOS application icons and splash screen assets from source images. |
 | `sharp` | High-performance image processing library used to convert the SmartPack SVG logo into PNG assets and prepare adaptive icon foreground and background images. |
