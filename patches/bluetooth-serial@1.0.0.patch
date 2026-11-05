@@ -1,0 +1,12 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 3de98985bbaf1a94fbc5c4e8a1bad36f447a5e36..ad06a009573ff9cd02fdc9c7ea0f9b63aa1abdf9 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -18,6 +18,7 @@ buildscript {
+ apply plugin: 'com.android.library'
+ 
+ android {
++    namespace "com.glavotaner.bluetoothserial"
+     compileSdkVersion project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 32
+     defaultConfig {
+         minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 22
