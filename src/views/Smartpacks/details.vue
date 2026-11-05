@@ -49,6 +49,14 @@
               {{ smartPack.is_online ? 'Online' : 'Offline' }}
             </span>
           </div>
+
+          <!-- Bluetooth Connection (Mobile Only) -->
+          <BluetoothButton
+            v-if="isMobile"
+            :mac-address="smartPack.bluetooth_mac_address"
+            v-model:isBluetoothConnected="isBluetoothConnected"
+            @message="onBluetoothMessage"
+          />
         </div>
       </header>
 
@@ -154,6 +162,8 @@
       class="mt-8 mx-auto max-w-6xl"
       :smartpack-id="smartPack.id"
       :smartpack-uid="smartPack.device_uid"
+      :is-bluetooth-connected="isBluetoothConnected"
+      :sensor-history="sensorHistory"
     />
     <!-- Assign Group Modal -->
     <AssignGroup
@@ -186,8 +196,42 @@ import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
 import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
-
+import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
+import type { SmartPackSensorMessage, SmartPackSensorRecord } from '@/types/bluetooth'
 import { useAuthStore } from '@/stores/modules/auth'
+
+/** Maximum number of Bluetooth sensor readings to retain. */
+const MAX_SENSOR_HISTORY = 1000
+/**
+ * Validates whether a value is a valid SmartPack sensor message.
+ *
+ * @param {unknown} payload - Incoming Bluetooth message.
+ * @returns {boolean} Whether the payload matches SmartPackSensorMessage.
+ */
+function isSmartPackSensorMessage(payload: unknown): payload is SmartPackSensorMessage {
+  if (typeof payload !== 'object' || payload === null || !('type' in payload)) {
+    return false
+  }
+
+  if (payload.type !== 'sensors' || !('data' in payload)) {
+    return false
+  }
+
+  const data = payload.data
+
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'weight' in data &&
+    typeof data.weight === 'number' &&
+    Number.isFinite(data.weight) &&
+    data.weight >= 0 &&
+    'steps' in data &&
+    typeof data.steps === 'number' &&
+    Number.isFinite(data.steps) &&
+    data.steps >= 0
+  )
+}
 
 export default defineComponent({
   name: 'SmartPackDetails',
@@ -195,6 +239,7 @@ export default defineComponent({
   components: {
     AssignChildForm,
     BackPackIcon,
+    BluetoothButton,
     UserIcon,
     UserGroupIcon,
     AssignGroup,
@@ -224,6 +269,16 @@ export default defineComponent({
         id: typeof id === 'string' ? id : '',
       }
     },
+    /**
+     * Determines whether the application is running in mobile mode.
+     *
+     * Checks the Vite environment mode configured during the build.
+     *
+     * @returns {boolean} `true` when running in mobile mode; otherwise, `false`.
+     */
+    isMobile(): boolean {
+      return import.meta.env.MODE === 'mobile'
+    },
   },
 
   data() {
@@ -232,6 +287,8 @@ export default defineComponent({
       activePage: 'showDetails' as 'showDetails' | 'assignChild',
       showAssignGroupTable: false,
       submitting: false,
+      isBluetoothConnected: false,
+      sensorHistory: [] as SmartPackSensorRecord[],
 
       /**
        * Indicates whether the hidden QR helper should render and download.
@@ -255,6 +312,33 @@ export default defineComponent({
   },
 
   methods: {
+    /**
+     * Handles incoming Bluetooth messages from the SmartPack device.
+     *
+     * Validates sensor messages and records weight, steps, and the timestamp
+     * when the readings are received.
+     *
+     * Invalid messages and messages with unsupported types are ignored.
+     *
+     * @param {unknown} payload - Parsed message received over Bluetooth.
+     * @returns {void}
+     */
+    onBluetoothMessage(payload: unknown): void {
+      if (!isSmartPackSensorMessage(payload)) {
+        return
+      }
+
+      const reading: SmartPackSensorRecord = {
+        ...payload.data,
+        timestamp: new Date().toISOString(),
+      }
+
+      this.sensorHistory.push(reading)
+
+      if (this.sensorHistory.length > MAX_SENSOR_HISTORY) {
+        this.sensorHistory.shift()
+      }
+    },
     /**
      * Fetches the SmartPack details using the ID from the current route.
      *
