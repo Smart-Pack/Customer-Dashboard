@@ -5,6 +5,7 @@
 
 import * as analysis from './analysis'
 import * as auth from './auth'
+import * as fcmDevices from './fcmDevices'
 import * as groups from './groups'
 import * as groupMembers from './groupMembers'
 import * as twoFactor from './twoFactor'
@@ -18,6 +19,7 @@ import * as smartpacks from './smartpacks'
 const api = {
   analysis,
   auth,
+  fcmDevices,
   groups,
   groupMembers,
   twoFactor,
@@ -32,6 +34,7 @@ const api = {
 export {
   analysis,
   auth,
+  fcmDevices,
   groups,
   groupMembers,
   mqtt,
