@@ -128,7 +128,7 @@
           <div class="w-full overflow-x-auto">
             <table class="w-full min-w-[480px] text-left text-sm">
               <thead>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-gray-200 secondary-text">
                   <th class="px-3 py-3 font-semibold">Timestamp</th>
                   <th class="px-3 py-3 text-right font-semibold">Weight (g)</th>
                   <th class="px-3 py-3 text-right font-semibold">Cumulative Steps</th>
@@ -139,10 +139,16 @@
                 <tr
                   v-for="measurement in recentMeasurements"
                   :key="measurement.id"
-                  class="border-b border-gray-100 last:border-0"
+                  class="border-b border-gray-100 last:border-0 secondary-text"
                 >
                   <td class="px-3 py-3">
                     {{ formatTimestamp(measurement.timestamp) }}
+                    <span
+                      v-if="measurement.source === 'bluetooth'"
+                      class="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
+                    >
+                      Bluetooth
+                    </span>
                   </td>
 
                   <td class="px-3 py-3 text-right">
@@ -158,7 +164,8 @@
           </div>
 
           <p class="secondary-text mt-3 text-xs">
-            Showing {{ recentMeasurements.length }} of {{ formatNumber(totalCount) }} measurements.
+            Showing {{ recentMeasurements.length }} of
+            {{ formatNumber(displayTotal) }} measurements.
           </p>
 
           <div v-if="hasMorePages" class="mt-4 flex items-center justify-between gap-3">
@@ -200,7 +207,7 @@ import type {
   SmartPackSensorMeasurementListResult,
   SmartPackSensorMeasurementQueryParams,
 } from '@/api/modules/smartpacks'
-
+import type { SmartPackSensorRecord } from '@/types/bluetooth'
 import { useMqttStore } from '@/stores'
 
 defineOptions({
@@ -210,13 +217,32 @@ defineOptions({
 const props = defineProps<{
   smartpackId: number
   smartpackUid: string
+  isBluetoothConnected: boolean
+  sensorHistory: SmartPackSensorRecord[]
 }>()
 
+/** Records requested per page from the REST API. */
 const PAGE_SIZE = 100
+
+/** Readings whose timestamps fall in the same bucket (ms) count as the same entry. */
+const KEY_PRECISION_MS = 1000
+
+/** Maximum entries kept in memory; the oldest are trimmed first. */
+const MAX_ITEMS = 1000
+
+/** A measurement from any source (REST, MQTT or Bluetooth), in the shape the UI needs. */
+type MergedMeasurement = {
+  id: number | string
+  steps: number
+  weight: number
+  timestamp: string
+  source: 'server' | 'bluetooth'
+}
 
 const mqttStore = useMqttStore()
 
-const measurements = ref<SmartPackSensorMeasurement[]>([])
+/** All known measurements, newest first. Timestamp is the unique key. */
+const measurements = ref<MergedMeasurement[]>([])
 const loading = ref(false)
 const error = ref('')
 const currentPage = ref(1)
@@ -224,6 +250,9 @@ const totalCount = ref(0)
 const nextPage = ref<string | null>(null)
 const previousPage = ref<string | null>(null)
 const mqttConnected = ref(false)
+
+/** Timestamp keys of everything currently in `measurements`. */
+const knownKeys = new Set<number>()
 
 let requestId = 0
 let mqttClient: MqttClient | null = null
@@ -234,6 +263,118 @@ let isUnmounted = false
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / PAGE_SIZE)))
 
 const hasMorePages = computed(() => totalPages.value > 1)
+
+/** Server total plus entries that so far exist only on Bluetooth. */
+const displayTotal = computed(
+  () => totalCount.value + measurements.value.filter((m) => m.source === 'bluetooth').length,
+)
+
+// ---------------------------------------------------------------------------
+// Merged measurement store
+// ---------------------------------------------------------------------------
+
+/**
+ * Sorts newest first.
+ */
+function newestFirst(a: MergedMeasurement, b: MergedMeasurement): number {
+  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+}
+
+/**
+ * Converts a timestamp into its unique key.
+ *
+ * @param timestamp - ISO timestamp string.
+ * @returns The key, or null if the timestamp is invalid.
+ */
+function timestampKey(timestamp: string): number | null {
+  const time = new Date(timestamp).getTime()
+
+  return Number.isFinite(time) ? Math.floor(time / KEY_PRECISION_MS) : null
+}
+
+/**
+ * Adds entries whose timestamp is not already present. Entries with a
+ * known (or invalid) timestamp are ignored, whatever their source.
+ * Trims the oldest entries beyond MAX_ITEMS and forgets their keys.
+ *
+ * @param items - Entries to add.
+ * @returns How many entries were actually added.
+ */
+function addMeasurements(items: MergedMeasurement[]): number {
+  let added = 0
+
+  for (const item of items) {
+    const key = timestampKey(item.timestamp)
+
+    if (key === null || knownKeys.has(key)) continue
+
+    knownKeys.add(key)
+    measurements.value.push(item)
+    added += 1
+  }
+
+  if (added > 0) {
+    measurements.value.sort(newestFirst)
+
+    for (const removed of measurements.value.splice(MAX_ITEMS)) {
+      const key = timestampKey(removed.timestamp)
+      if (key !== null) knownKeys.delete(key)
+    }
+  }
+
+  return added
+}
+
+/**
+ * Clears the store, then loads the given entries.
+ *
+ * @param items - Entries to start with.
+ */
+function resetMeasurements(items: MergedMeasurement[] = []): void {
+  knownKeys.clear()
+  measurements.value = []
+  addMeasurements(items)
+}
+
+/**
+ * Converts a REST/MQTT measurement into a merged entry.
+ */
+function fromServer(m: SmartPackSensorMeasurement): MergedMeasurement {
+  return {
+    id: m.id,
+    steps: m.steps,
+    weight: m.weight,
+    timestamp: m.timestamp,
+    source: 'server',
+  }
+}
+
+/**
+ * Converts a Bluetooth record into a merged entry.
+ */
+function fromBluetooth(r: SmartPackSensorRecord): MergedMeasurement {
+  return {
+    id: `bt-${new Date(r.timestamp).getTime()}`,
+    steps: r.steps,
+    weight: r.weight,
+    timestamp: r.timestamp,
+    source: 'bluetooth',
+  }
+}
+
+/**
+ * Adds the Bluetooth history to the store. Only on page 1, since these are
+ * the newest readings and would be out of place on older pages.
+ */
+function addBluetoothHistory(): void {
+  if (currentPage.value !== 1) return
+
+  addMeasurements(props.sensorHistory.map(fromBluetooth))
+}
+
+// ---------------------------------------------------------------------------
+// REST
+// ---------------------------------------------------------------------------
 
 /**
  * Fetches a page of historical sensor measurements from the REST API.
@@ -257,7 +398,9 @@ async function fetchMeasurements(): Promise<void> {
       return
     }
 
-    measurements.value = response.results
+    resetMeasurements(response.results.map(fromServer))
+    addBluetoothHistory()
+
     totalCount.value = response.count
     nextPage.value = response.next
     previousPage.value = response.previous
@@ -266,7 +409,7 @@ async function fetchMeasurements(): Promise<void> {
       return
     }
 
-    measurements.value = []
+    resetMeasurements()
     totalCount.value = 0
     nextPage.value = null
     previousPage.value = null
@@ -278,6 +421,10 @@ async function fetchMeasurements(): Promise<void> {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// MQTT
+// ---------------------------------------------------------------------------
 
 /**
  * Checks whether a value is a plain object.
@@ -325,6 +472,8 @@ function isSensorMeasurement(value: unknown): value is SmartPackSensorMeasuremen
  *     updated
  *   }
  * }
+ *
+ * Ignored if an entry with the same timestamp already exists.
  */
 function handleMqttMessage(payload: Uint8Array): void {
   try {
@@ -346,22 +495,21 @@ function handleMqttMessage(payload: Uint8Array): void {
       return
     }
 
-    // Avoid inserting duplicate records.
-    if (measurements.value.some((item) => item.id === measurement.id)) {
+    // Generate a timestamp key for duplicate detection.
+    const key = timestampKey(measurement.timestamp)
+
+    if (key === null || knownKeys.has(key)) {
       return
     }
 
-    // Preserve the current historical page when not viewing page 1.
-    if (currentPage.value !== 1) {
-      totalCount.value += 1
-      return
+    // Only add live measurements to the displayed collection on the first page.
+    if (currentPage.value === 1) {
+      if (addMeasurements([fromServer(measurement)]) === 0) {
+        return
+      }
     }
 
-    // Insert the new reading and keep the newest records first.
-    measurements.value = [measurement, ...measurements.value]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, PAGE_SIZE)
-
+    // Update the total count for every new measurement.
     totalCount.value += 1
     error.value = ''
 
@@ -516,21 +664,14 @@ function changePage(page: number): void {
   void fetchMeasurements()
 }
 
-const chronologicalMeasurements = computed(() =>
-  [...measurements.value].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  ),
-)
+// ---------------------------------------------------------------------------
+// Derived data
+// ---------------------------------------------------------------------------
 
-const latestMeasurement = computed(() => {
-  if (!measurements.value.length) {
-    return null
-  }
+/** Oldest first, for the charts. `measurements` is already newest first. */
+const chronologicalMeasurements = computed(() => [...measurements.value].reverse())
 
-  return measurements.value.reduce((latest, current) =>
-    new Date(current.timestamp).getTime() > new Date(latest.timestamp).getTime() ? current : latest,
-  )
-})
+const latestMeasurement = computed(() => measurements.value[0] ?? null)
 
 const summaryCards = computed(() => {
   const latest = latestMeasurement.value
@@ -548,7 +689,7 @@ const summaryCards = computed(() => {
     },
     {
       label: 'Total Measurements',
-      value: formatNumber(totalCount.value),
+      value: formatNumber(displayTotal.value),
       description: 'Records available for this SmartPack',
     },
   ]
@@ -559,9 +700,7 @@ type ChartPoint = {
   y: number
 }
 
-function toChartPoints(
-  selectValue: (measurement: SmartPackSensorMeasurement) => number,
-): ChartPoint[] {
+function toChartPoints(selectValue: (measurement: MergedMeasurement) => number): ChartPoint[] {
   return chronologicalMeasurements.value
     .filter((measurement) => Number.isFinite(selectValue(measurement)))
     .map((measurement) => ({
@@ -683,11 +822,8 @@ const stepsChartOptions = computed<ApexOptions>(() => ({
   },
 }))
 
-const recentMeasurements = computed(() =>
-  [...measurements.value]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 10),
-)
+/** The ten newest entries; `measurements` is already sorted newest first. */
+const recentMeasurements = computed(() => measurements.value.slice(0, 10))
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -708,6 +844,16 @@ function formatTimestamp(timestamp: string): string {
   }).format(date)
 }
 
+// ---------------------------------------------------------------------------
+// Watchers and lifecycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Adds new Bluetooth readings to the merged list whenever the history grows.
+ * Already-known timestamps are skipped, so re-adding the whole history is safe.
+ */
+watch(() => props.sensorHistory.length, addBluetoothHistory)
+
 /**
  * Reloads history and reconnects when the selected SmartPack changes.
  */
@@ -719,7 +865,7 @@ watch(
     disconnectFromSmartPack()
 
     currentPage.value = 1
-    measurements.value = []
+    resetMeasurements()
     totalCount.value = 0
     nextPage.value = null
     previousPage.value = null

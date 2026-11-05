@@ -8,6 +8,7 @@ import type {
   SmartPackSensorMeasurementListResult,
   SmartPackSensorMeasurementQueryParams,
 } from '@/api/modules/smartpacks'
+import type { SmartPackSensorRecord } from '@/types/bluetooth'
 
 type EventHandler = (...args: unknown[]) => void
 
@@ -105,6 +106,17 @@ function createMeasurement(
   }
 }
 
+function createBluetoothRecord(
+  overrides: Partial<SmartPackSensorRecord> = {},
+): SmartPackSensorRecord {
+  return {
+    weight: 4500,
+    steps: 1200,
+    timestamp: '2026-10-27T10:00:00Z',
+    ...overrides,
+  }
+}
+
 function createApiResponse(
   results: SmartPackSensorMeasurement[] = [],
   count = results.length,
@@ -117,11 +129,21 @@ function createApiResponse(
   } as SmartPackSensorMeasurementListResult
 }
 
-function mountComponent() {
+function mountComponent(
+  props: {
+    smartpackId?: number
+    smartpackUid?: string
+    isBluetoothConnected?: boolean
+    sensorHistory?: SmartPackSensorRecord[]
+  } = {},
+) {
   return mount(SensorMeasurements, {
     props: {
       smartpackId: SMARTPACK_ID,
       smartpackUid: SMARTPACK_UID,
+      isBluetoothConnected: false,
+      sensorHistory: [],
+      ...props,
     },
     global: {
       components: {
@@ -272,7 +294,6 @@ describe('SensorMeasurements', () => {
       await flushPromises()
 
       expect(wrapper.text()).toContain('Failed to load sensor measurements.')
-
       expect(wrapper.text()).toContain('Network unavailable')
 
       await wrapper.get('button').trigger('click')
@@ -280,7 +301,6 @@ describe('SensorMeasurements', () => {
       await flushPromises()
 
       expect(mocks.listSensorMeasurements).toHaveBeenCalledTimes(2)
-
       expect(wrapper.text()).toContain('Recent Measurements')
 
       wrapper.unmount()
@@ -314,6 +334,128 @@ describe('SensorMeasurements', () => {
       expect(wrapper.text()).toContain('Cumulative Steps')
       expect(wrapper.text()).toContain('Total Measurements')
       expect(wrapper.findAll('[data-testid="apex-chart"]')).toHaveLength(2)
+
+      wrapper.unmount()
+    })
+  })
+
+  describe('Bluetooth measurements', () => {
+    it('displays Bluetooth sensor readings', async () => {
+      const wrapper = mountComponent({
+        sensorHistory: [
+          createBluetoothRecord({
+            weight: 5200,
+            steps: 2500,
+          }),
+        ],
+      })
+
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('5,200')
+      expect(wrapper.text()).toContain('2,500')
+      expect(wrapper.text()).toContain('Bluetooth')
+
+      wrapper.unmount()
+    })
+
+    it('includes Bluetooth readings in the total measurement count', async () => {
+      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([createMeasurement()], 10))
+
+      const wrapper = mountComponent({
+        sensorHistory: [
+          createBluetoothRecord({
+            timestamp: '2026-10-27T11:00:00Z',
+          }),
+        ],
+      })
+
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('11 measurements')
+
+      wrapper.unmount()
+    })
+
+    it('adds new Bluetooth readings when sensor history grows', async () => {
+      const wrapper = mountComponent()
+
+      await flushPromises()
+
+      await wrapper.setProps({
+        sensorHistory: [
+          createBluetoothRecord({
+            weight: 5500,
+            steps: 3000,
+          }),
+        ],
+      })
+
+      await nextTick()
+
+      expect(wrapper.text()).toContain('5,500')
+      expect(wrapper.text()).toContain('3,000')
+      expect(wrapper.text()).toContain('Bluetooth')
+
+      wrapper.unmount()
+    })
+
+    it('does not add duplicate Bluetooth readings', async () => {
+      const reading = createBluetoothRecord()
+
+      const wrapper = mountComponent({
+        sensorHistory: [reading],
+      })
+
+      await flushPromises()
+
+      await wrapper.setProps({
+        sensorHistory: [
+          reading,
+          {
+            ...reading,
+          },
+        ],
+      })
+
+      await nextTick()
+
+      expect(wrapper.text()).toContain('1 measurements')
+
+      wrapper.unmount()
+    })
+
+    it('combines REST and Bluetooth measurements', async () => {
+      mocks.listSensorMeasurements.mockResolvedValue(
+        createApiResponse(
+          [
+            createMeasurement({
+              id: 1,
+              weight: 4000,
+              steps: 1000,
+              timestamp: '2026-10-27T09:00:00Z',
+            }),
+          ],
+          1,
+        ),
+      )
+
+      const wrapper = mountComponent({
+        sensorHistory: [
+          createBluetoothRecord({
+            weight: 5000,
+            steps: 2000,
+            timestamp: '2026-10-27T10:00:00Z',
+          }),
+        ],
+      })
+
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('4,000')
+      expect(wrapper.text()).toContain('5,000')
+      expect(wrapper.text()).toContain('Bluetooth')
+      expect(wrapper.text()).toContain('2 measurements')
 
       wrapper.unmount()
     })
@@ -500,7 +642,7 @@ describe('SensorMeasurements', () => {
       wrapper.unmount()
     })
 
-    it('ignores duplicate measurement IDs', async () => {
+    it('ignores measurements with duplicate timestamps', async () => {
       const wrapper = mountComponent()
 
       await flushPromises()
@@ -779,6 +921,7 @@ describe('SensorMeasurements', () => {
         createMqttMeasurement({
           id: 300,
           weight: 5000,
+          timestamp: '2026-10-27T12:00:00Z',
         }),
       )
 

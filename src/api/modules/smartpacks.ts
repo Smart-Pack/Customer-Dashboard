@@ -34,6 +34,7 @@ export interface SmartPack {
   hardware_model: string
   imei: string
   firmware_version: string
+  bluetooth_mac_address: string | null
   last_seen: string
   is_online: boolean
   assigned_to: SmartPackAssignedUser | null
