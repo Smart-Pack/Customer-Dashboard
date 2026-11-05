@@ -45,6 +45,8 @@ jobs:
       # 5. Configure Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
       # 6. Install required Android SDK components
       - name: Install Android SDK components
