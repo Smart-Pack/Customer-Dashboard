@@ -58,8 +58,8 @@ Run the scripts from the project root in the order described below.
 Make the main setup script executable and run it:
 
 ```bash
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 This script installs essential Android development prerequisites, including Android Debug Bridge (`adb`), the Java Development Kit (JDK), and supporting command-line utilities. It also prepares project dependencies and synchronizes the Capacitor Android project when supported by the script.
@@ -69,6 +69,7 @@ This script installs essential Android development prerequisites, including Andr
 Run the Android SDK setup script:
 
 ```bash
+cd scripts
 chmod +x setup-android-sdk.sh
 ./setup-android-sdk.sh
 ```
@@ -100,8 +101,8 @@ The repository provides an ARM64 AAPT2 setup script for this environment.
 Run:
 
 ```bash
-chmod +x setup-android-aapt2-arm64.sh
-./setup-android-aapt2-arm64.sh
+chmod +x scripts/setup-android-aapt2-arm64.sh
+./scripts/setup-android-aapt2-arm64.sh
 ```
 
 The script checks the system architecture, verifies the AAPT2 executable, and configures Gradle to use the ARM64 binary.

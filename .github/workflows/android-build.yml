@@ -1,0 +1,92 @@
+# Builds the SmartPack Android debug APK using Preview environment configuration.
+# This workflow is intended exclusively for testing builds from the testing branch.
+
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    environment: Preview
+
+    # Only build when the workflow is dispatched from the testing branch.
+    # if: github.ref == 'refs/heads/testing'
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # 3. Install Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          cache: pnpm
+
+      # 4. Install Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      # 5. Configure Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+
+      # 6. Install required Android SDK components
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      # 7. Accept Android SDK licenses
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      # 8. Install project dependencies
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 9. Build the mobile application and sync Capacitor
+      - name: Build mobile application
+        run: pnpm android:build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_WEBPUSH_VAPID_PUBLIC_KEY: ${{ vars.VITE_WEBPUSH_VAPID_PUBLIC_KEY }}
+
+      # 10. Assemble the debug APK
+      - name: Assemble debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+          cd ..
+
+          mkdir -p build
+          cp android/app/build/outputs/apk/debug/app-debug.apk build/
+
+      # 11. Upload the APK as a workflow artifact
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartpack-android-debug
+          path: build/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
