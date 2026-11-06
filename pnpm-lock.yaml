@@ -106,7 +106,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  bluetooth-serial@1.0.0: 5660a08ff14a3fa63d7a7a7ef7e55e0c9c2d116e6d6b7e3630e42e4dec2d8c07
+  bluetooth-serial@1.0.0: 79b5f19817a586dfe54088f0f06fd011e043ca5ebcf4df7d5b4dc6fd3e478f07
 
 importers:
 
@@ -135,7 +135,7 @@ importers:
         version: 1.20.0(debug@4.4.3)
       bluetooth-serial:
         specifier: ^1.0.0
-        version: 1.0.0(patch_hash=5660a08ff14a3fa63d7a7a7ef7e55e0c9c2d116e6d6b7e3630e42e4dec2d8c07)(@capacitor/core@8.5.3)
+        version: 1.0.0(patch_hash=79b5f19817a586dfe54088f0f06fd011e043ca5ebcf4df7d5b4dc6fd3e478f07)(@capacitor/core@8.5.3)
       capacitor-secure-storage-plugin:
         specifier: ^0.13.0
         version: 0.13.0(@capacitor/core@8.5.3)
@@ -5384,7 +5384,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 4.8.0
 
-  bluetooth-serial@1.0.0(patch_hash=5660a08ff14a3fa63d7a7a7ef7e55e0c9c2d116e6d6b7e3630e42e4dec2d8c07)(@capacitor/core@8.5.3):
+  bluetooth-serial@1.0.0(patch_hash=79b5f19817a586dfe54088f0f06fd011e043ca5ebcf4df7d5b4dc6fd3e478f07)(@capacitor/core@8.5.3):
     dependencies:
       '@capacitor/core': 8.5.3
 

@@ -9,7 +9,7 @@ include ':capgo-capacitor-social-login'
 project(':capgo-capacitor-social-login').projectDir = new File('../node_modules/.pnpm/@capgo+capacitor-social-login@8.7.5_@capacitor+core@8.5.3/node_modules/@capgo/capacitor-social-login/android')
 
 include ':bluetooth-serial'
-project(':bluetooth-serial').projectDir = new File('../node_modules/.pnpm/bluetooth-serial@1.0.0_@capacitor+core@8.5.3/node_modules/bluetooth-serial/android')
+project(':bluetooth-serial').projectDir = new File('../node_modules/.pnpm/bluetooth-serial@1.0.0_patch_hash=79b5f19817a586dfe54088f0f06fd011e043ca5ebcf4df7d5b4dc6fd3e478f07_@capacitor+core@8.5.3/node_modules/bluetooth-serial/android')
 
 include ':capacitor-secure-storage-plugin'
 project(':capacitor-secure-storage-plugin').projectDir = new File('../node_modules/.pnpm/capacitor-secure-storage-plugin@0.13.0_@capacitor+core@8.5.3/node_modules/capacitor-secure-storage-plugin/android')

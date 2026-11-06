@@ -42,6 +42,60 @@ This document describes the technologies and tools used to develop and operate t
 | `capacitor-secure-storage-plugin` | Provides secure storage for sensitive application data, such as authentication refresh tokens, using native Android Keystore-backed encryption and iOS Keychain. |
 | `@capgo/capacitor-social-login` | Provides native social authentication integration for Capacitor applications, enabling users to sign in with providers such as Google on Android and iOS. |
 
+## Dependency Patches
+
+The project uses `pnpm patch` to apply fixes to third-party packages. Patch files are stored in `patches/` and registered under `patchedDependencies`, so they are reapplied on every `pnpm install`. Do not edit files in `node_modules` directly.
+
+### `bluetooth-serial@1.0.0`
+
+`bluetooth-serial` is an older Capacitor plugin that was not tested on Android 12+ (API 31+). The following changes are needed for it to work with Capacitor 8 on current Android versions.
+
+#### 1. `setDiscoveryPermissions()` crash on Android 12+
+
+| | |
+| --- | --- |
+| **File** | `android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java` |
+| **Symptom** | On Android 12+ the app shows `BluetoothSerial plugin is not implemented on android`, and `Capacitor.isPluginAvailable('BluetoothSerial')` returns `false`. Android 11 and below work. |
+| **Cause** | `load()` calls `setDiscoveryPermissions()`, which builds the list with `List.of(SCAN, CONNECT)` (immutable) and then calls `.add(FINE_LOCATION)`. This throws `UnsupportedOperationException` on API 31+. Capacitor then drops the plugin during startup. |
+| **Fix** | In the Android 12+ branch, replace `List.of(...)` with a mutable list. The Android 11 and below branch is unchanged because that list is never modified. |
+
+```java
+discoveryPermissions = new ArrayList<>(java.util.Arrays.asList(SCAN, CONNECT));
+```
+
+#### 2. Gradle namespace
+
+| | |
+| --- | --- |
+| **File** | `android/build.gradle` |
+| **Symptom** | The build warns that setting the namespace via `package` in the plugin's `AndroidManifest.xml` is no longer supported and the value is ignored. |
+| **Cause** | The plugin's `AndroidManifest.xml` still declares `package="com.glavotaner.bluetoothserial"`, which newer Android Gradle Plugin versions no longer read. |
+| **Fix** | Adds `namespace "com.glavotaner.bluetoothserial"` to the `android { }` block. |
+
+### Application-side configuration
+
+These are not part of the patch. They live in the app and are required for Android 12+ support.
+
+| Area | Change |
+| ---- | ------ |
+| `capacitor.config.ts` | Sets `BluetoothSerial.neverScanForLocation: true`. SmartPack uses paired devices only, so discovery and location permission are not needed. It also skips the `.add(FINE_LOCATION)` call that caused the crash, so the plugin is protected even without the patch. |
+| `android/app/src/main/AndroidManifest.xml` | Declares `BLUETOOTH` and `BLUETOOTH_ADMIN` (`maxSdkVersion="30"`), `BLUETOOTH_SCAN` (`neverForLocation`) and `BLUETOOTH_CONNECT`. Location permissions are declared for Android 11 and below only. |
+
+The plugin requests the "Nearby devices" (`BLUETOOTH_CONNECT`) runtime permission itself when `connect()` or `enable()` is called on Android 12+, so no extra permission code is needed in the app.
+
+### Maintaining the patch
+
+- Create or update a patch with `pnpm patch bluetooth-serial@1.0.0`, edit the folder it prints, then run `pnpm patch-commit '<folder>'`.
+- If pnpm reports `ERR_PNPM_EDIT_DIR_NOT_EMPTY`, delete `node_modules/.pnpm_patches/bluetooth-serial@1.0.0` and run `pnpm patch` again.
+- After changing the patch, run `pnpm install`, then `pnpm android:build`, and do a clean install of the app on the device.
+- When upgrading `bluetooth-serial`, check whether the upstream release fixes the issue above. If it does, remove the patch.
+- To verify the patch is applied:
+
+```bash
+grep -n "ArrayList<>(java.util.Arrays" \
+  node_modules/bluetooth-serial/android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java
+```
+
 ## Testing
 
 | Tool           | Purpose                                  |

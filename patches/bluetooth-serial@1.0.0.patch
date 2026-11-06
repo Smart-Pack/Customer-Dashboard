@@ -10,3 +10,16 @@ index 3de98985bbaf1a94fbc5c4e8a1bad36f447a5e36..ad06a009573ff9cd02fdc9c7ea0f9b63
      compileSdkVersion project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 32
      defaultConfig {
          minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 22
+diff --git a/android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java b/android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java
+index 135f561b05e5670b201e910e006847d5dcf2d348..8a052f3affcdbc9aa0c615ce6eda455ae580a4e6 100644
+--- a/android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java
++++ b/android/src/main/java/com/glavotaner/bluetoothserial/BluetoothSerialPlugin.java
+@@ -124,7 +124,7 @@ public class BluetoothSerialPlugin extends Plugin {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+             // SCAN - required for just invoking discovery methods
+             // CONNECT - required for getting data about a discovered device
+-            discoveryPermissions = List.of(SCAN, CONNECT);
++            discoveryPermissions = new ArrayList<>(java.util.Arrays.asList(SCAN, CONNECT));
+             if (getConfig().getBoolean("neverScanForLocation", false)) {
+                 requiresLocationForDiscovery = false;
+             } else {
