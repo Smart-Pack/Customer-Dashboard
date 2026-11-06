@@ -14,6 +14,9 @@ const config: CapacitorConfig = {
       },
       logLevel: 1,
     },
+    BluetoothSerial: {
+      neverScanForLocation: true,
+    },
   },
 }
 
