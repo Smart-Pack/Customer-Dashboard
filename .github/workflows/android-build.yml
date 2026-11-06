@@ -64,15 +64,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 9. Build the mobile application and sync Capacitor
-      - name: Build mobile application
-        run: pnpm android:build
+      # 9. Create mobile environment file
+      - name: Create mobile environment file
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_WEBPUSH_VAPID_PUBLIC_KEY: ${{ vars.VITE_WEBPUSH_VAPID_PUBLIC_KEY }}
+        run: |
+          cat > .env.mobile <<EOF
+          VITE_API_BASE_URL=${VITE_API_BASE_URL}
+          VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+          VITE_WEBPUSH_VAPID_PUBLIC_KEY=${VITE_WEBPUSH_VAPID_PUBLIC_KEY}
+          EOF
 
-      # 10. Assemble the debug APK
+      # 10. Build the mobile application and sync Capacitor
+      - name: Build mobile application
+        run: pnpm android:build
+
+      # 11. Assemble the debug APK
       - name: Assemble debug APK
         run: |
           cd android
@@ -82,7 +91,7 @@ jobs:
           mkdir -p build
           cp android/app/build/outputs/apk/debug/app-debug.apk build/
 
-      # 11. Upload the APK as a workflow artifact
+      # 12. Upload the APK as a workflow artifact
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
