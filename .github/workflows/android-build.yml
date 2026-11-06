@@ -15,9 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: Preview
 
-    # Only build when the workflow is dispatched from the testing branch.
-    # if: github.ref == 'refs/heads/testing'
-
     steps:
       # 1. Checkout repository
       - name: Checkout repository
@@ -72,7 +69,33 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_WEBPUSH_VAPID_PUBLIC_KEY: ${{ vars.VITE_WEBPUSH_VAPID_PUBLIC_KEY }}
 
-      # 10. Assemble the debug APK
+      # 10. Restore the Android debug keystore
+      - name: Restore Android debug keystore
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_DEBUG_KEYSTORE_BASE64 secret is not configured."
+            exit 1
+          fi
+
+          mkdir -p ~/.android
+
+          echo "$ANDROID_DEBUG_KEYSTORE_BASE64" \
+            | base64 --decode > ~/.android/debug.keystore
+
+          chmod 600 ~/.android/debug.keystore
+
+      # 11. Verify the debug signing certificate
+      - name: Verify debug signing certificate
+        run: |
+          keytool -list -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android
+
+      # 12. Assemble the debug APK
       - name: Assemble debug APK
         run: |
           cd android
@@ -82,7 +105,12 @@ jobs:
           mkdir -p build
           cp android/app/build/outputs/apk/debug/app-debug.apk build/
 
-      # 11. Upload the APK as a workflow artifact
+      # 13. Verify APK signing certificate
+      - name: Verify APK signing certificate
+        run: |
+          apksigner verify --print-certs build/app-debug.apk
+
+      # 14. Upload the APK as a workflow artifact
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
