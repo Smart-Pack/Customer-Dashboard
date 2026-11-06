@@ -108,7 +108,8 @@ jobs:
       # 13. Verify APK signing certificate
       - name: Verify APK signing certificate
         run: |
-          apksigner verify --print-certs build/app-debug.apk
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify \
+          --print-certs build/app-debug.apk
 
       # 14. Upload the APK as a workflow artifact
       - name: Upload debug APK
