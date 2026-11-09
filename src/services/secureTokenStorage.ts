@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
 
 const REFRESH_TOKEN_KEY = 'refresh_token'
+const DEVICE_ID_KEY = 'device_id'
 
 /**
  * Extracts a readable message from an unknown error value.
@@ -21,7 +22,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 /**
- * Provides secure storage operations for authentication refresh tokens.
+ * Provides secure storage operations for authentication tokens and device IDs.
  *
  * Native platforms use the Capacitor Secure Storage plugin.
  * Web platforms skip these operations because this service is intended
@@ -82,6 +83,43 @@ export const secureTokenStorage = {
       if (!getErrorMessage(error).toLowerCase().includes('does not exist')) {
         throw error
       }
+    }
+  },
+
+  /**
+   * Generates a UUID and securely stores it as the device ID.
+   *
+   * @returns The generated device ID, or null on web platforms.
+   */
+  async setDeviceId(): Promise<string | null> {
+    if (!Capacitor.isNativePlatform()) return null
+
+    const deviceId = crypto.randomUUID()
+
+    await SecureStoragePlugin.set({
+      key: DEVICE_ID_KEY,
+      value: deviceId,
+    })
+
+    return deviceId
+  },
+
+  /**
+   * Retrieves the stored device ID from native secure storage.
+   *
+   * @returns The stored device ID, or null if no device ID exists.
+   */
+  async getDeviceId(): Promise<string | null> {
+    if (!Capacitor.isNativePlatform()) return null
+
+    try {
+      const { value } = await SecureStoragePlugin.get({
+        key: DEVICE_ID_KEY,
+      })
+
+      return value || null
+    } catch {
+      return null
     }
   },
 }
