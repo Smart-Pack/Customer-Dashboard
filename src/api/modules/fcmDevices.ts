@@ -6,6 +6,7 @@ import type { ApiDetailResponse, PaginatedResponse, PaginationQueryParams } from
  * Represents a registered Firebase Cloud Messaging device.
  */
 export interface FCMDevice {
+  id: number
   device_id: string
   token: string
   is_active: boolean
