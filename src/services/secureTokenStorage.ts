@@ -4,6 +4,23 @@ import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 
 /**
+ * Extracts a readable message from an unknown error value.
+ *
+ * Capacitor plugins often reject with plain objects instead of `Error`
+ * instances, so both shapes are handled.
+ *
+ * @param error - The caught error value.
+ * @returns The error message.
+ */
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+
+  return String(error)
+}
+
+/**
  * Provides secure storage operations for authentication refresh tokens.
  *
  * Native platforms use the Capacitor Secure Storage plugin.
@@ -48,13 +65,23 @@ export const secureTokenStorage = {
   /**
    * Removes the stored refresh token from native secure storage.
    *
+   * Does nothing if no token is stored; a "key does not exist" error is
+   * ignored, while any other failure is rethrown.
+   *
    * @returns A promise that resolves when the token is removed.
    */
   async removeRefreshToken(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return
 
-    await SecureStoragePlugin.remove({
-      key: REFRESH_TOKEN_KEY,
-    })
+    try {
+      await SecureStoragePlugin.remove({
+        key: REFRESH_TOKEN_KEY,
+      })
+    } catch (error) {
+      // The token may never have been saved or may already be removed.
+      if (!getErrorMessage(error).toLowerCase().includes('does not exist')) {
+        throw error
+      }
+    }
   },
 }

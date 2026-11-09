@@ -120,6 +120,23 @@ describe('secureTokenStorage', () => {
       expect(SecureStoragePlugin.remove).not.toHaveBeenCalled()
     })
 
+    it('ignores the error when no refresh token is stored', async () => {
+      vi.mocked(SecureStoragePlugin.remove).mockRejectedValue(
+        new Error('Item with given key does not exist'),
+      )
+
+      await expect(secureTokenStorage.removeRefreshToken()).resolves.toBeUndefined()
+    })
+
+    it('ignores a missing-key rejection that is a plain object', async () => {
+      // Capacitor plugins often reject with plain objects instead of Error instances.
+      vi.mocked(SecureStoragePlugin.remove).mockRejectedValue({
+        message: 'Item with given key does not exist',
+      })
+
+      await expect(secureTokenStorage.removeRefreshToken()).resolves.toBeUndefined()
+    })
+
     it('propagates secure storage removal errors', async () => {
       const error = new Error('Storage removal failed')
 
