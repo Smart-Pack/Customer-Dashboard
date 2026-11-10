@@ -50,12 +50,12 @@
         @unread-count-change="handleUnreadCountChange"
       />
 
-      <!-- Browser push notification controls -->
+      <!-- Push notification controls -->
       <button
         data-testid="notification-action"
         type="button"
         class="form-submit w-full text-sm py-2 px-3 mt-4"
-        :disabled="isLoading || !isPushNotificationSupported()"
+        :disabled="isLoading || !isNotificationSupported()"
         :aria-busy="isLoading"
         @click="toggleNotifications"
       >
@@ -68,8 +68,8 @@
         <span v-else>Turn on notifications</span>
       </button>
 
-      <p v-if="!isPushNotificationSupported()" class="secondary-text text-xs mt-3">
-        Browser notifications are not supported by this browser.
+      <p v-if="!isNotificationSupported()" class="secondary-text text-xs mt-3">
+        Notifications are not supported on this platform.
       </p>
     </div>
   </div>
@@ -90,10 +90,22 @@ import {
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
 } from '@/services/pushNotifications'
+import {
+  isFirebaseMessagingSupported,
+  isNotificationPermissionGranted,
+  requestNotificationPermission,
+  syncFCMDevice,
+  unregisterFCMDevice,
+} from '@/services/firebaseMessaging'
 
 defineOptions({
   name: 'NotificationBell',
 })
+
+/**
+ * Determines whether the application is running as a native mobile build.
+ */
+const isMobile = import.meta.env.MODE === 'mobile'
 
 /**
  * Tracks whether the notification dropdown is visible.
@@ -101,7 +113,7 @@ defineOptions({
 const isDropdownOpen = ref(false)
 
 /**
- * Tracks whether this browser currently has a push subscription.
+ * Tracks whether notifications are currently enabled.
  */
 const isSubscribed = ref(false)
 
@@ -123,6 +135,22 @@ const containerRef = ref<HTMLElement | null>(null)
 const { $notifySuccess, $notifyError } = useGlobals()
 
 /**
+ * Checks whether notifications are supported on the current platform.
+ */
+function isNotificationSupported(): boolean {
+  return isMobile ? isFirebaseMessagingSupported() : isPushNotificationSupported()
+}
+
+/**
+ * Checks whether notifications are currently enabled.
+ */
+async function isNotificationEnabled(): Promise<boolean> {
+  return isMobile
+    ? await isNotificationPermissionGranted()
+    : await isSubscribedToPushNotifications()
+}
+
+/**
  * Opens or closes the notification dropdown.
  */
 function toggleDropdown(): void {
@@ -137,15 +165,19 @@ function handleUnreadCountChange(count: number): void {
 }
 
 /**
- * Refreshes the browser's push subscription status and synchronizes
+ * Refreshes the notification status and synchronizes
  * an existing subscription with the SmartPack backend.
  */
 async function refreshSubscriptionStatus(): Promise<void> {
   try {
-    isSubscribed.value = await isSubscribedToPushNotifications()
+    isSubscribed.value = await isNotificationEnabled()
 
     if (isSubscribed.value) {
-      await syncPushSubscription()
+      if (isMobile) {
+        await syncFCMDevice()
+      } else {
+        await syncPushSubscription()
+      }
     }
   } catch (error: unknown) {
     $notifyError(
@@ -153,14 +185,14 @@ async function refreshSubscriptionStatus(): Promise<void> {
         ? `${error.name}: ${error.message}`
         : error instanceof Error
           ? error.message
-          : 'Unable to update notification settings.',
+          : 'Unable to update notification settings.'
     )
   }
 }
 
 /**
- * Enables or disables browser push notifications and updates the UI
- * to reflect the browser's actual subscription state.
+ * Enables or disables push notifications and updates the UI
+ * to reflect the platform's actual notification state.
  */
 async function toggleNotifications(): Promise<void> {
   if (isLoading.value) {
@@ -172,36 +204,48 @@ async function toggleNotifications(): Promise<void> {
   try {
     const shouldSubscribe = !isSubscribed.value
 
-    if (shouldSubscribe) {
-      await subscribeToPushNotifications()
+    if (isMobile) {
+      if (shouldSubscribe) {
+        const granted = await requestNotificationPermission()
+
+        if (!granted) {
+          throw new Error('Notification permission was not granted.')
+        }
+
+        await syncFCMDevice()
+      } else {
+        await unregisterFCMDevice()
+      }
     } else {
-      await unsubscribeFromPushNotifications()
+      if (shouldSubscribe) {
+        await subscribeToPushNotifications()
+      } else {
+        await unsubscribeFromPushNotifications()
+      }
     }
 
-    isSubscribed.value = await isSubscribedToPushNotifications()
+    isSubscribed.value = await isNotificationEnabled()
 
     if (isSubscribed.value !== shouldSubscribe) {
-      throw new Error('Unable to update browser notification settings.')
+      throw new Error('Unable to update notification settings.')
     }
 
     $notifySuccess(
-      shouldSubscribe
-        ? 'Browser notifications have been enabled.'
-        : 'Browser notifications have been disabled.',
+      shouldSubscribe ? 'Notifications have been enabled.' : 'Notifications have been disabled.'
     )
 
     isDropdownOpen.value = false
   } catch (error: unknown) {
     $notifyError(error instanceof Error ? error.message : 'Unable to update notification settings.')
 
-    // Recheck the actual browser state after a failed operation.
+    // Recheck the actual notification state after a failed operation.
     try {
-      isSubscribed.value = await isSubscribedToPushNotifications()
+      isSubscribed.value = await isNotificationEnabled()
     } catch (statusError: unknown) {
       $notifyError(
         statusError instanceof Error
           ? statusError.message
-          : 'Unable to refresh notification subscription status.',
+          : 'Unable to refresh notification status.'
       )
     }
   } finally {
