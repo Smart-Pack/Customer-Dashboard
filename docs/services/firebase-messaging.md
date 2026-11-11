@@ -42,3 +42,16 @@ pnpm android:assets
 - `isSubscribedToFCM()` — Checks whether the current Android installation has notification permission and an active FCM device registration with the backend.
 
 The service guards native operations on unsupported platforms and uses persistent device identifiers to associate FCM tokens with individual app installations.
+
+## 4. Notification Integration
+
+**`src/components/Notifications/NotificationBell.vue`** — Integrates Firebase Cloud Messaging (FCM) on Android with the existing browser push notification system.
+
+The component automatically selects the appropriate notification service based on the platform:
+
+- **Android:** Uses Firebase Messaging to request notification permission, register the device with the backend, synchronize FCM tokens, and unregister the device when notifications are disabled.
+- **Web:** Continues using the existing browser push notification service.
+
+On Android, the component also listens for incoming notifications and user interactions with notifications. It monitors application state changes to refresh notification subscription status when the app returns to the foreground.
+
+This provides a unified notification management interface across Android and web platforms.
