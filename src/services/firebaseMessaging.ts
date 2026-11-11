@@ -1,3 +1,4 @@
+// @/services/firebaseMessaging.ts
 import { fcmDevices } from '@/api/modules'
 import { FirebaseMessaging } from '@capacitor-firebase/messaging'
 import { Capacitor } from '@capacitor/core'
@@ -239,4 +240,39 @@ export async function addNotificationActionListener(callback: (notification: unk
   return FirebaseMessaging.addListener('notificationActionPerformed', ({ notification }) => {
     callback(notification)
   })
+}
+
+/**
+ * Checks whether the current Android installation has an active FCM
+ * device registration with the SmartPack backend and notification permission.
+ *
+ * @returns A promise resolving to `true` if permission is granted and an
+ * active FCM registration exists.
+ */
+export async function isSubscribedToFCM(): Promise<boolean> {
+  if (!isFirebaseMessagingSupported()) {
+    return false
+  }
+
+  if (!(await isNotificationPermissionGranted())) {
+    return false
+  }
+
+  try {
+    const deviceId = await secureTokenStorage.getDeviceId()
+
+    if (!deviceId) {
+      return false
+    }
+
+    const devices = await fcmDevices.list({
+      device_id: deviceId,
+    })
+
+    return (
+      devices.results?.some((device) => device.device_id === deviceId && device.is_active) ?? false
+    )
+  } catch {
+    return false
+  }
 }

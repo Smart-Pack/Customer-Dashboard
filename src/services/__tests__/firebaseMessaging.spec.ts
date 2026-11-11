@@ -30,7 +30,11 @@ const {
   create: vi.fn<(payload: { device_id: string; token: string }) => Promise<unknown>>(),
   list: vi.fn<
     (params?: { device_id?: string }) => Promise<{
-      results: Array<{ id: number; device_id: string }>
+      results: Array<{
+        id: number
+        device_id: string
+        is_active: boolean
+      }>
     }>
   >(),
   remove: vi.fn<(deviceId: string) => Promise<string>>(),
@@ -77,6 +81,7 @@ import { secureTokenStorage } from '../secureTokenStorage'
 import {
   isFirebaseMessagingSupported,
   isNotificationPermissionGranted,
+  isSubscribedToFCM,
   requestNotificationPermission,
   getFCMToken,
   getOrCreateDeviceId,
@@ -404,6 +409,7 @@ describe('firebaseMessaging', () => {
           {
             id: 1,
             device_id: DEVICE_ID,
+            is_active: true,
           },
         ],
       })
@@ -457,7 +463,7 @@ describe('firebaseMessaging', () => {
       const error = new Error('Device removal failed')
 
       list.mockResolvedValue({
-        results: [{ id: 1, device_id: DEVICE_ID }],
+        results: [{ id: 1, device_id: DEVICE_ID, is_active: true }],
       })
       remove.mockRejectedValue(error)
 
@@ -605,6 +611,112 @@ describe('firebaseMessaging', () => {
 
       expect(result).toBeNull()
       expect(FirebaseMessaging.addListener).not.toHaveBeenCalled()
+    })
+  })
+  describe('isSubscribedToFCM', () => {
+    it('returns false when Firebase Messaging is unsupported', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+      expect(checkPermissions).not.toHaveBeenCalled()
+      expect(list).not.toHaveBeenCalled()
+    })
+
+    it('returns false when notification permission is denied', async () => {
+      checkPermissions.mockResolvedValue({ receive: 'denied' })
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+      expect(getDeviceId).not.toHaveBeenCalled()
+      expect(list).not.toHaveBeenCalled()
+    })
+
+    it('returns false when no device ID exists', async () => {
+      getDeviceId.mockResolvedValue(null)
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+      expect(list).not.toHaveBeenCalled()
+    })
+
+    it('returns true when an active FCM registration exists', async () => {
+      list.mockResolvedValue({
+        results: [
+          {
+            id: 1,
+            device_id: DEVICE_ID,
+            is_active: true,
+          },
+        ],
+      })
+
+      const result = await isSubscribedToFCM()
+
+      expect(list).toHaveBeenCalledWith({
+        device_id: DEVICE_ID,
+      })
+      expect(result).toBe(true)
+    })
+
+    it('returns false when no matching active FCM registration exists', async () => {
+      list.mockResolvedValue({ results: [] })
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when the FCM registration is inactive', async () => {
+      list.mockResolvedValue({
+        results: [
+          {
+            id: 1,
+            device_id: DEVICE_ID,
+            is_active: false,
+          },
+        ],
+      })
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when the registration belongs to another device', async () => {
+      list.mockResolvedValue({
+        results: [
+          {
+            id: 1,
+            device_id: 'another-device-id',
+            is_active: true,
+          },
+        ],
+      })
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when the backend registration lookup fails', async () => {
+      list.mockRejectedValue(new Error('API request failed'))
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when retrieving the device ID fails', async () => {
+      getDeviceId.mockRejectedValue(new Error('Secure storage error'))
+
+      const result = await isSubscribedToFCM()
+
+      expect(result).toBe(false)
+      expect(list).not.toHaveBeenCalled()
     })
   })
 })
