@@ -89,7 +89,6 @@ import {
   syncFCMDevice,
   unregisterFCMDevice,
   addFCMTokenListener,
-  addNotificationReceivedListener,
   addNotificationActionListener,
 } from '../firebaseMessaging'
 
@@ -534,44 +533,6 @@ describe('firebaseMessaging', () => {
 
       expect(result).toBeNull()
       expect(secureTokenStorage.getDeviceId).not.toHaveBeenCalled()
-      expect(FirebaseMessaging.addListener).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('addNotificationReceivedListener', () => {
-    it('registers a foreground notification listener', async () => {
-      const callback = vi.fn<(notification: unknown) => void>()
-
-      await addNotificationReceivedListener(callback)
-
-      expect(FirebaseMessaging.addListener).toHaveBeenCalledOnce()
-      expect(addListener.mock.calls[0]?.[0]).toBe('notificationReceived')
-    })
-
-    it('passes received notifications to the callback', async () => {
-      const callback = vi.fn<(notification: unknown) => void>()
-      const notification = {
-        title: 'SmartPack alert',
-        body: 'Weight limit exceeded',
-      }
-
-      await addNotificationReceivedListener(callback)
-
-      const listener = addListener.mock.calls[0]?.[1] as (event: {
-        notification: typeof notification
-      }) => void
-
-      listener({ notification })
-
-      expect(callback).toHaveBeenCalledExactlyOnceWith(notification)
-    })
-
-    it('does nothing on unsupported platforms', async () => {
-      isNativePlatform.mockReturnValue(false)
-
-      const result = await addNotificationReceivedListener(vi.fn())
-
-      expect(result).toBeNull()
       expect(FirebaseMessaging.addListener).not.toHaveBeenCalled()
     })
   })

@@ -6,7 +6,6 @@ import BellSlashIcon from '@/components/Icons/BellSlashIcon.vue'
 import { App } from '@capacitor/app'
 import {
   addNotificationActionListener,
-  addNotificationReceivedListener,
   isFirebaseMessagingSupported,
   isSubscribedToFCM,
   requestNotificationPermission,
@@ -17,10 +16,8 @@ import {
 const {
   notifySuccess,
   notifyError,
-  removeReceivedListener,
   removeActionListener,
   removeAppStateListener,
-  notificationReceivedCallback,
   notificationActionCallback,
   appStateCallback,
 } = vi.hoisted(() => ({
@@ -29,10 +26,6 @@ const {
   removeReceivedListener: vi.fn<() => void>(),
   removeActionListener: vi.fn<() => void>(),
   removeAppStateListener: vi.fn<() => Promise<void>>(async () => {}),
-  notificationReceivedCallback:
-    vi.fn<
-      Parameters<typeof import('@/services/firebaseMessaging').addNotificationReceivedListener>[0]
-    >(),
   notificationActionCallback:
     vi.fn<
       Parameters<typeof import('@/services/firebaseMessaging').addNotificationActionListener>[0]
@@ -75,8 +68,6 @@ vi.mock('@/services/pushNotifications', () => ({
 }))
 
 vi.mock('@/services/firebaseMessaging', () => ({
-  addNotificationReceivedListener:
-    vi.fn<typeof import('@/services/firebaseMessaging').addNotificationReceivedListener>(),
   addNotificationActionListener:
     vi.fn<typeof import('@/services/firebaseMessaging').addNotificationActionListener>(),
   isFirebaseMessagingSupported:
@@ -134,14 +125,6 @@ describe('NotificationBell - FCM', () => {
     vi.mocked(requestNotificationPermission).mockResolvedValue(true)
     vi.mocked(syncFCMDevice).mockResolvedValue(undefined)
     vi.mocked(unregisterFCMDevice).mockResolvedValue(undefined)
-
-    vi.mocked(addNotificationReceivedListener).mockImplementation(async (callback) => {
-      notificationReceivedCallback.mockImplementation(callback)
-
-      return {
-        remove: removeReceivedListener,
-      } as never
-    })
 
     vi.mocked(addNotificationActionListener).mockImplementation(async (callback) => {
       notificationActionCallback.mockImplementation(callback)
@@ -222,7 +205,6 @@ describe('NotificationBell - FCM', () => {
 
       await mountAndSettle()
 
-      expect(addNotificationReceivedListener).not.toHaveBeenCalled()
       expect(addNotificationActionListener).not.toHaveBeenCalled()
     })
   })
@@ -400,13 +382,6 @@ describe('NotificationBell - FCM', () => {
   })
 
   describe('notification listeners', () => {
-    it('registers notification received and action listeners', async () => {
-      await mountAndSettle()
-
-      expect(addNotificationReceivedListener).toHaveBeenCalledTimes(1)
-      expect(addNotificationActionListener).toHaveBeenCalledTimes(1)
-    })
-
     it('removes FCM listeners when the component is unmounted', async () => {
       const mounted = await mountAndSettle()
 
@@ -415,7 +390,6 @@ describe('NotificationBell - FCM', () => {
 
       await flushPromises()
 
-      expect(removeReceivedListener).toHaveBeenCalledTimes(1)
       expect(removeActionListener).toHaveBeenCalledTimes(1)
       expect(removeAppStateListener).toHaveBeenCalledTimes(1)
     })

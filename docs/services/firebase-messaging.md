@@ -37,7 +37,6 @@ pnpm android:assets
 - `syncFCMDevice()` — Synchronizes the current FCM token with the backend when notification permission is granted.
 - `unregisterFCMDevice()` — Removes the backend device registration and deletes the local FCM token without generating a new installation UUID.
 - `addFCMTokenListener()` — Listens for FCM token refresh events and synchronizes refreshed tokens with the backend.
-- `addNotificationReceivedListener(callback)` — Handles notifications received while the application is in the foreground.
 - `addNotificationActionListener(callback)` — Handles user interactions with notifications.
 - `isSubscribedToFCM()` — Checks whether the current Android installation has notification permission and an active FCM device registration with the backend.
 
@@ -45,13 +44,39 @@ The service guards native operations on unsupported platforms and uses persisten
 
 ## 4. Notification Integration
 
-**`src/components/Notifications/NotificationBell.vue`** — Integrates Firebase Cloud Messaging (FCM) on Android with the existing browser push notification system.
+**`src/components/Notifications/NotificationBell.vue`** — Integrates Firebase Cloud Messaging (FCM) on Android with the existing browser push notification system and MQTT-based real-time notification delivery.
 
 The component automatically selects the appropriate notification service based on the platform:
 
 - **Android:** Uses Firebase Messaging to request notification permission, register the device with the backend, synchronize FCM tokens, and unregister the device when notifications are disabled.
 - **Web:** Continues using the existing browser push notification service.
 
-On Android, the component also listens for incoming notifications and user interactions with notifications. It monitors application state changes to refresh notification subscription status when the app returns to the foreground.
+### Foreground Notification Delivery
 
-This provides a unified notification management interface across Android and web platforms.
+MQTT is responsible for delivering new notifications while the dashboard is active.
+
+The MQTT notification handler:
+- Receives real-time notification events from the backend.
+- Updates the notification inbox and unread count.
+- Provides in-app notification feedback where appropriate.
+
+The FCM `notificationReceived` listener is intentionally not used because MQTT already handles foreground notification delivery. Using both mechanisms could result in duplicate notification processing or feedback.
+
+### Background Notification Delivery
+
+FCM handles native Android push notifications when the application is in the background or closed.
+
+The component registers an `addNotificationActionListener()` listener to handle user interactions with native FCM notifications. When a user taps a notification, the application can navigate to the relevant destination using the URL included in the notification data.
+
+The component also monitors application state changes to refresh notification subscription status when the app returns to the foreground.
+
+This separates notification responsibilities:
+
+- **MQTT:** Real-time foreground notification delivery.
+- **FCM:** Native Android background notification delivery and notification interactions.
+- **Web Push:** Browser background notification delivery.
+- **REST API:** Notification records, inbox history, and read status.
+
+This provides a unified notification management interface across Android and web platforms while avoiding duplicate foreground notification handling.
+
+**Note:** MQTT foreground delivery depends on an active MQTT connection. The REST API remains the source of truth, so notifications should still be retrievable when the connection is restored.

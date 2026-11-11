@@ -210,23 +210,6 @@ export async function addFCMTokenListener() {
 }
 
 /**
- * Registers a listener for notifications received while the app
- * is in the foreground.
- *
- * @param callback - Function called with the received notification.
- * @returns The listener handle, or null if unsupported.
- */
-export async function addNotificationReceivedListener(callback: (notification: unknown) => void) {
-  if (!isFirebaseMessagingSupported()) {
-    return null
-  }
-
-  return FirebaseMessaging.addListener('notificationReceived', ({ notification }) => {
-    callback(notification)
-  })
-}
-
-/**
  * Registers a listener for notification interactions.
  *
  * @param callback - Function called when a notification is interacted with.

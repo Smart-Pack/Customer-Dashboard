@@ -92,7 +92,6 @@ import {
   unsubscribeFromPushNotifications,
 } from '@/services/pushNotifications'
 import {
-  addNotificationReceivedListener,
   addNotificationActionListener,
   isFirebaseMessagingSupported,
   isSubscribedToFCM,
@@ -134,13 +133,6 @@ const unreadNotifications = ref(0)
  * Root element used to detect clicks outside the dropdown.
  */
 const containerRef = ref<HTMLElement | null>(null)
-
-/**
- * Handles notifications received while the app is in the foreground.
- */
-let notificationReceivedListener: Awaited<
-  ReturnType<typeof addNotificationReceivedListener>
-> | null = null
 
 /**
  * Handles actions when the user taps an FCM notification.
@@ -320,10 +312,6 @@ onMounted(async () => {
   document.addEventListener('keydown', handleKeydown)
 
   if (isMobile && isFirebaseMessagingSupported()) {
-    notificationReceivedListener = await addNotificationReceivedListener((notification) => {
-      handleFCMNotification(notification)
-    })
-
     notificationActionListener = await addNotificationActionListener((notification) => {
       handleFCMNotification(notification)
     })
@@ -347,11 +335,9 @@ onBeforeUnmount(async () => {
   document.removeEventListener('keydown', handleKeydown)
 
   await appStateListener?.remove()
-  await notificationReceivedListener?.remove()
   await notificationActionListener?.remove()
 
   appStateListener = null
-  notificationReceivedListener = null
   notificationActionListener = null
 })
 </script>
