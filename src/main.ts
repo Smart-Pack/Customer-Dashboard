@@ -15,6 +15,7 @@ import GoogleSignInPlugin from 'vue3-google-signin'
 import { SocialLogin } from '@capgo/capacitor-social-login'
 import { useAuthStore } from './stores'
 import { setupRouterGuard } from './router/guards'
+import { initializeDatabase } from './services/database'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -33,6 +34,13 @@ if (import.meta.env.MODE === 'mobile') {
       webClientId: googleClientId,
     },
   })
+  try {
+    await initializeDatabase()
+  } catch (error) {
+    // Database caching is optional.
+    // Allow the application to continue using the API.
+    console.error('Database initialization failed:', error)
+  }
 } else {
   app.use(GoogleSignInPlugin, {
     clientId: googleClientId,
