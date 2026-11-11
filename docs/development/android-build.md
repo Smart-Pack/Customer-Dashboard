@@ -34,12 +34,43 @@ The workflow retrieves the following variables from the GitHub `Preview` environ
 | `VITE_API_BASE_URL` | Backend API base URL |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `VITE_WEBPUSH_VAPID_PUBLIC_KEY` | Public Web Push VAPID key |
+| `GOOGLE_SERVICES_JSON_BASE64` | Base64-encoded Firebase Android configuration |
 
 Configure these under:
 
 **GitHub Repository → Settings → Environments → Preview → Environment variables**
 
-These values are injected during the Vite mobile build.
+These values are injected during the build process.
+
+### Firebase Configuration
+
+Firebase Cloud Messaging requires the Android Firebase configuration file:
+
+`android/app/google-services.json`
+
+For security and repository cleanliness, this file is excluded from Git using `.gitignore`.
+
+The GitHub Actions workflow recreates it during the build using the `GOOGLE_SERVICES_JSON_BASE64` environment variable.
+
+To generate the Base64-encoded configuration locally:
+
+```bash
+base64 -w 0 android/app/google-services.json
+```
+
+Copy the complete output and add it as the value of `GOOGLE_SERVICES_JSON_BASE64` in the GitHub `Preview` environment variables.
+
+During the workflow, the configuration is decoded and written to:
+
+`android/app/google-services.json`
+
+For local Android development, download `google-services.json` from the Firebase Console and place it directly in `android/app/`.
+
+**Important:**
+- The Firebase Android application package name must match `com.razaoul.smartpack`.
+- Never commit `google-services.json` or expose Firebase service-account credentials.
+- `GOOGLE_SERVICES_JSON_BASE64` contains the Android client configuration, not the Firebase Admin SDK service-account credentials.
+- Firebase configuration is required for native Android builds that integrate Firebase services.
 
 ## Android Debug Keystore
 
@@ -87,7 +118,39 @@ Before assembling the APK, the workflow:
 3. Decodes the secret into `~/.android/debug.keystore`.
 4. Restricts file permissions to the current runner user.
 
-Gradle automatically uses this keystore for the default debug signing configuration.
+### Gradle Debug Signing Configuration
+
+The Android application explicitly configures its debug signing credentials in:
+
+`android/app/build.gradle`
+
+```gradle
+android {
+    signingConfigs {
+        debug {
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+```
+
+This configuration ensures that the debug APK uses the persistent keystore restored by the GitHub Actions workflow.
+
+**Important:**
+- The `debug.keystore` must be restored before Gradle assembles the APK.
+- The keystore path is resolved using the Gradle JVM's `user.home` system property.
+- Local debug builds and CI debug builds should use the same keystore when consistent Google OAuth signing identity is required.
+- Do not commit the keystore or its credentials to the repository.
 
 ### Verifying the Signing Certificate
 
@@ -111,7 +174,7 @@ apksigner verify --print-certs build/app-debug.apk
 
 The second command displays the APK signing certificate fingerprints, including SHA-1 and SHA-256.
 
-You can compare the SHA-1 fingerprint against your local debug APK to confirm that both builds use the same signing identity.
+Compare the APK fingerprint against the restored keystore fingerprint to ensure that Gradle used the expected signing identity.
 
 ## Running the Workflow
 
@@ -137,12 +200,14 @@ The workflow performs the following steps:
 5. Installs the required Android SDK components.
 6. Accepts Android SDK licenses.
 7. Installs project dependencies using `pnpm install --frozen-lockfile`.
-8. Builds the mobile application using `pnpm android:build`.
-9. Restores the Android debug keystore from GitHub Secrets.
-10. Verifies the restored debug signing certificate.
-11. Assembles the Android debug APK using Gradle.
-12. Verifies the generated APK signing certificate.
-13. Uploads the generated APK as a GitHub Actions artifact.
+8. Retrieves the Firebase configuration from the GitHub `Preview` environment.
+9. Decodes and creates `android/app/google-services.json`.
+10. Builds the mobile application using `pnpm android:build`.
+11. Restores the Android debug keystore from GitHub Secrets.
+12. Verifies the restored debug signing certificate.
+13. Assembles the Android debug APK using Gradle.
+14. Verifies the generated APK signing certificate.
+15. Uploads the generated APK as a GitHub Actions artifact.
 
 ## Build Artifact
 
@@ -171,8 +236,9 @@ Artifacts are retained for **14 days**.
 
 - This workflow is intended for testing builds.
 - It uses the GitHub `Preview` environment configuration.
+- Firebase configuration is generated dynamically during the workflow and is not committed to Git.
 - It restores a persistent debug keystore to maintain a consistent signing identity across CI runs.
-- It generates a debug APK, not a production release APK.
+- It generates a debug APK, not a production-signed release APK.
 - The workflow does not publish the APK to the Google Play Store or create a GitHub Release.
 - Android-specific local setup scripts are not required on GitHub-hosted Ubuntu runners.
 - The debug keystore should be treated as sensitive because anyone possessing it and its credentials can sign APKs with the same debug identity.

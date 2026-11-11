@@ -2,47 +2,49 @@
 
 ## 1. Overview
 
-The SmartPack Customer Dashboard provides an integrated notification system that combines an in-dashboard notification inbox, real-time notification delivery through MQTT, and browser push notifications.
+The SmartPack Customer Dashboard provides an integrated notification system combining an in-dashboard notification inbox, real-time notification delivery through MQTT, and platform-specific push notifications.
 
-The system allows users to view notifications, track unread notifications, mark notifications as read, navigate to relevant dashboard pages, and manage browser push notification subscriptions.
+The system allows users to view notifications, track unread notifications, mark notifications as read, navigate to relevant dashboard pages, and manage push notification subscriptions.
 
-The implementation consists of four main parts:
+The implementation consists of five main parts:
 
-1. **Notification Bell** — provides access to the notification dropdown, displays the unread notification count, and provides access to notification settings and browser push controls.
-2. **Notification Content** — retrieves notifications from the backend, subscribes to the authenticated user's MQTT topic, displays notifications, and manages read state.
-3. **Notification and Push Services** — handle backend API communication, MQTT configuration, browser push subscriptions, and subscription synchronization.
-4. **Service Worker** — receives browser push events, displays system notifications, and handles navigation when users click them.
+1. **Notification Bell** — Provides access to the notification dropdown, displays the unread notification count, and manages push notification settings.
+2. **Notification Content** — Retrieves notifications from the backend, subscribes to the authenticated user's MQTT topic, displays notifications, and manages read state.
+3. **Notification Services** — Handle backend API communication, MQTT configuration, browser push subscriptions, and native Firebase Messaging.
+4. **Service Worker** — Receives browser push events, displays system notifications, and handles navigation when users click them.
+5. **Firebase Messaging** — Handles native Android push notifications, including device registration, token synchronization, and notification interactions.
 
-The backend remains the source of truth for notification records. REST API requests retrieve existing notifications and update their state, while MQTT delivers real-time notification events to connected dashboards. Browser push notifications provide a separate delivery mechanism that can notify users when they are not actively viewing the dashboard.
+The backend remains the source of truth for notification records. REST API requests retrieve existing notifications and update their state, while MQTT delivers real-time notification events to connected dashboards.
+
+Push notifications provide a separate delivery mechanism that can notify users when they are not actively viewing the dashboard.
 
 ### Main files
 
 | File | Responsibility |
 |---|---|
-| `src/components/Notifications/NotificationBell.vue` | Notification dropdown, unread count, settings navigation, and browser push controls |
-| `src/components/Notifications/NotificationContent.vue` | Notification retrieval, rendering, MQTT subscription, read-state management, and error handling |
+| `src/components/Notifications/NotificationBell.vue` | Notification dropdown, unread count, settings navigation, and platform-specific push controls |
+| `src/components/Notifications/NotificationContent.vue` | Notification retrieval, rendering, MQTT subscription, and read-state management |
 | `src/services/pushNotifications.ts` | Browser push support, permission handling, service worker registration, and subscription synchronization |
+| `src/services/firebaseMessaging.ts` | Native Android FCM integration and device registration |
 | `src/api/` notification API module | Retrieves notifications and updates their state |
-| `src/api/` push subscription API module | Creates, lists, and removes backend push subscription records |
+| `src/api/` push subscription API module | Manages browser push subscription records |
+| `src/api/modules/fcmDevices.ts` | Manages native FCM device registrations |
 | `src/stores/` MQTT store module | Provides MQTT connection configuration |
-| `src/stores/modules/auth/getters.ts` | Exposes the authenticated user's UUID for MQTT topic subscriptions |
+| `src/stores/modules/auth/getters.ts` | Exposes the authenticated user's UUID for MQTT subscriptions |
 | `public/sw.js` | Handles browser push events and notification clicks |
-| `src/components/Icons/BellIcon.vue` | Icon displayed when browser push notifications are enabled |
-| `src/components/Icons/BellSlashIcon.vue` | Icon displayed when browser push notifications are disabled |
-| `src/components/Icons/CogIcon.vue` | Icon linking to notification settings |
+| `android/app/src/main/AndroidManifest.xml` | Configures Android's default FCM notification icon and color |
 | `src/layout/Dashboard/TopBar.vue` | Integrates the notification bell into the dashboard header |
 | `src/components/Notifications/__tests__/NotificationBell.spec.ts` | Notification bell component tests |
 | `src/components/Notifications/__tests__/NotificationContent.spec.ts` | Notification content and MQTT integration tests |
 | `src/services/__tests__/pushNotifications.spec.ts` | Browser push service tests |
+| `src/services/__tests__/firebaseMessaging.spec.ts` | Firebase Messaging service tests |
 | `src/tests/service-worker/sw.spec.ts` | Service worker tests |
-
-*Note: Confirm the exact notification and push subscription API module paths against the current repository before using this table as a definitive file inventory.*
 
 ---
 
 ## 2. Notification Architecture
 
-The notification system uses REST API requests, MQTT, and browser push notifications for different purposes.
+The notification system uses REST API requests, MQTT, and platform-specific push notifications for different purposes.
 
 ### 2.1 Notification retrieval and updates
 
@@ -74,54 +76,43 @@ The UUID in this example is illustrative. The application must use the actual UU
 
 When the backend publishes a notification to this topic, the frontend processes the incoming message and updates the notification list and unread count.
 
-The MQTT topic must match the topic used by the backend publisher. Both sides should use the user's unique UUID rather than the database primary key.
+### 2.3 Push notifications
 
-### 2.3 Browser push notifications
+Push notifications are independent of MQTT delivery. Their implementation depends on the platform.
 
-Browser push notifications are separate from MQTT delivery.
+| Platform | Technology | Responsibility |
+|---|---|---|
+| Web | Web Push API and Service Worker | Receives and displays browser push notifications |
+| Android | Firebase Cloud Messaging (FCM) | Receives and displays native Android push notifications |
 
-MQTT updates an active dashboard connection. Web Push allows the browser to receive push messages through its push subscription and service worker without requiring the dashboard page to maintain an active MQTT connection.
+**Web Push:** The browser maintains a push subscription containing the endpoint and associated encryption information. The backend stores this subscription and uses it for Web Push delivery.
 
-The backend stores browser push subscriptions and uses them when sending push messages.
+**Android FCM:** The application obtains an FCM registration token and associates it with a persistent installation UUID. The backend stores the device registration and uses the token to send push notifications through Firebase.
 
-A successful MQTT delivery does not imply that a browser push notification was delivered, and a browser push subscription does not imply that the dashboard is connected to MQTT.
+Both mechanisms allow notifications to reach users independently of an active dashboard MQTT connection.
 
 ### 2.4 High-level architecture
 
 ```text
-                    SmartPack Backend
-                           |
-               +-----------+-----------+
-               |                       |
-               v                       v
-        Notification API          MQTT Publisher
-               |                       |
-               |                       v
-               |                  MQTT Broker
-               |                       |
-               v                       v
-        Notification Content <--- MQTT Subscription
-               |
-               v
-        Notification Dropdown
-               |
-               v
-        Mark as Read / Navigation
-
-
-        SmartPack Backend
-               |
-               v
-        Web Push Delivery
-               |
-               v
-        Browser Push Service
-               |
-               v
-        Service Worker
-               |
-               v
-        Browser Notification
+                     SmartPack Backend
+                            |
+             +--------------+--------------+
+             |              |              |
+             v              v              v
+       Notification API  MQTT Publisher  Push Services
+             |              |              |
+             |              v         +----+----+
+             |         MQTT Broker     |         |
+             |              |          v         v
+             |              |       Web Push    FCM
+             |              |          |         |
+             v              v          v         v
+       Notification Content <--- MQTT  Service   Android
+             |                         Worker     App
+             v                           |         |
+       Notification Dropdown             v         v
+                                    Browser    Native
+                                  Notification Notification
 ```
 
 ---
@@ -132,24 +123,16 @@ A successful MQTT delivery does not imply that a browser push notification was d
 
 The `NotificationBell` component provides the main interface for accessing notifications from the dashboard header.
 
-It is integrated into `TopBar.vue` and contains the notification dropdown, notification settings link, unread count, and browser push notification controls.
+It contains the notification dropdown, notification settings link, unread count, and platform-specific push notification controls.
 
-### 3.1 Browser push icon states
+### 3.1 Notification state
 
-The bell icon represents the browser's push subscription state.
+The component uses the reactive `isSubscribed` reference to track whether notifications are enabled on the current platform.
 
-| State | Icon | Meaning |
-|---|---|---|
-| Subscribed | `BellIcon` | The browser has an active push subscription |
-| Not subscribed | `BellSlashIcon` | The browser does not currently have an active push subscription |
+The notification status is determined differently depending on the platform:
 
-The state is represented by the reactive `isSubscribed` reference.
-
-```typescript
-const isSubscribed = ref(false)
-```
-
-The icon reflects browser subscription status, not the number of unread notifications.
+- Android: Checks notification permission and the active FCM device registration.
+- Web: Checks the browser's existing push subscription.
 
 The unread count is maintained separately and reflects the notification inbox state.
 
@@ -157,20 +140,16 @@ The unread count is maintained separately and reflects the notification inbox st
 
 Clicking the notification bell opens a dropdown containing:
 
-- A **Notifications** heading.
+- A Notifications heading.
 - The unread notification count when the count is greater than zero.
 - A link to notification settings.
 - The notification content component.
-- Browser push notification controls.
+- Push notification controls.
 
 The dropdown visibility is managed using reactive component state.
 
 ```typescript
 const isDropdownOpen = ref(false)
-
-function toggleDropdown(): void {
-  isDropdownOpen.value = !isDropdownOpen.value
-}
 ```
 
 The unread count is updated by events emitted from `NotificationContent`.
@@ -181,18 +160,6 @@ The unread count is updated by events emitted from `NotificationContent`.
   @unread-count-change="handleUnreadCountChange"
 />
 ```
-
-The parent component handles updates and prevents negative counts:
-
-```typescript
-const unreadNotifications = ref(0)
-
-function handleUnreadCountChange(count: number): void {
-  unreadNotifications.value = Math.max(0, count)
-}
-```
-
-The count is displayed in the heading only when there are unread notifications.
 
 ### 3.3 Notification settings
 
@@ -207,39 +174,32 @@ The dropdown includes a settings link that navigates to the profile page with th
 
 The `my-profile` route must support the `tabs=notification` query parameter.
 
-The settings link should have an accessible label, such as `Notification settings`.
+### 3.4 Push notification controls
 
-### 3.4 Browser push controls
+The component provides a unified interface for enabling and disabling push notifications.
 
-The component provides controls for enabling and disabling browser push notifications.
+It determines the current platform and delegates the operation to the appropriate service.
 
-The main operation is implemented through `toggleNotifications()`, which calls the appropriate service function depending on the current subscription state.
+- **Android:** Requests notification permission, registers or synchronizes the FCM device with the backend, or unregisters the device when notifications are disabled.
+- **Web:** Requests browser notification permission, creates or reuses a push subscription, synchronizes it with the backend, or removes it when notifications are disabled.
 
-```typescript
-subscribeToPushNotifications()
-unsubscribeFromPushNotifications()
-isSubscribedToPushNotifications()
-```
+The component manages loading states, success messages, error messages, and subscription status refreshes.
 
-The component manages the loading state, success messages, error messages, and subscription-state refresh.
+Push notification controls affect push subscription state; they do not disable MQTT notifications or remove notifications from the inbox.
 
-The action button is disabled while an operation is in progress or when browser push notifications are unsupported.
+### 3.5 Notification listeners
 
-Browser push controls affect push subscription state; they do not disable MQTT notifications or remove notifications from the inbox.
+On Android, the component registers native Firebase Messaging listeners to handle incoming notifications and notification interactions.
 
-### 3.5 Error handling
+It also monitors application state changes and refreshes the notification subscription status when the application returns to the foreground.
 
-Subscription operations can involve both browser APIs and backend requests. One operation may succeed while the other fails.
+The listeners are removed when the component unmounts.
 
-For example, the browser may create a push subscription but the request to register it with the backend may fail.
+### 3.6 Error handling
 
-When an operation fails, the component reports the error and attempts to refresh the actual browser subscription state rather than assuming the subscription was unchanged.
+Subscription operations can involve both platform APIs and backend requests. One operation may succeed while the other fails.
 
-### 3.6 Dropdown dismissal and cleanup
-
-The component supports dismissing the dropdown by clicking outside it or pressing the `Escape` key.
-
-Document-level event listeners are removed when the component unmounts to prevent unnecessary event handlers from remaining active.
+When an operation fails, the component reports the error and attempts to refresh the actual notification state rather than assuming the operation was successful.
 
 ---
 
@@ -279,8 +239,6 @@ The exact response structure follows the backend's paginated API contract.
 
 The component preserves existing notification data while a request is pending, rather than immediately clearing the list.
 
-This helps prevent notifications received through MQTT from disappearing while the initial API request is in progress.
-
 ### 4.2 MQTT configuration
 
 The frontend obtains MQTT connection settings through the backend configuration API and the MQTT store.
@@ -293,11 +251,7 @@ The configuration may include:
 - Frontend MQTT username.
 - Frontend MQTT password.
 
-The actual values depend on the deployed environment.
-
 Credentials must not be hard-coded in the component. The frontend should use the configured connection settings supplied through the application's intended configuration flow.
-
-The backend configuration endpoint should return only credentials intended for frontend use, with permissions restricted to the necessary topics.
 
 ### 4.3 User-specific MQTT topic
 
@@ -337,19 +291,15 @@ The backend publishes notification events using an envelope similar to:
 }
 ```
 
-This is an illustrative example of the event structure. The exact fields and timestamp formats must remain consistent with the backend publisher and notification model.
+This is an illustrative example. The exact fields and timestamp formats must remain consistent with the backend publisher and notification model.
 
 The component validates incoming payloads before processing them.
 
-It ignores malformed messages, unrelated events, duplicate notifications, and notifications that are already read or dismissed.
-
 ### 4.5 Merging API and MQTT notifications
 
-The component must account for notifications arriving while the initial API request is still pending.
+The component accounts for notifications arriving while the initial API request is pending.
 
 It merges API results with notifications received through MQTT, removes duplicates, sorts the list by creation time, and limits the displayed collection to the 20 most recent notifications.
-
-This avoids losing a real-time notification simply because it arrived while the REST request was being processed.
 
 ### 4.6 Unread count synchronization
 
@@ -357,15 +307,11 @@ The component reports changes to the unread notification count to its parent thr
 
 The parent component uses the emitted count to update the number displayed in the notification heading.
 
-The unread count should remain consistent with the displayed notification state and the backend's notification records.
-
 ### 4.7 Marking notifications as read
 
 When a user marks a notification as read, the component sends the corresponding update to the backend.
 
 It prevents duplicate requests for the same in-progress update and handles failures without incorrectly assuming that the backend successfully changed the notification's state.
-
-The component also updates the displayed notification state and unread count when the operation succeeds.
 
 ### 4.8 Connection and error states
 
@@ -379,23 +325,19 @@ The component handles MQTT connection events, including:
 
 It also handles notification API loading and error states.
 
-When the notification request fails, the interface provides an error state and a retry mechanism.
-
 An MQTT connection failure should not be interpreted as proof that no notifications exist. The REST API remains available for retrieving persisted notifications when connectivity is restored.
 
 ### 4.9 Resource cleanup
 
 When the component unmounts, it removes MQTT event listeners and closes or releases the MQTT client resources associated with the component.
 
-This prevents stale event handlers and unnecessary connections from remaining after the notification dropdown content is destroyed.
-
 ---
 
-## 5. Push Notification Service
+## 5. Browser Push Notification Service
 
 **File:** `src/services/pushNotifications.ts`
 
-The push notification service separates browser subscription logic from Vue components.
+The browser push notification service handles Web Push functionality independently of the Vue components.
 
 Its responsibilities include:
 
@@ -425,77 +367,120 @@ The public key must correspond to the backend's Web Push VAPID private key.
 
 Only the public key should be exposed to the frontend. Never include the private key in frontend source code or a `VITE_` environment variable.
 
-Restart the Vite development server after changing environment variables.
-
-### 5.2 Browser support
+### 5.2 Browser support and permission
 
 The service checks whether the browser provides the APIs required for push notifications, including service workers, the Push API, and the Notifications API.
 
-The availability of these APIs does not guarantee that notification permission has been granted or that a subscription exists.
-
-### 5.3 Subscription status
-
-The service checks the browser's existing push subscription through the service worker registration and `PushManager`.
-
-The result determines whether the notification bell displays the subscribed or unsubscribed icon.
-
-An existing subscription may still require synchronization with the backend.
-
-### 5.4 Service worker registration
-
-The service registers the worker at:
-
-```text
-/sw.js
-```
-
-It obtains the registration and waits for it to become ready before performing subscription operations.
-
-Registration errors are surfaced to the calling component rather than silently treated as success.
-
-### 5.5 Requesting permission
-
-The service requests notification permission when the user initiates the subscription workflow.
-
 Permission and subscription are separate:
 
-- **Permission** allows the website to request that the browser display notifications.
-- **Subscription** provides the endpoint and associated information required for push delivery.
+- Permission allows the website to request that the browser display notifications.
+- A subscription provides the endpoint and associated information required for push delivery.
 
 Granting permission does not automatically create a push subscription.
 
-### 5.6 Creating and synchronizing a subscription
+### 5.3 Subscription management
 
-The `subscribeToPushNotifications()` function checks support and configuration, requests permission, ensures that the service worker is ready, creates or reuses a browser subscription, and synchronizes the resulting subscription with the backend.
-
-The `syncPushSubscription()` function synchronizes an existing subscription without requesting permission or creating a new one.
+The service provides the following main operations:
 
 | Function | Purpose |
 |---|---|
+| `isPushNotificationSupported()` | Checks whether browser push APIs are available |
+| `isSubscribedToPushNotifications()` | Checks the current browser subscription state |
 | `subscribeToPushNotifications()` | Creates or reuses a subscription and synchronizes it with the backend |
 | `syncPushSubscription()` | Synchronizes an existing browser subscription |
-| `isSubscribedToPushNotifications()` | Checks the current browser subscription state |
 | `unsubscribeFromPushNotifications()` | Removes the browser subscription and its matching backend record |
 
 The backend associates the subscription with the authenticated user so that push messages can be sent to the appropriate browser endpoint.
 
-### 5.7 Unsubscribing
+---
 
-The unsubscription workflow retrieves the existing browser subscription, identifies the matching backend record, removes the backend record if present, and unsubscribes the browser.
+## 6. Firebase Cloud Messaging (Android)
 
-Because the browser and backend are separate systems, a failure can leave their states temporarily inconsistent. Subsequent synchronization or cleanup may be required.
+**File:** `src/services/firebaseMessaging.ts`
+
+Firebase Cloud Messaging provides native Android push notification delivery.
+
+Unlike browser Web Push, FCM uses Firebase registration tokens associated with individual application installations.
+
+The application obtains an FCM token and a persistent installation UUID, then registers these details with the SmartPack backend.
+
+The backend stores the registration and uses Firebase Cloud Messaging to send push notifications to the corresponding Android installation.
+
+### 6.1 High-level workflow
+
+```text
+                  SmartPack Android App
+                           |
+                           v
+                  Request Notification
+                       Permission
+                           |
+                           v
+                    Get FCM Token
+                           |
+                           v
+                 Get Installation UUID
+                           |
+                           v
+                  Register with Backend
+                           |
+                           v
+                   FCM Device Record
+                           |
+                           v
+                    SmartPack Backend
+                           |
+                           v
+                  Firebase Cloud Messaging
+                           |
+                           v
+                    Android Device
+                           |
+                           v
+                  Display Notification
+```
+
+### 6.2 Device registration and synchronization
+
+Each Android application installation is identified using a persistent UUID.
+
+The FCM registration token identifies the installation to Firebase.
+
+The application synchronizes the installation UUID and current FCM token with the backend. When Firebase refreshes the token, the application updates the backend registration.
+
+When notifications are disabled through the application, the backend registration is removed and the local FCM token is deleted.
+
+### 6.3 Notification handling
+
+The application listens for notifications received while it is running and for user interactions with notifications.
+
+The notification payload can contain additional data, including a destination URL, allowing the application to identify the relevant dashboard content.
+
+The Android notification icon and color are configured through the native Android resources and manifest.
+
+### 6.4 Detailed documentation
+
+For the complete implementation, including the FCM device API, Android notification assets, Firebase Messaging service functions, device registration, token synchronization, and notification listeners, see:
+
+**[Firebase Cloud Messaging (FCM) Integration](./firebase-messaging.md)**
 
 ---
 
-## 6. Service Worker
+## 7. Service Worker
 
 **File:** `public/sw.js`
 
 The service worker handles incoming browser push events and notification clicks.
 
-It is served from the application root at `/sw.js`.
+It is served from the application root at:
 
-### 6.1 Receiving push events
+```text
+/sw.js
+```
+
+This functionality applies to browser Web Push. Native Android FCM notifications are handled by the Firebase Messaging integration.
+
+### 7.1 Receiving push events
 
 The worker listens for the `push` event and attempts to parse the incoming payload as JSON.
 
@@ -519,7 +504,7 @@ Build notification options
 Display browser notification
 ```
 
-### 6.2 Push payload
+### 7.2 Push payload
 
 A representative payload is:
 
@@ -531,11 +516,9 @@ A representative payload is:
 }
 ```
 
-This is an illustrative Web Push payload. It is distinct from the MQTT envelope used by the dashboard's real-time notification subscription.
+This is an illustrative Web Push payload. It is distinct from the MQTT envelope and native FCM notification payload.
 
-The service worker should follow the payload schema used by the backend's Web Push implementation.
-
-### 6.3 Handling notification clicks
+### 7.3 Handling notification clicks
 
 When a user clicks a browser notification, the service worker closes it and resolves its destination URL against the application's origin.
 
@@ -543,11 +526,9 @@ It then looks for a suitable existing application window, navigates and focuses 
 
 Navigation is restricted to the same origin to prevent notification payloads from redirecting users to arbitrary external websites.
 
-The destination route must exist in the dashboard application.
-
 ---
 
-## 7. Dashboard Integration
+## 8. Dashboard Integration
 
 **File:** `src/layout/Dashboard/TopBar.vue`
 
@@ -559,25 +540,25 @@ The notification bell is integrated into the dashboard header:
 
 The component sits alongside the existing dashboard controls.
 
-The header retains its existing functionality, including mobile navigation, theme switching, profile access, account dropdown, and logout.
-
-Keeping notification behavior in separate components prevents the dashboard header from becoming responsible for MQTT communication, notification retrieval, read-state updates, and browser push subscription management.
+Keeping notification behavior in separate components prevents the dashboard header from becoming responsible for MQTT communication, notification retrieval, read-state updates, and push subscription management.
 
 ---
 
-## 8. Backend Integration
+## 9. Backend Integration
 
-The frontend interacts with the SmartPack backend through two distinct notification mechanisms.
+The frontend interacts with the SmartPack backend through notification APIs, MQTT, Web Push, and FCM.
 
-### 8.1 REST API
+### 9.1 REST API
 
-The notification API is responsible for retrieving persisted notifications and updating notification state.
+The notification API retrieves persisted notifications and updates notification state.
 
-The push subscription API manages browser subscription records.
+The browser push subscription API manages Web Push subscription records.
 
-The frontend uses the appropriate API modules rather than embedding request logic directly in the notification components.
+The FCM device API manages native Android device registrations.
 
-### 8.2 MQTT notification publishing
+The frontend uses the appropriate API modules rather than embedding request logic directly in notification components.
+
+### 9.2 MQTT notification publishing
 
 When a new notification is created, the backend publishes a message to the recipient's MQTT topic when MQTT publishing is enabled.
 
@@ -589,45 +570,45 @@ users/{user.unique_id}
 
 The message contains an event name and notification data.
 
-The backend publisher and frontend subscriber must agree on:
+The backend publisher and frontend subscriber must agree on topic naming, event type, payload structure, broker configuration, and authentication permissions.
 
-- Topic naming.
-- Event type.
-- Notification payload structure.
-- Broker configuration.
-- Authentication and topic permissions.
-
-The frontend should subscribe only to the authenticated user's authorized topic.
-
-### 8.3 Browser push delivery
+### 9.3 Web Push delivery
 
 The backend stores browser push subscriptions and uses them to deliver Web Push messages.
 
-This mechanism is separate from MQTT publishing. Each mechanism has its own configuration, delivery behavior, and failure modes.
+This mechanism is separate from MQTT publishing and native FCM delivery.
 
-### 8.4 Reliability and recovery
+### 9.4 FCM delivery
+
+The backend stores FCM device registrations associated with authenticated users.
+
+When sending a native push notification, the backend uses the registered FCM token to deliver the message through Firebase Cloud Messaging.
+
+The backend may include notification data such as a destination URL alongside the notification title and body.
+
+### 9.5 Reliability and recovery
 
 MQTT is used for real-time delivery to connected clients; it should not be treated as a permanent notification history.
 
 A dashboard may disconnect, reload, or miss an event while offline. When it reconnects, it should retrieve persisted notifications from the REST API.
 
+Web Push and FCM provide independent delivery mechanisms for their respective platforms.
+
 The backend notification database remains the source of truth for the inbox.
 
 ---
 
-## 9. Testing
+## 10. Testing
 
-The notification system has dedicated tests for the bell component, notification content, push subscription service, and service worker.
+The notification system has dedicated tests for the bell component, notification content, browser push service, Firebase Messaging service, and service worker.
 
-### 9.1 Notification Bell tests
+### 10.1 Notification Bell tests
 
 **File:** `src/components/Notifications/__tests__/NotificationBell.spec.ts`
 
-Tests cover the notification bell's rendering, unread count, dropdown interactions, settings navigation, browser push subscription controls, error handling, and event-listener cleanup.
+Tests cover notification bell rendering, unread count, dropdown interactions, settings navigation, platform-specific push controls, error handling, and event-listener cleanup.
 
-They also verify that notification content is embedded in the dropdown and that unread count updates are reflected in the heading.
-
-### 9.2 Notification Content tests
+### 10.2 Notification Content tests
 
 **File:** `src/components/Notifications/__tests__/NotificationContent.spec.ts`
 
@@ -647,31 +628,38 @@ Tests cover:
 - Notification navigation.
 - MQTT resource cleanup.
 
-### 9.3 TopBar tests
+### 10.3 TopBar tests
 
 **File:** `src/layout/Dashboard/__tests__/TopBar.spec.ts`
 
 Tests verify that the notification bell is integrated into the dashboard header and that existing navigation, profile, theme, and account interactions remain functional.
 
-### 9.4 Push notification service tests
+### 10.4 Browser push service tests
 
 **File:** `src/services/__tests__/pushNotifications.spec.ts`
 
 These tests cover browser support checks, permission handling, service worker registration, subscription creation, backend synchronization, and unsubscription behavior.
 
-### 9.5 Service worker tests
+### 10.5 Firebase Messaging tests
+
+**File:** `src/services/__tests__/firebaseMessaging.spec.ts`
+
+These tests cover native Firebase Messaging support, installation UUID management, notification permission, token retrieval, device registration, token synchronization, unregistration, notification listeners, and subscription status checks.
+
+### 10.6 Service worker tests
 
 **File:** `src/tests/service-worker/sw.spec.ts`
 
 These tests cover push payload handling, browser notification display, fallback behavior, and notification-click navigation.
 
-### 9.6 Running tests
+### 10.7 Running tests
 
 Run the notification bell and content tests:
 
 ```bash
 pnpm vitest --run \
   src/components/Notifications/__tests__/NotificationBell.spec.ts \
+  src/components/Notifications/__tests__/NotificationBell.fcm.spec.ts \
   src/components/Notifications/__tests__/NotificationContent.spec.ts
 ```
 
@@ -682,11 +670,18 @@ pnpm vitest --run \
   src/layout/Dashboard/__tests__/TopBar.spec.ts
 ```
 
-Run the push notification service tests:
+Run the browser push service tests:
 
 ```bash
 pnpm vitest --run \
   src/services/__tests__/pushNotifications.spec.ts
+```
+
+Run the Firebase Messaging service tests:
+
+```bash
+pnpm vitest --run \
+  src/services/__tests__/firebaseMessaging.spec.ts
 ```
 
 Run the service worker tests:
@@ -712,15 +707,15 @@ Test totals should be taken from the latest test run rather than copied from ear
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
-### 10.1 Notifications do not appear in the dropdown
+### 11.1 Notifications do not appear in the dropdown
 
 Check that the notification API request succeeds and returns the expected response structure.
 
 Confirm that the notification matches the requested filters and that the component is receiving the correct authenticated user's data.
 
-### 10.2 Real-time notifications are not received
+### 11.2 Real-time notifications are not received
 
 Check:
 
@@ -733,7 +728,7 @@ Check:
 
 Review both frontend and backend logs.
 
-### 10.3 Notifications disappear or are missing after reconnecting
+### 11.3 Notifications disappear or are missing after reconnecting
 
 MQTT delivery alone does not guarantee that a disconnected client will receive every message published while offline.
 
@@ -741,79 +736,82 @@ The frontend should retrieve persisted notifications through the REST API when i
 
 Confirm that the backend saves notifications before publishing their MQTT events.
 
-### 10.4 The unread count is incorrect
+### 11.4 The unread count is incorrect
 
 Check that the REST API response and MQTT events are merged without duplicating notifications.
 
 Verify that read and dismissed notifications are excluded where appropriate and that count-change events are emitted after notification state changes.
 
-### 10.5 Browser push notifications are unsupported
+### 11.5 Browser push notifications are unsupported
 
 Confirm that the browser supports service workers, the Push API, and the Notifications API.
 
 Production deployments generally require HTTPS for service workers and push notifications, except for browser-recognized secure development origins such as `localhost`.
 
-### 10.6 The browser subscription exists but not in the backend
+### 11.6 The browser subscription exists but not in the backend
 
 Inspect the subscription synchronization API request and backend logs.
 
 Confirm that the backend associates the subscription with the authenticated user and that the request succeeds.
 
-### 10.7 The VAPID public key is missing or invalid
+### 11.7 Firebase notifications are not received on Android
 
-Verify the frontend environment variable:
+Check:
 
-```dotenv
-VITE_WEBPUSH_VAPID_PUBLIC_KEY=your-vapid-public-key
-```
+- Whether Firebase is configured for the correct Android application.
+- Whether `google-services.json` is available during the Android build.
+- Whether the package name matches the Firebase Android application configuration.
+- Whether the signing certificate SHA-1 fingerprint is registered where required.
+- Whether notification permission has been granted.
+- Whether the FCM token is successfully retrieved.
+- Whether the device registration is active in the backend.
+- Whether the backend successfully sends the notification through Firebase.
 
-Ensure that it matches the public key corresponding to the backend's VAPID private key.
+Review Android logs and backend FCM logs.
 
-Restart the frontend development server after changing environment variables.
+For additional implementation details, see the [Firebase Cloud Messaging documentation](./firebase-messaging.md).
 
-### 10.8 Notification clicks do not navigate correctly
+### 11.8 MQTT and push notification behavior differ
 
-Check the payload's `url` field and verify that the destination is a valid same-origin dashboard route.
+MQTT, Web Push, and FCM are independent delivery mechanisms.
 
-### 10.9 MQTT and browser push behavior differ
-
-MQTT and Web Push are independent delivery mechanisms.
-
-A dashboard can receive MQTT events without displaying a browser push notification, and a browser can display a push notification while the dashboard is disconnected from MQTT.
+A dashboard can receive MQTT events without displaying a push notification. Similarly, a browser or Android device can receive a push notification while the dashboard is disconnected from MQTT.
 
 Inspect each mechanism independently when troubleshooting.
 
 ---
 
-## 11. Design Considerations
+## 12. Design Considerations
 
 The notification system follows these principles:
 
-1. **Separation of concerns:** Vue components manage the interface, services manage communication and subscriptions, the backend persists notifications, and the service worker handles browser push events.
+1. **Separation of concerns:** Vue components manage the interface, services manage communication and subscriptions, the backend persists notifications, and platform-specific components handle push delivery.
 2. **Backend source of truth:** The REST API provides persisted notification state, while MQTT provides real-time updates.
 3. **User-specific delivery:** MQTT subscriptions use the authenticated user's UUID.
-4. **Reactive state:** The notification list and unread count update as notification state changes.
-5. **Duplicate prevention:** Incoming MQTT notifications are checked before being added to the list.
-6. **Error handling:** API, MQTT, and push subscription failures are handled independently.
-7. **Resource cleanup:** MQTT resources and document-level event listeners are cleaned up when their components are destroyed.
-8. **Same-origin navigation:** Browser notification clicks are restricted to the application's origin.
-9. **Testability:** Notification components, subscription services, and service worker behavior have dedicated test files.
-10. **Independent delivery mechanisms:** MQTT and Web Push serve different purposes and should be monitored separately.
+4. **Platform-specific push:** Web uses browser Web Push, while Android uses Firebase Cloud Messaging.
+5. **Reactive state:** The notification list and unread count update as notification state changes.
+6. **Duplicate prevention:** Incoming MQTT notifications are checked before being added to the list.
+7. **Error handling:** API, MQTT, and push subscription failures are handled independently.
+8. **Resource cleanup:** MQTT resources, native listeners, and document-level event listeners are cleaned up when their owning components are destroyed.
+9. **Same-origin browser navigation:** Browser notification clicks are restricted to the application's origin.
+10. **Independent delivery mechanisms:** MQTT, Web Push, and FCM serve different purposes and should be monitored separately.
+11. **Testability:** Notification components, subscription services, and service worker behavior have dedicated test files.
 
 ---
 
-## 12. Limitations and Future Improvements
+## 13. Limitations and Future Improvements
 
 Potential improvements include:
 
-- Refreshing browser push subscription status when the user returns to the dashboard after changing browser permissions.
 - Detecting expired or revoked browser subscriptions and synchronizing their backend records.
 - Improving recovery from partial failures between browser and backend subscription operations.
 - Adding explicit MQTT reconnection recovery and REST synchronization after connectivity is restored.
-- Documenting the exact MQTT configuration API contract and notification payload schema.
-- Adding integration tests for notification delivery across the backend, MQTT broker, and browser.
-- Testing browser push delivery in deployed environments.
+- Improving navigation when users interact with native FCM notifications.
+- Adding integration tests for notification delivery across the backend, MQTT broker, Firebase, and browser.
+- Testing browser push and FCM delivery in deployed environments.
 - Improving notification history, pagination, dismissal, and bulk read-state management where required.
-- Monitoring MQTT publishing failures and Web Push delivery failures separately.
+- Monitoring MQTT publishing failures, Web Push delivery failures, and FCM delivery failures separately.
 
-The notification inbox, MQTT real-time delivery, and browser push subscriptions should be treated as related but independent parts of the overall notification system. The backend remains responsible for persisted notification records, while the frontend synchronizes and displays the appropriate state.
+The notification inbox, MQTT real-time delivery, Web Push, and FCM should be treated as related but independent parts of the overall notification system.
+
+The backend remains responsible for persisted notification records, while the frontend synchronizes and displays the appropriate state.

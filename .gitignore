@@ -67,3 +67,6 @@ android/*.iml
 # Android build artifacts
 *.apk
 *.aab
+
+# Firebase configuration
+android/app/google-services.json

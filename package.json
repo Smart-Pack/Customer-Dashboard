@@ -28,6 +28,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@capacitor-firebase/messaging": "^8.6.0",
     "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.3",
@@ -37,6 +38,7 @@
     "axios": "^1.20.0",
     "bluetooth-serial": "^1.0.0",
     "capacitor-secure-storage-plugin": "^0.13.0",
+    "firebase": "^13.2.0",
     "jwt-decode": "^4.0.0",
     "mqtt": "^5.16.1",
     "pinia": "^4.0.2",
