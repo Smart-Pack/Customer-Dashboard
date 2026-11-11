@@ -18,6 +18,7 @@ const {
   notifyError,
   removeActionListener,
   removeAppStateListener,
+  routerPush,
   notificationActionCallback,
   appStateCallback,
 } = vi.hoisted(() => ({
@@ -26,6 +27,7 @@ const {
   removeReceivedListener: vi.fn<() => void>(),
   removeActionListener: vi.fn<() => void>(),
   removeAppStateListener: vi.fn<() => Promise<void>>(async () => {}),
+  routerPush: vi.fn<(to: string) => Promise<void>>(),
   notificationActionCallback:
     vi.fn<
       Parameters<typeof import('@/services/firebaseMessaging').addNotificationActionListener>[0]
@@ -37,6 +39,9 @@ vi.mock('@/composables/useGlobals', () => ({
   useGlobals: () => ({
     $notifySuccess: notifySuccess,
     $notifyError: notifyError,
+    $router: {
+      push: routerPush,
+    },
   }),
 }))
 
@@ -392,6 +397,64 @@ describe('NotificationBell - FCM', () => {
 
       expect(removeActionListener).toHaveBeenCalledTimes(1)
       expect(removeAppStateListener).toHaveBeenCalledTimes(1)
+    })
+    it('navigates to the notification URL when an FCM notification is tapped', async () => {
+      await mountAndSettle()
+
+      notificationActionCallback({
+        data: {
+          url: '/dashboard/smartpacks/12/details',
+        },
+      } as never)
+
+      expect(routerPush).toHaveBeenCalledTimes(1)
+      expect(routerPush).toHaveBeenCalledWith('/dashboard/smartpacks/12/details')
+    })
+
+    it('does not navigate when an FCM notification has no URL', async () => {
+      await mountAndSettle()
+
+      notificationActionCallback({
+        title: 'SmartPack Alert',
+        body: 'Weight limit exceeded.',
+        data: {},
+      } as never)
+
+      expect(routerPush).not.toHaveBeenCalled()
+    })
+
+    it('does not navigate when the notification data is missing', async () => {
+      await mountAndSettle()
+
+      notificationActionCallback({
+        title: 'SmartPack Alert',
+      } as never)
+
+      expect(routerPush).not.toHaveBeenCalled()
+    })
+
+    it('does not navigate to an external URL', async () => {
+      await mountAndSettle()
+
+      notificationActionCallback({
+        data: {
+          url: 'https://example.com',
+        },
+      } as never)
+
+      expect(routerPush).not.toHaveBeenCalled()
+    })
+
+    it('does not navigate to a protocol-relative URL', async () => {
+      await mountAndSettle()
+
+      notificationActionCallback({
+        data: {
+          url: '//example.com',
+        },
+      } as never)
+
+      expect(routerPush).not.toHaveBeenCalled()
     })
   })
 })

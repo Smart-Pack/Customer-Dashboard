@@ -142,7 +142,7 @@ let notificationActionListener: Awaited<ReturnType<typeof addNotificationActionL
 
 /** Handles app state changes to refresh notification status when the app returns to the foreground. */
 let appStateListener: Awaited<ReturnType<typeof App.addListener>> | null = null
-const { $notifySuccess, $notifyError } = useGlobals()
+const { $notifySuccess, $notifyError, $router } = useGlobals()
 
 /**
  * Checks whether notifications are supported on the current platform.
@@ -282,22 +282,28 @@ function handleKeydown(event: KeyboardEvent): void {
     isDropdownOpen.value = false
   }
 }
+
 /**
- * Displays a success notification for an incoming FCM notification.
+ * Navigates to the relevant page when an FCM notification is tapped.
  */
 function handleFCMNotification(notification: unknown): void {
   if (typeof notification !== 'object' || notification === null) {
     return
   }
 
-  const { title, body } = notification as {
-    title?: string
-    body?: string
+  const { data } = notification as { data?: unknown }
+
+  if (typeof data !== 'object' || data === null || !('url' in data)) {
+    return
   }
 
-  $notifySuccess(
-    body ? `${title ?? 'SmartPack'}: ${body}` : (title ?? 'New notification received.'),
-  )
+  const { url } = data
+
+  if (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) {
+    return
+  }
+
+  void $router.push(url)
 }
 
 /**
