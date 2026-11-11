@@ -659,6 +659,7 @@ Run the notification bell and content tests:
 ```bash
 pnpm vitest --run \
   src/components/Notifications/__tests__/NotificationBell.spec.ts \
+  src/components/Notifications/__tests__/NotificationBell.fcm.spec.ts \
   src/components/Notifications/__tests__/NotificationContent.spec.ts
 ```
 
