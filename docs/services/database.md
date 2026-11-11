@@ -79,7 +79,76 @@ import.meta.env.MODE === 'mobile'
 
 Initialization errors are caught so that database failures do not prevent the application from starting. The application can continue operating through its existing API functionality when local database initialization fails.
 
-### Logging and Troubleshooting
+### 2. Database Schema
+
+The initial database schema is defined in:
+
+`src/services/database/schema.ts`
+
+The schema establishes the structure required to cache SmartPack application data locally and support future offline-first functionality.
+
+The initial schema includes the following tables:
+
+| Table | Description |
+|---|---|
+| `cached_user` | Stores the authenticated user's profile and group summaries. |
+| `cached_groups` | Stores cached group information. |
+| `cached_group_members` | Stores group membership and member details. |
+| `cached_smartpacks` | Stores SmartPack device information, assignments, and group associations. |
+| `cached_smartpack_sensor_measurements` | Stores cached device sensor measurements. |
+| `cached_notifications` | Stores notification history and notification states. |
+| `cached_notification_preferences` | Stores notification delivery preferences. |
+| `cached_admin_general_analysis` | Stores cached administrative dashboard statistics. |
+
+**Schema design considerations:**
+
+- Primary keys and unique constraints maintain record integrity.
+- Foreign keys define relationships between related records.
+- `CHECK` constraints validate supported values and boolean fields.
+- Indexes improve query performance for commonly accessed data.
+- Nested API objects are represented using appropriate columns or serialized JSON.
+
+The database assumes a single active user account per installation. User-specific cached information must be cleared when the user logs out.
+
+### 3. Database Migrations
+
+Database migrations manage schema creation and future structural changes.
+
+Migration files are located in:
+
+`src/services/database/migrations/`
+
+The migration infrastructure consists of:
+
+- `001_initial_schema.ts`: Creates the initial database tables and indexes.
+- `index.ts`: Registers migrations, validates their versions, and executes pending migrations.
+
+**Migration strategy**
+
+The application uses SQLite's `PRAGMA user_version` to track the currently applied schema version.
+
+Each migration has a unique, sequential version number and a descriptive name.
+
+During database initialization:
+
+1. The migration runner retrieves the current database version.
+2. Registered migrations are validated for uniqueness, ordering, and consecutive version numbers.
+3. Pending migrations are identified.
+4. Each pending migration executes inside its own transaction.
+5. Successful migrations are committed and the database version is updated.
+6. Failed migrations are rolled back, preventing partially applied schema changes.
+
+**Migration guidelines**
+
+- Never modify a migration that has already been applied.
+- Create a new migration whenever the database schema changes.
+- Increment the migration version sequentially.
+- Keep each migration focused on a specific schema change.
+- Ensure migrations can be safely executed on existing installations.
+
+Database migrations are automatically executed during SQLite initialization, before the database is made available to the application.
+
+## Logging and Troubleshooting
 
 The database service provides console messages for initialization events.
 
@@ -113,4 +182,5 @@ adb logcat -c
 - Database encryption is disabled in the initial implementation.
 - The database connection is reused during the application's runtime.
 - Database initialization is optional and does not block application startup when it fails.
-- Database schema, migrations, repositories, and offline synchronization will be documented as they are implemented.
+- Database schema and versioned migrations are implemented.
+- Repository services and offline synchronization are planned for subsequent development.

@@ -4,6 +4,7 @@ import {
   SQLiteConnection,
   type SQLiteDBConnection,
 } from '@capacitor-community/sqlite'
+import { runMigrations } from './migrations'
 
 const DATABASE_NAME = 'smartpack'
 const DATABASE_VERSION = 1
@@ -64,6 +65,8 @@ export async function initializeDatabase(): Promise<SQLiteDBConnection | null> {
         await database.open()
       }
 
+      await database.execute('PRAGMA foreign_keys = ON;')
+      await runMigrations(database)
       console.info('[Database] SQLite initialized successfully.')
 
       return database
