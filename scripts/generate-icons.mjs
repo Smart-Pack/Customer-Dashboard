@@ -70,4 +70,36 @@ await sharp({
   .png()
   .toFile('assets/splash.png')
 
+/**
+ * Generates a monochrome Android notification icon.
+ *
+ * Uses the SVG logo as an alpha mask to produce a white silhouette
+ * with a transparent background.
+ */
+await mkdir('android/app/src/main/res/drawable', { recursive: true })
+
+const notificationMask = await sharp('public/favicon.svg')
+  .resize(88, 88, { fit: 'contain' })
+  .extend({
+    top: 4,
+    bottom: 4,
+    left: 4,
+    right: 4,
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  })
+  .png()
+  .toBuffer()
+
+await sharp({
+  create: {
+    width: 96,
+    height: 96,
+    channels: 4,
+    background: { r: 255, g: 255, b: 255, alpha: 1 },
+  },
+})
+  .composite([{ input: notificationMask, blend: 'dest-in' }])
+  .png()
+  .toFile('android/app/src/main/res/drawable/ic_notification.png')
+
 console.log('SmartPack Android icons generated.')
