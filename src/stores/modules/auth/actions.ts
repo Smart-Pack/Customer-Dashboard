@@ -80,6 +80,10 @@ export const actions: AuthActions = {
    * 4. Persists rotated refresh tokens on native platforms.
    * 5. Preserves the existing authentication state when the refresh request
    *    fails without an API response and a refresh token exists in secure storage.
+   * 6. Clears the local authentication state and removes the stored refresh token
+   *    when authentication is invalidated.
+   * 7. Clears cached account-specific SQLite data on native platforms
+   *    when authentication is invalidated.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    * @param {boolean} skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
@@ -109,7 +113,14 @@ export const actions: AuthActions = {
 
       this.clearStore()
 
-      await secureTokenStorage.removeRefreshToken()
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await secureTokenStorage.removeRefreshToken()
+          await repositories.clearAll()
+        } catch {
+          // Preserve the original authentication error.
+        }
+      }
 
       throw error
     }
@@ -312,7 +323,8 @@ export const actions: AuthActions = {
    * 1. Retrieves the native refresh token if available.
    * 2. Attempts to invalidate the server-side authentication session.
    * 3. Removes the locally stored refresh token.
-   * 4. Clears the local authentication state.
+   * 4. Clears cached account-specific data from SQLite on native platforms.
+   * 5. Clears the local authentication state.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    */
@@ -327,7 +339,13 @@ export const actions: AuthActions = {
       try {
         await secureTokenStorage.removeRefreshToken()
       } finally {
-        this.clearStore()
+        try {
+          if (Capacitor.isNativePlatform()) {
+            await repositories.clearAll()
+          }
+        } finally {
+          this.clearStore()
+        }
       }
     }
   },

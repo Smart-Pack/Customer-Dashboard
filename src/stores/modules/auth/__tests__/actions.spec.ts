@@ -51,6 +51,7 @@ vi.mock('@/services/database', () => ({
       get: vi.fn<() => Promise<User | null>>(),
       clear: vi.fn<() => Promise<void>>(),
     },
+    clearAll: vi.fn<() => Promise<void>>(),
   },
 }))
 
@@ -77,6 +78,7 @@ describe('auth store actions', () => {
     vi.mocked(secureTokenStorage.setRefreshToken).mockResolvedValue(undefined)
     vi.mocked(secureTokenStorage.removeRefreshToken).mockResolvedValue(undefined)
 
+    vi.mocked(repositories.clearAll).mockResolvedValue(undefined)
     vi.mocked(repositories.users.save).mockResolvedValue(undefined)
     vi.mocked(repositories.users.get).mockResolvedValue(null)
     vi.mocked(repositories.users.clear).mockResolvedValue(undefined)
@@ -189,6 +191,7 @@ describe('auth store actions', () => {
 
       expect(store.accessToken).toBeNull()
       expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+      expect(repositories.clearAll).toHaveBeenCalledExactlyOnceWith()
     })
 
     it('removes the stored refresh token when refresh fails with an API response', async () => {
@@ -596,12 +599,12 @@ describe('auth store actions', () => {
       store.loggedInUser = mockUser
 
       vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue('test-refresh-token')
-
       vi.mocked(auth.logout).mockRejectedValue(new Error('Server logout failed'))
 
       await expect(store.logOut()).resolves.toBeUndefined()
 
       expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+      expect(repositories.clearAll).toHaveBeenCalledExactlyOnceWith()
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()

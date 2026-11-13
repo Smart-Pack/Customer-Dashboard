@@ -26,6 +26,7 @@ The authentication store is responsible for:
 - Preserving the existing authentication state during temporary network outages.
 - Restoring cached user information when the API is unavailable on native platforms.
 - Supporting offline access to previously cached application data on native platforms.
+- Clearing all account-specific cached data when the user logs out or authentication is invalidated on native platforms.
 
 ## Structure
 
@@ -175,9 +176,9 @@ The initialization flow is:
 6. The newly returned refresh token is persisted securely on native platforms.
 7. The store fetches the authenticated user's information.
 8. If the API is unavailable due to a network failure, the store attempts to restore the user from SQLite on native platforms.
-9. If a refresh request fails without an API response and a refresh token is available, the existing authentication state and stored refresh token are preserved.
-10. If authentication fails because the backend rejects the refresh token, the authentication state and stored refresh token are cleared.
-11. If no cached user is available, the application continues without restored user information.
+9. If a refresh request fails without an API response and a refresh token is available, the existing authentication state, stored refresh token, and cached application data are preserved.
+10. If authentication fails because the backend rejects the refresh token, the authentication state and stored refresh token are cleared, and account-specific SQLite data is removed on native platforms.
+11. If no cached user is available during offline restoration, the application continues without restored user information.
 
 The action is called from `main.ts` before the application is mounted:
 
@@ -242,6 +243,27 @@ When the application attempts to retrieve the authenticated user's information:
 4. Otherwise, the store attempts to retrieve the previously cached user from SQLite.
 5. If a cached user is available, it is restored into the authentication store.
 6. If neither an existing nor cached user is available, the authentication state is cleared and the original API error is propagated.
+
+### Cached Data Cleanup
+
+The authentication store distinguishes between temporary network failures and definitive authentication invalidation when managing cached data.
+
+On native platforms, account-specific cached data is preserved during temporary network failures to support offline access.
+
+Cached data is cleared when:
+
+- The backend rejects the refresh token and the authentication session becomes invalid.
+- The user explicitly logs out.
+
+The cleanup is coordinated through the `clearAll()` function exposed by the database repositories module.
+
+This function delegates cleanup to individual account-specific repositories, allowing each repository to manage the removal of its own cached records.
+
+When adding a new account-specific repository, its `clear()` operation should also be registered in `clearAll()` so that its cached data is included in authentication cleanup.
+
+The cleanup is restricted to native platforms because the application uses SQLite repositories for local data persistence on Android and iOS.
+
+Temporary network failures do not trigger cached data cleanup when an existing refresh token is available.
 
 ### Offline Session Limitations
 
@@ -318,11 +340,17 @@ The authentication store exposes a `logOut()` action to centralize logout handli
 
 The action:
 
-1. Attempts to perform server-side logout.
-2. Removes the locally stored refresh token.
-3. Clears the authentication store state.
+1. Retrieves the stored refresh token when available.
+2. Attempts to perform server-side logout.
+3. Removes the locally stored refresh token.
+4. Clears all account-specific cached data from SQLite on native platforms.
+5. Clears the local authentication store state.
 
-Local logout is completed even if the server-side logout request or secure storage cleanup fails.
+The database cleanup is coordinated through `repositories.clearAll()`, which delegates cleanup to the individual account-specific repositories.
+
+Local logout is completed even if the server-side logout request fails.
+
+The authentication store state is also cleared even if secure token removal or SQLite cleanup fails.
 
 The `SideNav` and `TopBar` components delegate logout operations to this action and navigate the user to the login page afterward.
 
@@ -473,3 +501,6 @@ These getters provide **client-side authorization checks** for controlling which
 - **API client:** `src/api/client.ts`
 - **API interceptors:** `src/api/interceptors/`
 - **Application entry point:** `src/main.ts`
+- **Database repositories:** `src/services/database/repositories/`
+- **Database repository exports and cleanup:** `src/services/database/repositories/index.ts`
+- **Database service:** `src/services/database/`

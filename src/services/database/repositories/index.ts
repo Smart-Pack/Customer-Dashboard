@@ -5,10 +5,21 @@
 
 import * as users from './users'
 
-const repositories = {
-  users,
+/**
+ * Clears all account-specific cached data.
+ *
+ * Register each new account-specific repository here
+ * when adding its clear operation.
+ */
+async function clearAll(): Promise<void> {
+  await users.clear()
 }
 
-export { users }
+const repositories = {
+  users,
+  clearAll,
+}
+
+export { users, clearAll }
 
 export default repositories

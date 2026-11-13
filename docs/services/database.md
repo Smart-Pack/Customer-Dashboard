@@ -197,6 +197,59 @@ import { repositories } from '@/services/database'
 
 This provides a centralized interface for accessing local data without importing individual repository implementations throughout the application.
 
+### Centralized Cache Cleanup
+
+The repository layer exposes a centralized `clearAll()` function to coordinate the removal of account-specific cached data.
+
+It is implemented in:
+
+`src/services/database/repositories/index.ts`
+
+The function delegates cleanup to individual repositories, providing a single entry point for clearing locally cached application data.
+
+#### Available Operation
+
+| Function | Description |
+|---|---|
+| `clearAll()` | Clears all account-specific cached data managed by registered repositories. |
+
+#### Usage
+
+The centralized cleanup function is exposed through the database service:
+
+```typescript
+import { repositories } from '@/services/database'
+
+// Clear all account-specific cached data.
+await repositories.clearAll()
+```
+
+Alternatively, it can be imported directly:
+
+```typescript
+import { clearAll } from '@/services/database/repositories'
+
+await clearAll()
+```
+
+#### Authentication Integration
+
+The authentication store uses `repositories.clearAll()` when the authenticated session is invalidated or the user explicitly logs out.
+
+Cache cleanup is restricted to native platforms because SQLite repositories are used for local persistence on Android and iOS.
+
+Cached data is preserved during temporary network failures when an existing refresh token is available, allowing the application to continue supporting offline access.
+
+Cleanup operations are coordinated by the repository layer rather than directly deleting database records from the authentication store. This keeps authentication logic independent of individual database tables and repository implementations.
+
+#### Cleanup Considerations
+
+- Each account-specific repository should expose a `clear()` operation.
+- New repositories must be registered in `clearAll()`.
+- Cleanup order should account for foreign-key dependencies between tables.
+- Cleanup failures should not prevent the authentication store from clearing its in-memory state.
+- If cleanup needs to be atomic across multiple repositories, the operations should eventually share a single database transaction.
+
 ### User Repository
 
 The user repository is implemented in:
