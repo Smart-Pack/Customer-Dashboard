@@ -23,6 +23,9 @@ The authentication store is responsible for:
 - Exposing the authenticated user's ID.
 - Providing group role authorization checks to determine whether the authenticated user is a group owner or administrator.
 - Persisting and managing refresh tokens securely on native platforms.
+- Preserving the existing authentication state during temporary network outages.
+- Restoring cached user information when the API is unavailable on native platforms.
+- Supporting offline access to previously cached application data on native platforms.
 
 ## Structure
 
@@ -171,8 +174,10 @@ The initialization flow is:
 5. If the token refresh succeeds, the store updates the access token.
 6. The newly returned refresh token is persisted securely on native platforms.
 7. The store fetches the authenticated user's information.
-8. If either operation fails, the initialization error is silently ignored.
-9. The application continues loading without an authenticated session.
+8. If the API is unavailable due to a network failure, the store attempts to restore the user from SQLite on native platforms.
+9. If a refresh request fails without an API response and a refresh token is available, the existing authentication state and stored refresh token are preserved.
+10. If authentication fails because the backend rejects the refresh token, the authentication state and stored refresh token are cleared.
+11. If no cached user is available, the application continues without restored user information.
 
 The action is called from `main.ts` before the application is mounted:
 
@@ -194,6 +199,14 @@ The `refreshToken()` action accepts an optional `skipAuthRedirect` parameter tha
 
 `initializeAuth()` uses `refreshToken(true)` because authentication restoration occurs during application startup. A failed restoration should not trigger an additional navigation; the application can instead continue as an unauthenticated session.
 
+Network failures are treated separately from authentication failures.
+
+When a refresh request fails without an API response and a refresh token exists in secure storage, the authentication store preserves the existing session instead of clearing authentication state or redirecting the user to the login page.
+
+This allows temporary network outages to be handled without unnecessarily terminating an existing session.
+
+When the backend returns a refresh failure with an API response, the authentication interceptor handles the failure according to the configured authentication error behavior.
+
 ### Refresh Token Rotation
 
 The backend may return a new refresh token after a successful refresh operation.
@@ -203,6 +216,63 @@ The authentication store persists the returned refresh token on native platforms
 This ensures that subsequent refresh requests use the latest refresh token rather than an outdated one.
 
 The web platform continues to use its cookie-based refresh token mechanism.
+
+## Offline Session Persistence
+
+The authentication store supports offline session persistence on native platforms to allow users to access previously cached application data when an internet connection is unavailable.
+
+This is achieved through two mechanisms:
+
+- **Secure refresh token storage:** The refresh token is retained in native secure storage so the application can attempt to restore the session when connectivity becomes available.
+- **SQLite user caching:** The authenticated user's information is cached locally and can be retrieved when the API is unavailable.
+
+### Offline Authentication Behavior
+
+The application distinguishes between temporary network failures and authentication failures.
+
+When a refresh request fails without receiving an API response, such as during a network outage, the authentication store preserves the existing authentication state if a refresh token is available in secure storage.
+
+It does not remove the stored refresh token or clear the authentication store.
+
+When the application attempts to retrieve the authenticated user's information:
+
+1. It first attempts to retrieve the user from the backend.
+2. If the request succeeds, the store updates the authenticated user and asynchronously caches the information in SQLite.
+3. If the request fails due to a network error and a user is already loaded in memory, the existing user is preserved.
+4. Otherwise, the store attempts to retrieve the previously cached user from SQLite.
+5. If a cached user is available, it is restored into the authentication store.
+6. If neither an existing nor cached user is available, the authentication state is cleared and the original API error is propagated.
+
+### Offline Session Limitations
+
+Preserving the authentication state does not mean that the application can perform authenticated API requests without an internet connection.
+
+The access token remains available if one was already present, but an expired access token cannot be refreshed without communicating with the backend.
+
+Consequently:
+
+- Previously cached user information remains accessible.
+- Previously cached application data can be displayed.
+- New API requests require network connectivity.
+- Operations that modify server-side data require connectivity unless explicitly supported through an offline synchronization mechanism.
+- Refresh token rotation resumes when connectivity is restored.
+- If the backend rejects the stored refresh token, the session is cleared.
+
+### Platform Support
+
+SQLite-based user caching is restricted to native platforms (Android/iOS).
+
+The web application continues to use its existing cookie-based authentication mechanism and does not use the native SQLite repositories for offline user persistence.
+
+| Scenario | Native Android |
+|---|---|
+| API available | Fetch and cache user |
+| Offline, user already in memory | Preserve existing user |
+| Offline, no user in memory | Restore user from SQLite |
+| Offline, refresh token available | Preserve stored refresh token |
+| Offline, no refresh token | Clear authentication state on refresh failure |
+| Backend rejects refresh token | Clear authentication state |
+| Connectivity restored | Retry API requests and refresh token |
 
 ## Login and Two-Factor Authentication
 
