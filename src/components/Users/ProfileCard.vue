@@ -185,6 +185,7 @@ import UserIcon from '@/components/Icons/UserIcon.vue'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore } from '@/stores'
 import { withCacheBust } from '@/utils/urlSecurity'
+import { updateCache, repositories } from '@/services/database'
 
 defineOptions({
   name: 'ProfileCard',
@@ -253,7 +254,8 @@ function setFormValues(currentUser: Awaited<ReturnType<typeof getMe>>): void {
 }
 
 /**
- * Fetches the authenticated user's profile and initializes the profile form.
+ * Fetches the authenticated user's profile, caches the response locally
+ * on mobile platforms for offline access, and initializes the profile form.
  */
 async function getProfile(): Promise<void> {
   isActive.value = true
@@ -346,8 +348,11 @@ function handleProfilePictureChange(event: Event): void {
 /**
  * Validates and submits the user's updated profile details.
  *
- * Updates the authentication store and local profile state after a
- * successful request, and maps API validation errors to their fields.
+ * On success, updates the authentication store and local profile state,
+ * and refreshes the locally cached user profile on mobile platforms
+ * to support offline access.
+ *
+ * Maps API validation errors to their corresponding form fields.
  */
 const updateProfile = handleSubmit(async (values) => {
   submitting.value = true
@@ -366,6 +371,7 @@ const updateProfile = handleSubmit(async (values) => {
     const updatedUser = await editMe(payload)
 
     authStore.setLoggedInUser(updatedUser)
+    void updateCache(updatedUser, repositories.users)
 
     if (profilePic.value?.startsWith('blob:')) {
       URL.revokeObjectURL(profilePic.value)

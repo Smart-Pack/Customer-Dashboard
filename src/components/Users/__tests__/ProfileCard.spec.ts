@@ -31,6 +31,7 @@ const mockSetFieldError = vi.hoisted(() =>
 const mockAuthStore = vi.hoisted(() => ({
   loggedInUser: null as User | null,
   fetchUser: vi.fn<() => Promise<void>>(),
+  setLoggedInUser: vi.fn<(user: User) => void>(),
 }))
 
 const mockNotifySuccess = vi.hoisted(() => vi.fn<(message: string) => void>())
@@ -38,6 +39,22 @@ const mockNotifySuccess = vi.hoisted(() => vi.fn<(message: string) => void>())
 const mockNotifyError = vi.hoisted(() => vi.fn<(message: string) => void>())
 
 const mockIsAxiosError = vi.hoisted(() => vi.fn<(payload: unknown) => boolean>())
+
+const mockUsersRepository = vi.hoisted(() => ({
+  get: vi.fn<() => Promise<User | null>>(),
+  save: vi.fn<(data: User) => Promise<void>>(),
+}))
+
+const mockUpdateCache = vi.hoisted(() =>
+  vi.fn<(data: User, repository: unknown) => Promise<void>>(),
+)
+
+vi.mock('@/services/database', () => ({
+  updateCache: mockUpdateCache,
+  repositories: {
+    users: mockUsersRepository,
+  },
+}))
 
 vi.mock('axios', async (importOriginal) => {
   const actual = await importOriginal<typeof import('axios')>()
@@ -187,7 +204,15 @@ describe('ProfileCard', () => {
       mockAuthStore.loggedInUser = mockUser
     })
 
+    mockAuthStore.setLoggedInUser.mockImplementation((user) => {
+      mockAuthStore.loggedInUser = user
+    })
+
     mockIsAxiosError.mockReturnValue(false)
+
+    mockUsersRepository.get.mockResolvedValue(null)
+    mockUsersRepository.save.mockResolvedValue(undefined)
+    mockUpdateCache.mockResolvedValue(undefined)
   })
 
   describe('profile loading', () => {
@@ -451,6 +476,28 @@ describe('ProfileCard', () => {
       resolveEditMe(mockUser)
 
       await flushPromises()
+    })
+    it('updates the cached user profile after successfully saving', async () => {
+      const updatedUser: User = {
+        ...mockUser,
+        first_name: 'Updated',
+      }
+
+      mockEditMe.mockResolvedValue(updatedUser)
+
+      const wrapper = await wrapperFactory()
+
+      await flushPromises()
+
+      await wrapper.get('[data-testid="edit-profile-button"]').trigger('click')
+
+      await wrapper.get('form').trigger('submit')
+
+      await flushPromises()
+      expect(mockEditMe).toHaveBeenCalled()
+      expect(mockNotifyError).not.toHaveBeenCalled()
+      expect(mockUpdateCache).toHaveBeenCalled()
+      expect(mockUpdateCache).toHaveBeenCalledExactlyOnceWith(updatedUser, mockUsersRepository)
     })
   })
 })
