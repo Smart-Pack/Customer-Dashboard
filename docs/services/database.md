@@ -148,6 +148,157 @@ During database initialization:
 
 Database migrations are automatically executed during SQLite initialization, before the database is made available to the application.
 
+## 4. Database Repositories
+
+The repository layer provides an abstraction for accessing and managing locally cached application data.
+
+Repositories separate database queries and persistence operations from application business logic. They use the database service to interact with SQLite.
+
+### Repository Structure
+
+Repositories are located in:
+
+`src/services/database/repositories/`
+
+```text
+src/
+└── services/
+    └── database/
+        ├── database.ts
+        ├── index.ts
+        ├── schema.ts
+        ├── migrations/
+        │   ├── 001_initial_schema.ts
+        │   └── index.ts
+        └── repositories/
+            ├── index.ts
+            ├── users.ts
+            └── __tests__/
+                └── users.spec.ts
+```
+
+- `repositories/index.ts`: Registers and exposes available repository modules.
+- `repositories/users.ts`: Implements SQLite persistence operations for authenticated user profiles.
+- `repositories/__tests__/users.spec.ts`: Contains unit tests for user repository operations.
+
+### Repository Exports
+
+The repository modules are exposed through the database service's public interface.
+
+```typescript
+export * as repositories from './repositories'
+```
+
+Repositories can be accessed using:
+
+```typescript
+import { repositories } from '@/services/database'
+```
+
+This provides a centralized interface for accessing local data without importing individual repository implementations throughout the application.
+
+### User Repository
+
+The user repository is implemented in:
+
+`src/services/database/repositories/users.ts`
+
+It manages the locally cached authenticated user profile using the `cached_user` table.
+
+The application currently assumes a single active user account per installation. Saving a user therefore replaces the previously cached profile.
+
+#### Available Operations
+
+| Function | Description |
+|---|---|
+| `save(user)` | Saves or replaces the cached user profile. |
+| `get()` | Retrieves the cached user profile or returns `null` when no profile exists. |
+| `clear()` | Deletes the cached user profile. |
+
+#### Data Handling
+
+The repository handles differences between API data types and SQLite storage:
+
+- **Boolean conversion:** Converts boolean fields into SQLite integers (`0` or `1`) when saving and restores them when retrieving.
+- **JSON serialization:** Serializes the user's groups into JSON before storing them.
+- **JSON deserialization:** Parses the stored groups when retrieving the profile. Invalid JSON results in an empty array.
+- **Nullable fields:** Stores optional profile fields as SQL `NULL` when their values are absent.
+- **Cache timestamps:** Records the time a profile is saved using the `cached_at` column.
+
+#### Transaction Management
+
+The `save()` operation uses a SQLite transaction to ensure that replacing the cached profile is atomic.
+
+1. Begins a transaction.
+2. Deletes the previously cached user profile.
+3. Inserts the updated user profile.
+4. Commits the transaction when successful.
+5. Rolls back the transaction if an operation fails.
+
+If rollback itself fails, the original persistence error is preserved and propagated to the caller.
+
+The `get()` operation retrieves the cached profile, while `clear()` removes it using a single SQL DELETE statement.
+
+### Application Integration
+
+Repositories are consumed by application services and stores through the database service interface.
+
+For example, the authentication store can use the user repository to retrieve a locally cached profile when an API request fails because of a network error.
+
+```typescript
+import { repositories } from '@/services/database'
+
+// Save the authenticated user.
+await repositories.users.save(user)
+
+// Retrieve the cached user.
+const cachedUser = await repositories.users.get()
+
+// Clear the cached user during logout.
+await repositories.users.clear()
+```
+
+This allows authentication-related functionality to retain access to previously retrieved user information when the application cannot reach the backend.
+
+### Repository Testing
+
+Repository functionality is tested using Vitest.
+
+The user repository tests cover:
+
+- Successful profile persistence.
+- Replacement of previously cached profiles.
+- Correct mapping of API fields to SQLite values.
+- Boolean conversion.
+- Groups JSON serialization and deserialization.
+- Handling of nullable fields.
+- Cache timestamp generation.
+- Transaction rollback on persistence failures.
+- Preservation of original errors when rollback fails.
+- Retrieval when no cached profile exists.
+- Clearing cached profiles.
+
+Run the user repository tests with:
+
+```bash
+pnpm vitest --run src/services/database/repositories/__tests__/users.spec.ts
+```
+
+The current user repository implementation has 17 passing tests.
+
+### Future Extensions
+
+The repository structure supports adding dedicated modules for other cached application resources, such as:
+
+- Groups and group members.
+- SmartPack devices.
+- Sensor measurements.
+- Notifications.
+- Notification preferences.
+- Administrative dashboard statistics.
+
+Each repository should encapsulate its own database operations and expose a consistent interface through `repositories/index.ts`.
+
 ## Logging and Troubleshooting
 
 The database service provides console messages for initialization events.
