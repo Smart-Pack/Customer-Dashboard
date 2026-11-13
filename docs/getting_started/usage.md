@@ -161,4 +161,34 @@ The APK can then be transferred to an Android device or installed manually.
 | `pnpm android:assemble` | Synchronizes Capacitor with Android, builds the debug APK, and copies the generated APK into the `build/` directory. |
 | `pnpm android:sha1` | Generates and displays the SHA-1 signing certificate fingerprint for the Android debug variant, useful when configuring Google OAuth credentials. |
 
+#### Android Logs & App Control
+
+| Command | Description |
+|---|---|
+| `pnpm android:stop` | Force-stops the SmartPack Android application. |
+| `pnpm android:start` | Launches the SmartPack Android application. |
+| `pnpm android:restart` | Force-stops the application, waits two seconds, and launches it again. |
+| `pnpm android:logs:clear` | Clears the existing Android log buffer and restarts the application. |
+| `pnpm android:logs` | Waits until the SmartPack application is running, then streams its Android logs using its process ID. |
+| `pnpm android:logs:restart` | Clears the log buffer, restarts the application, waits two seconds, and streams its logs. |
+| `pnpm run android:logs:filter '[AuthStore]'` | Clears the log buffer, restarts the application, waits two seconds, and streams only log entries containing the specified fixed-string pattern. |
+
+**Filtering application logs**
+
+Use `android:logs:filter` to monitor specific application components by passing their log prefixes as arguments.
+
+```bash
+# Monitor authentication logs
+pnpm run android:logs:filter '[AuthStore]'
+
+# Monitor user repository logs
+pnpm run android:logs:filter '[UserRepository]'
+
+# Monitor authentication and user repository logs
+pnpm run android:logs:filter '[AuthStore]' -e '[UserRepository]'
+```
+
+The command clears the log buffer, restarts the application, waits two seconds, and streams only log entries matching the specified fixed-string patterns.
+
 **Note:** The `android:build` script only synchronizes Capacitor; it does not build the APK itself. The `android:install` script invokes Gradle through `./gradlew installDebug`, which builds and installs the debug APK. Ensure the Android SDK is configured correctly before running these commands.
+
