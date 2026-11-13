@@ -389,6 +389,144 @@ The `save()` operation uses a SQLite transaction to ensure that replacing the ca
 
 The `get()` operation retrieves the stored preferences, while `clear()` removes the record using a single SQL DELETE statement.
 
+## 5. Cache Utilities
+
+The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.
+
+These utilities separate caching concerns from application business logic and provide consistent handling of native platform detection, cache persistence, and offline data retrieval.
+
+Cache utilities are implemented in:
+
+`src/services/database/cache.ts`
+
+### 5.1 Available Utilities
+
+| Function | Description |
+|---|---|
+| `fetchWithCache(fetcher, repository)` | Fetches data from an API, saves successful responses to SQLite on native platforms, and falls back to cached data when the request fails due to a network error. |
+| `updateCache(data, repository)` | Saves an object to SQLite on native platforms without requiring the caller to handle platform detection. |
+
+### 5.2 Fetching Data with Cache
+
+The `fetchWithCache()` utility combines API requests with local cache management.
+
+**Behaviour**
+
+1. Executes the supplied API function.
+2. On success, saves the response to SQLite on native platforms.
+3. Returns the API response regardless of whether cache persistence succeeds.
+4. If the API request fails due to a network error on a native platform, attempts to retrieve cached data.
+5. Returns cached data when available.
+6. Rethrows the original API error when no cached data is available or cache retrieval fails.
+
+HTTP errors and other non-network errors are propagated without attempting cache fallback.
+
+**Usage**
+
+```typescript
+import { fetchWithCache, repositories } from '@/services/database'
+
+// Fetch the authenticated user.
+const user = await fetchWithCache(
+  getMe,
+  repositories.users,
+)
+
+// Fetch notification preferences.
+const preferences = await fetchWithCache(
+  getNotificationPreferences,
+  repositories.notificationPreferences,
+)
+```
+
+The helper is suitable for resources whose cached representation can be replaced by the latest API response.
+
+### 5.3 Updating Cached Data
+
+The `updateCache()` utility saves an already retrieved or modified object to its corresponding repository.
+
+Unlike `fetchWithCache()`, it does not execute an API request or retrieve cached data.
+
+**Behaviour**
+
+1. Checks whether the application is running on a native platform.
+2. Saves the supplied object using the specified repository.
+3. Skips persistence on web platforms.
+4. Handles and logs persistence errors without propagating them to the caller.
+
+**Usage**
+
+```typescript
+import { updateCache, repositories } from '@/services/database'
+
+// Update notification preferences after a successful API request.
+const response = await patch(payload)
+
+applyPreferences(response)
+
+// Persist the response without blocking the application flow.
+void updateCache(response, repositories.notificationPreferences)
+```
+
+Using `void` allows the cache update to run asynchronously without making the application wait for SQLite persistence.
+
+### 5.4 Repository Compatibility
+
+Both utilities accept a repository implementing the following interface:
+
+```typescript
+interface CacheRepository<T> {
+  get: () => Promise<T | null>
+  save: (data: T) => Promise<void>
+}
+```
+
+`fetchWithCache()` uses both `get()` and `save()`, while `updateCache()` only requires `save()`.
+
+Repositories may expose additional operations, such as `clear()`, without affecting compatibility.
+
+### 5.5 Platform Behaviour
+
+| Operation | Web | Android / iOS |
+|---|---|---|
+| API request | Executes normally | Executes normally |
+| Save successful API response | Skipped | Performed |
+| Retrieve cached data after network failure | Skipped | Attempted |
+| Return cached data when available | No | Yes |
+| Explicit cache update | Skipped | Performed |
+| Cache persistence failure | Not applicable | Logged without affecting the main operation |
+
+### 5.6 Error Handling
+
+Cache utilities are designed to prevent local persistence failures from unnecessarily interrupting application functionality.
+
+- **API errors:** Original API errors are propagated when no cached fallback is available.
+- **Network errors:** Cached data is used when available on native platforms.
+- **Cache save errors:** Logged without affecting successful API responses.
+- **Cache retrieval errors:** Logged while preserving the original API error.
+- **Web platforms:** SQLite operations are skipped.
+
+### 5.7 Testing
+
+Cache utilities are tested using Vitest with mocked Capacitor platform detection and repository operations.
+
+Tests cover:
+
+- Successful API requests and cache persistence.
+- Web and native platform behaviour.
+- Offline fallback to cached data.
+- API errors and network failures.
+- Cache retrieval and persistence failures.
+- Preservation of original API errors.
+- Explicit cache updates.
+
+Run the cache utility tests with:
+
+```bash
+pnpm vitest --run src/services/database/__tests__/cache.spec.ts
+```
+
+
 ## Logging and Troubleshooting
 
 The database service provides console messages for initialization events.
@@ -416,6 +554,7 @@ To clear previous logs before testing:
 ```bash
 adb logcat -c
 ```
+
 
 ### Current Implementation Notes
 
