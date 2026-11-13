@@ -389,6 +389,51 @@ The `save()` operation uses a SQLite transaction to ensure that replacing the ca
 
 The `get()` operation retrieves the stored preferences, while `clear()` removes the record using a single SQL DELETE statement.
 
+#### 4.6.3 Groups Repository
+
+The groups repository is implemented in:
+
+`src/services/database/repositories/groups.ts`
+
+It manages locally cached group summaries using the `cached_groups` table.
+
+Group summaries are cached to support offline access to the user's groups, including their names and associated user and SmartPack counts.
+
+**Available Operations**
+
+| Function | Description |
+| --- | --- |
+| `save(group)` | Saves or updates a cached group summary. |
+| `saveList(groups)` | Saves multiple group summaries within a single transaction. |
+| `getAll()` | Retrieves all cached group summaries, ordered by ID. |
+| `get(id)` | Retrieves a cached group by its ID or returns `null` when it does not exist. |
+| `deleteById(id)` | Deletes a cached group by its ID. |
+| `clear()` | Deletes all cached group summaries. |
+
+**Data Handling**
+
+- **Group identification:** Uses the API-provided group ID as the primary key.
+- **Group details:** Stores the group name, total users, total SmartPacks, creation timestamp, and last update timestamp.
+- **Cache timestamps:** Records when each group summary was last saved using the `cached_at` column.
+- **Conflict handling:** Uses SQLite `ON CONFLICT(id) DO UPDATE` to update existing records instead of creating duplicates.
+- **Ordering:** Retrieves all cached groups in ascending order of their IDs.
+
+**Transaction Management**
+
+The `save()` operation inserts or updates a group summary using a single SQL statement.
+
+The `saveList()` operation uses a SQLite transaction to ensure that all group summaries are persisted atomically.
+
+1. Begins a transaction.
+2. Saves each group summary by delegating to `save()`.
+3. Commits the transaction when all groups are saved successfully.
+4. Rolls back the transaction if any group fails to save.
+5. Logs rollback failures while preserving the original database error.
+
+Individual `save()` calls disable automatic transaction handling so that they can execute within the transaction managed by `saveList()`.
+
+The `getAll()` and `get()` operations retrieve cached group summaries, while `deleteById()` and `clear()` remove individual or all cached group summaries, respectively.
+
 ## 5. Cache Utilities
 
 The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.
