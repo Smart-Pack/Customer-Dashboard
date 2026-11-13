@@ -18,13 +18,13 @@ The database configuration is defined in:
 
 `src/services/database/database.ts`
 
-| Constant | Value | Description |
-|---|---|---|
-| `DATABASE_NAME` | `smartpack` | Database identifier. |
-| `DATABASE_VERSION` | `1` | Initial database version. |
-| `DATABASE_ENCRYPTED` | `false` | Disables database encryption for the initial implementation. |
-| `DATABASE_MODE` | `no-encryption` | Specifies the database encryption mode. |
-| `DATABASE_READ_ONLY` | `false` | Allows database modifications. |
+| Constant             | Value           | Description                                                  |
+| -------------------- | --------------- | ------------------------------------------------------------ |
+| `DATABASE_NAME`      | `smartpack`     | Database identifier.                                         |
+| `DATABASE_VERSION`   | `1`             | Initial database version.                                    |
+| `DATABASE_ENCRYPTED` | `false`         | Disables database encryption for the initial implementation. |
+| `DATABASE_MODE`      | `no-encryption` | Specifies the database encryption mode.                      |
+| `DATABASE_READ_ONLY` | `false`         | Allows database modifications.                               |
 
 On Android, the database is stored in the application's private internal storage.
 
@@ -61,11 +61,11 @@ src/
 
 ### Available Functions
 
-| Function | Description |
-|---|---|
-| `initializeDatabase()` | Initializes the database and returns the database connection. Returns `null` on web platforms. |
-| `getDatabase()` | Returns the initialized database connection. Throws an error if initialization has not occurred. |
-| `closeDatabase()` | Closes the database connection and resets the local connection reference. |
+| Function               | Description                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `initializeDatabase()` | Initializes the database and returns the database connection. Returns `null` on web platforms.   |
+| `getDatabase()`        | Returns the initialized database connection. Throws an error if initialization has not occurred. |
+| `closeDatabase()`      | Closes the database connection and resets the local connection reference.                        |
 
 ### Application Startup Integration
 
@@ -89,16 +89,16 @@ The schema establishes the structure required to cache SmartPack application dat
 
 The initial schema includes the following tables:
 
-| Table | Description |
-|---|---|
-| `cached_user` | Stores the authenticated user's profile and group summaries. |
-| `cached_groups` | Stores cached group information. |
-| `cached_group_members` | Stores group membership and member details. |
-| `cached_smartpacks` | Stores SmartPack device information, assignments, and group associations. |
-| `cached_smartpack_sensor_measurements` | Stores cached device sensor measurements. |
-| `cached_notifications` | Stores notification history and notification states. |
-| `cached_notification_preferences` | Stores notification delivery preferences. |
-| `cached_admin_general_analysis` | Stores cached administrative dashboard statistics. |
+| Table                                  | Description                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| `cached_user`                          | Stores the authenticated user's profile and group summaries.              |
+| `cached_groups`                        | Stores cached group information.                                          |
+| `cached_group_members`                 | Stores group membership and member details.                               |
+| `cached_smartpacks`                    | Stores SmartPack device information, assignments, and group associations. |
+| `cached_smartpack_sensor_measurements` | Stores cached device sensor measurements.                                 |
+| `cached_notifications`                 | Stores notification history and notification states.                      |
+| `cached_notification_preferences`      | Stores notification delivery preferences.                                 |
+| `cached_admin_general_analysis`        | Stores cached administrative dashboard statistics.                        |
 
 **Schema design considerations:**
 
@@ -154,7 +154,7 @@ The repository layer provides an abstraction for accessing and managing locally 
 
 Repositories separate database queries and persistence operations from application business logic. They use the database service to interact with SQLite.
 
-### Repository Structure
+### 4.1 Repository Structure
 
 Repositories are located in:
 
@@ -167,21 +167,25 @@ src/
         ├── database.ts
         ├── index.ts
         ├── schema.ts
+        ├── cache.ts
         ├── migrations/
         │   ├── 001_initial_schema.ts
         │   └── index.ts
         └── repositories/
             ├── index.ts
             ├── users.ts
+            ├── notificationPreferences.ts
             └── __tests__/
-                └── users.spec.ts
+                ├── users.spec.ts
+                └── notificationPreferences.spec.ts
 ```
 
-- `repositories/index.ts`: Registers and exposes available repository modules.
+- `repositories/index.ts`: Registers and exposes available repository modules and provides centralized cache cleanup.
 - `repositories/users.ts`: Implements SQLite persistence operations for authenticated user profiles.
-- `repositories/__tests__/users.spec.ts`: Contains unit tests for user repository operations.
+- `repositories/notificationPreferences.ts`: Implements SQLite persistence operations for notification preferences.
+- `repositories/__tests__/`: Contains unit tests for repository operations.
 
-### Repository Exports
+### 4.2 Repository Exports
 
 The repository modules are exposed through the database service's public interface.
 
@@ -197,7 +201,7 @@ import { repositories } from '@/services/database'
 
 This provides a centralized interface for accessing local data without importing individual repository implementations throughout the application.
 
-### Centralized Cache Cleanup
+### 4.3 Centralized Cache Cleanup
 
 The repository layer exposes a centralized `clearAll()` function to coordinate the removal of account-specific cached data.
 
@@ -209,8 +213,8 @@ The function delegates cleanup to individual repositories, providing a single en
 
 #### Available Operation
 
-| Function | Description |
-|---|---|
+| Function     | Description                                                                 |
+| ------------ | --------------------------------------------------------------------------- |
 | `clearAll()` | Clears all account-specific cached data managed by registered repositories. |
 
 #### Usage
@@ -250,7 +254,66 @@ Cleanup operations are coordinated by the repository layer rather than directly 
 - Cleanup failures should not prevent the authentication store from clearing its in-memory state.
 - If cleanup needs to be atomic across multiple repositories, the operations should eventually share a single database transaction.
 
-### User Repository
+### 4.4 Cache Update Utility
+
+The database service provides a reusable `updateCache()` helper in:
+
+`src/services/database/cache.ts`
+
+It updates locally cached data on native platforms without requiring application stores or services to handle platform detection themselves.
+
+#### Usage
+
+```typescript
+import { updateCache, repositories } from '@/services/database'
+
+// Update the notification preferences cache.
+void updateCache(response, repositories.notificationPreferences)
+```
+
+The helper:
+
+- Checks whether the application is running on a native platform.
+- Saves the supplied object using the provided repository.
+- Does nothing on web platforms.
+- Handles and logs persistence errors without affecting the successful API operation.
+
+Using `void` allows cache updates to run without blocking the application flow.
+
+### 4.5 Repository Testing
+
+Repository functionality is tested using Vitest with mocked database operations.
+
+Tests verify:
+
+- Successful data persistence and retrieval.
+- Correct mapping between API objects and SQLite records.
+- Handling of nullable and optional fields.
+- Cache timestamp generation.
+- Transaction management and rollback on persistence failures.
+- Preservation of original errors when rollback fails.
+- Correct handling of empty database results.
+- Successful deletion of cached records.
+
+Run all repository tests using:
+
+```bash
+pnpm vitest --run src/services/database/repositories/__tests__/
+```
+
+Individual repository tests can also be executed separately:
+
+```bash
+pnpm vitest --run src/services/database/repositories/__tests__/users.spec.ts
+
+pnpm vitest --run src/services/database/repositories/__tests__/notificationPreferences.spec.ts
+```
+
+### 4.6 Individual Repositories
+
+The following subsections document the responsibilities, available operations, data handling, and transaction management of each repository.
+
+#### 4.6.1 User Repository
 
 The user repository is implemented in:
 
@@ -260,17 +323,15 @@ It manages the locally cached authenticated user profile using the `cached_user`
 
 The application currently assumes a single active user account per installation. Saving a user therefore replaces the previously cached profile.
 
-#### Available Operations
+**Available Operations**
 
-| Function | Description |
-|---|---|
-| `save(user)` | Saves or replaces the cached user profile. |
-| `get()` | Retrieves the cached user profile or returns `null` when no profile exists. |
-| `clear()` | Deletes the cached user profile. |
+| Function     | Description                                                                 |
+| ------------ | --------------------------------------------------------------------------- |
+| `save(user)` | Saves or replaces the cached user profile.                                  |
+| `get()`      | Retrieves the cached user profile or returns `null` when no profile exists. |
+| `clear()`    | Deletes the cached user profile.                                            |
 
-#### Data Handling
-
-The repository handles differences between API data types and SQLite storage:
+**Data Handling**
 
 - **Boolean conversion:** Converts boolean fields into SQLite integers (`0` or `1`) when saving and restores them when retrieving.
 - **JSON serialization:** Serializes the user's groups into JSON before storing them.
@@ -278,7 +339,7 @@ The repository handles differences between API data types and SQLite storage:
 - **Nullable fields:** Stores optional profile fields as SQL `NULL` when their values are absent.
 - **Cache timestamps:** Records the time a profile is saved using the `cached_at` column.
 
-#### Transaction Management
+**Transaction Management**
 
 The `save()` operation uses a SQLite transaction to ensure that replacing the cached profile is atomic.
 
@@ -292,65 +353,41 @@ If rollback itself fails, the original persistence error is preserved and propag
 
 The `get()` operation retrieves the cached profile, while `clear()` removes it using a single SQL DELETE statement.
 
-### Application Integration
+#### 4.6.2 Notification Preferences Repository
 
-Repositories are consumed by application services and stores through the database service interface.
+The notification preferences repository is implemented in:
 
-For example, the authentication store can use the user repository to retrieve a locally cached profile when an API request fails because of a network error.
+`src/services/database/repositories/notificationPreferences.ts`
 
-```typescript
-import { repositories } from '@/services/database'
+It manages locally cached notification preferences using the `cached_notification_preferences` table.
 
-// Save the authenticated user.
-await repositories.users.save(user)
+The application maintains a single cached notification preferences record for the active user.
 
-// Retrieve the cached user.
-const cachedUser = await repositories.users.get()
+**Available Operations**
 
-// Clear the cached user during logout.
-await repositories.users.clear()
-```
+| Function            | Description                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `save(preferences)` | Saves or replaces the cached notification preferences.                             |
+| `get()`             | Retrieves cached notification preferences or returns `null` when no record exists. |
+| `clear()`           | Deletes the cached notification preferences.                                       |
 
-This allows authentication-related functionality to retain access to previously retrieved user information when the application cannot reach the backend.
+**Data Handling**
 
-### Repository Testing
+- **Phone numbers:** Stores SMS and WhatsApp phone numbers, including empty strings when no number is configured.
+- **Notification channels:** Stores preferred general and SmartPack notification channels (`none`, `sms`, `whatsapp`, or `email`).
+- **Cache timestamps:** Records when preferences were last saved using the `cached_at` column.
+- **Local record identification:** Uses a fixed local ID of `1` to maintain a single cached preferences record.
 
-Repository functionality is tested using Vitest.
+**Transaction Management**
 
-The user repository tests cover:
+The `save()` operation uses a SQLite transaction to ensure that replacing the cached preferences is atomic.
 
-- Successful profile persistence.
-- Replacement of previously cached profiles.
-- Correct mapping of API fields to SQLite values.
-- Boolean conversion.
-- Groups JSON serialization and deserialization.
-- Handling of nullable fields.
-- Cache timestamp generation.
-- Transaction rollback on persistence failures.
-- Preservation of original errors when rollback fails.
-- Retrieval when no cached profile exists.
-- Clearing cached profiles.
+1. Begins a transaction.
+2. Inserts or replaces the existing preferences record.
+3. Commits the transaction when successful.
+4. Rolls back the transaction if an operation fails.
 
-Run the user repository tests with:
-
-```bash
-pnpm vitest --run src/services/database/repositories/__tests__/users.spec.ts
-```
-
-The current user repository implementation has 17 passing tests.
-
-### Future Extensions
-
-The repository structure supports adding dedicated modules for other cached application resources, such as:
-
-- Groups and group members.
-- SmartPack devices.
-- Sensor measurements.
-- Notifications.
-- Notification preferences.
-- Administrative dashboard statistics.
-
-Each repository should encapsulate its own database operations and expose a consistent interface through `repositories/index.ts`.
+The `get()` operation retrieves the stored preferences, while `clear()` removes the record using a single SQL DELETE statement.
 
 ## Logging and Troubleshooting
 

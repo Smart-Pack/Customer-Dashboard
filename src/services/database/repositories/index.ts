@@ -4,6 +4,7 @@
  */
 
 import * as users from './users'
+import * as notificationPreferences from './notificationPreferences'
 
 /**
  * Clears all account-specific cached data.
@@ -13,13 +14,15 @@ import * as users from './users'
  */
 async function clearAll(): Promise<void> {
   await users.clear()
+  await notificationPreferences.clear()
 }
 
 const repositories = {
   users,
+  notificationPreferences,
   clearAll,
 }
 
-export { users, clearAll }
+export { users, notificationPreferences, clearAll }
 
 export default repositories
