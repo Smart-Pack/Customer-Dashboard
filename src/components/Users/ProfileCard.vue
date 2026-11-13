@@ -259,9 +259,10 @@ async function getProfile(): Promise<void> {
   isActive.value = true
 
   try {
-    const currentUser = await getMe()
+    await authStore.fetchUser()
 
-    authStore.setLoggedInUser(currentUser)
+    const currentUser = authStore.loggedInUser!
+
     profilePic.value = currentUser.profile_pic
 
     setFormValues(currentUser)

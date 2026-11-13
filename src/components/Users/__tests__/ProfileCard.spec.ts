@@ -20,8 +20,6 @@ type UseFormReturn = {
 
 // --- Mocks -------------------------------------------------------------
 
-const mockGetMe = vi.hoisted(() => vi.fn<() => Promise<User>>())
-
 const mockEditMe = vi.hoisted(() => vi.fn<(payload: EditMePayload) => Promise<User>>())
 
 const mockResetForm = vi.hoisted(() => vi.fn<() => void>())
@@ -30,7 +28,10 @@ const mockSetFieldError = vi.hoisted(() =>
   vi.fn<(field: string, message: string | undefined) => void>(),
 )
 
-const mockSetLoggedInUser = vi.hoisted(() => vi.fn<(user: User) => void>())
+const mockAuthStore = vi.hoisted(() => ({
+  loggedInUser: null as User | null,
+  fetchUser: vi.fn<() => Promise<void>>(),
+}))
 
 const mockNotifySuccess = vi.hoisted(() => vi.fn<(message: string) => void>())
 
@@ -48,7 +49,6 @@ vi.mock('axios', async (importOriginal) => {
 })
 
 vi.mock('@/api/modules/users', () => ({
-  getMe: mockGetMe,
   editMe: mockEditMe,
 }))
 
@@ -66,10 +66,7 @@ vi.mock('vee-validate', () => ({
 }))
 
 vi.mock('@/stores', () => ({
-  useAuthStore: () => ({
-    loggedInUser: null,
-    setLoggedInUser: mockSetLoggedInUser,
-  }),
+  useAuthStore: () => mockAuthStore,
 }))
 
 vi.mock('@/composables/useGlobals', () => ({
@@ -184,7 +181,12 @@ describe('ProfileCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    mockGetMe.mockResolvedValue(mockUser)
+    mockAuthStore.loggedInUser = null
+
+    mockAuthStore.fetchUser.mockImplementation(async () => {
+      mockAuthStore.loggedInUser = mockUser
+    })
+
     mockIsAxiosError.mockReturnValue(false)
   })
 
@@ -196,25 +198,31 @@ describe('ProfileCard', () => {
         },
       })
 
-      await nextTick()
+      await flushPromises()
 
-      expect(mockGetMe).toHaveBeenCalledTimes(1)
+      expect(mockAuthStore.fetchUser).toHaveBeenCalledExactlyOnceWith()
     })
 
-    it('updates the auth store with the fetched user', async () => {
-      mount(ProfileCard, {
-        global: {
-          stubs: globalStubs,
-        },
+    it('loads the authenticated user from the auth store', async () => {
+      const user: User = {
+        ...mockUser,
+        profile_pic: 'https://example.com/profile.jpg',
+      }
+
+      mockAuthStore.fetchUser.mockImplementation(async () => {
+        mockAuthStore.loggedInUser = user
       })
 
-      await nextTick()
+      const wrapper = wrapperFactory()
 
-      expect(mockSetLoggedInUser).toHaveBeenCalledExactlyOnceWith(mockUser)
+      await flushPromises()
+
+      expect(mockAuthStore.fetchUser).toHaveBeenCalledExactlyOnceWith()
+      expect(wrapper.get('img').attributes('src')).toContain(user.profile_pic)
     })
 
     it('notifies an error when loading the profile fails', async () => {
-      mockGetMe.mockRejectedValue(new Error('Unable to load profile'))
+      mockAuthStore.fetchUser.mockRejectedValue(new Error('Unable to load profile'))
 
       mount(ProfileCard, {
         global: {
@@ -222,7 +230,7 @@ describe('ProfileCard', () => {
         },
       })
 
-      await nextTick()
+      await flushPromises()
 
       expect(mockNotifyError).toHaveBeenCalledWith('Unable to load profile')
     })
@@ -281,9 +289,12 @@ describe('ProfileCard', () => {
         profile_pic: 'https://example.com/profile.jpg',
       }
 
-      mockGetMe.mockResolvedValue(user)
+      mockAuthStore.fetchUser.mockImplementation(async () => {
+        mockAuthStore.loggedInUser = user
+      })
 
       const wrapper = wrapperFactory()
+
       await flushPromises()
 
       const image = wrapper.get('img')
