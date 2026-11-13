@@ -49,6 +49,24 @@ const mockNotifySuccess = vi.hoisted(() => vi.fn<(message: string) => void>())
 
 const mockNotifyError = vi.hoisted(() => vi.fn<(message: string) => void>())
 
+const mockNotificationPreferencesRepository = vi.hoisted(() => ({
+  get: vi.fn<() => Promise<NotificationPreferences | null>>(),
+  save: vi.fn<(data: NotificationPreferences) => Promise<void>>(),
+}))
+
+const mockFetchWithCache = vi.hoisted(() =>
+  vi.fn<
+    (
+      fetcher: () => Promise<NotificationPreferences>,
+      repository: unknown,
+    ) => Promise<NotificationPreferences>
+  >(),
+)
+
+const mockUpdateCache = vi.hoisted(() =>
+  vi.fn<(data: NotificationPreferences, repository: unknown) => Promise<void>>(),
+)
+
 /**
  * Values handed to the `handleSubmit` callback. The real vee-validate reads
  * them from the registered fields, so tests keep this in sync with the selects.
@@ -76,6 +94,14 @@ vi.mock('@/composables/useGlobals', () => ({
     $notifySuccess: mockNotifySuccess,
     $notifyError: mockNotifyError,
   }),
+}))
+
+vi.mock('@/services/database', () => ({
+  fetchWithCache: mockFetchWithCache,
+  updateCache: mockUpdateCache,
+  repositories: {
+    notificationPreferences: mockNotificationPreferencesRepository,
+  },
 }))
 
 // --- Stubs -------------------------------------------------------------
@@ -266,6 +292,12 @@ describe('Notifications', () => {
 
     mockFormValues.preferred_general_channel = mockPreferences.preferred_general_channel
     mockFormValues.preferred_smartpack_channel = mockPreferences.preferred_smartpack_channel
+
+    mockFetchWithCache.mockImplementation(async (fetcher) => fetcher())
+    mockUpdateCache.mockResolvedValue(undefined)
+
+    mockNotificationPreferencesRepository.get.mockResolvedValue(null)
+    mockNotificationPreferencesRepository.save.mockResolvedValue(undefined)
   })
 
   describe('preferences loading', () => {
@@ -275,6 +307,10 @@ describe('Notifications', () => {
       await flushPromises()
 
       expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockFetchWithCache).toHaveBeenCalledExactlyOnceWith(
+        mockGet,
+        mockNotificationPreferencesRepository,
+      )
     })
 
     it('resets the form with the fetched values', async () => {
@@ -575,6 +611,26 @@ describe('Notifications', () => {
       await flushPromises()
 
       expect(wrapper.get(SAVE_BUTTON).text()).toContain('Save Changes')
+    })
+    it('updates the cached preferences after successfully saving', async () => {
+      const updatedPreferences: NotificationPreferences = {
+        ...mockPreferences,
+        preferred_general_channel: 'whatsapp',
+      }
+
+      mockPatch.mockResolvedValue(updatedPreferences)
+
+      const wrapper = wrapperFactory()
+
+      await flushPromises()
+      await selectChannel(wrapper, GENERAL_SELECT, 'preferred_general_channel', 'whatsapp')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(mockUpdateCache).toHaveBeenCalledExactlyOnceWith(
+        updatedPreferences,
+        mockNotificationPreferencesRepository,
+      )
     })
   })
 
