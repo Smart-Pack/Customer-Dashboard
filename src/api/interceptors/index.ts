@@ -53,9 +53,15 @@ apiClient.interceptors.response.use(
     const url = error.config?.url ?? ''
 
     /**
-     * Handle unauthenticated requests and failed token refreshes.
+     * Handle unauthorized responses and failed token refresh requests.
+     *
+     * Refresh requests with an API response are delegated to the 401 handler,
+     * while network failures without a response are allowed to propagate.
      */
-    if (error.response?.status === 401 || url.includes(AUTH.REFRESH)) {
+    const isUnauthorized = error.response?.status === 401
+    const isRefreshFailure = url.includes(AUTH.REFRESH) && !!error.response
+
+    if (isUnauthorized || isRefreshFailure) {
       return handle401(error)
     }
 

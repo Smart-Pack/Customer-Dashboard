@@ -44,7 +44,7 @@ The `401` handler:
 - Retries the original request after a successful token refresh.
 - Prevents a request that has already been retried from being retried again.
 
-If the token refresh request itself fails, the session is considered expired. The user is redirected to the login page and receives a session-expired error.
+If the token refresh request fails with an authentication-related API response, the session is considered expired. The authentication state is cleared, the user is redirected to the login page, and a session-expired error is returned. However, if the request fails without an API response, such as during a network outage, the existing authentication state is preserved to allow offline access.
 
 ## Error Handling
 
