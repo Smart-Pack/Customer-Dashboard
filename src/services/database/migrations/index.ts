@@ -67,7 +67,7 @@ export async function runMigrations(database: SQLiteDBConnection): Promise<void>
   validateMigrations()
 
   const currentVersion = await getCurrentVersion(database)
-  const latestVersion = MIGRATIONS.at(-1)?.version ?? 0
+  const latestVersion = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0
 
   if (currentVersion > latestVersion) {
     throw new Error(
@@ -114,9 +114,16 @@ export async function runMigrations(database: SQLiteDBConnection): Promise<void>
 
       console.error(`[Database] Migration ${migration.version} failed:`, error)
 
-      throw new Error(`Database migration ${migration.version} (${migration.name}) failed.`, {
-        cause: error,
+      const migrationError = new Error(
+        `Database migration ${migration.version} (${migration.name}) failed.`,
+      )
+
+      Object.defineProperty(migrationError, 'cause', {
+        value: error,
+        configurable: true,
       })
+
+      throw migrationError
     }
   }
 
