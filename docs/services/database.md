@@ -642,6 +642,71 @@ The service delegates database operations to the following repositories:
 
 The Group Details service is exported through `src/services/database/index.ts` as `groupDetails`, allowing consumers to access its operations through the database service module.
 
+### 4.6.7 Sensor Measurements Service
+
+The Sensor Measurements service is implemented in:
+
+`src/services/database/smartpackSensorMeasurements.ts`
+
+It provides a higher-level interface for retrieving and managing cached SmartPack sensor measurements using the local SQLite repositories.
+
+The service supports offline access to previously cached sensor measurements, allowing the application to display measurement history when the API is unavailable.
+
+**Available Operations**
+
+| Function | Description |
+|---|---|
+| `get(id)` | Retrieves a cached sensor measurement by its ID, returning the measurement or `null` if it does not exist. |
+| `getAll()` | Retrieves all cached sensor measurements. |
+| `getPaginated(params)` | Retrieves cached sensor measurements with optional SmartPack and timestamp filters, returning paginated results. |
+| `save(smartpackId, measurement)` | Saves a sensor measurement and associates it with the specified SmartPack. |
+| `saveList(smartpackId, measurements)` | Saves multiple sensor measurements for the specified SmartPack. |
+| `deleteById(id)` | Deletes a cached sensor measurement by its ID. |
+| `deleteBySmartPackId(smartpackId)` | Deletes all cached sensor measurements associated with a specific SmartPack. |
+| `clear()` | Removes all cached sensor measurements. |
+
+**Data Retrieval**
+
+The `get()` operation retrieves an individual measurement using its ID.
+
+The `getAll()` operation retrieves all cached measurements, ordered by timestamp in descending order.
+
+The `getPaginated()` operation retrieves measurements using optional query parameters and applies local pagination.
+
+Supported filters include:
+
+- **SmartPack:** Retrieves measurements associated with a specific SmartPack.
+- **Start timestamp:** Retrieves measurements recorded at or after `timestamp_gte`.
+- **End timestamp:** Retrieves measurements recorded at or before `timestamp_lte`.
+
+Measurements are ordered by timestamp in descending order before pagination is applied.
+
+**Data Handling**
+
+- **SmartPack association:** Each cached measurement is associated with its parent SmartPack through `smartpack_id`.
+- **Measurement data:** Preserves sensor readings, including steps, weight, and timestamp.
+- **Cache metadata:** Maintains the `cached_at` timestamp to track when a measurement was stored locally.
+- **API compatibility:** Keeps SQLite-specific fields separate from the measurement data returned by the service.
+- **Filtering:** Applies supported SmartPack and timestamp filters when retrieving paginated results.
+
+**Data Persistence**
+
+The `save()` operation inserts a sensor measurement into the local database. If a measurement with the same ID already exists, its stored values are updated.
+
+The `saveList()` operation saves multiple measurements within a database transaction.
+
+The persistence operations ensure that measurements remain associated with the correct SmartPack and that existing cached records are updated rather than duplicated.
+
+**Data Deletion**
+
+The service provides operations for removing cached measurement records:
+
+1. `deleteById()` removes an individual measurement.
+2. `deleteBySmartPackId()` removes all measurements associated with a specified SmartPack.
+3. `clear()` removes all cached sensor measurements.
+
+These operations support targeted cache cleanup and complete removal of locally stored measurement data.
+
 
 ## 5. Cache Utilities
 
