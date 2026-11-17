@@ -10,3 +10,4 @@ export { updateCache, fetchWithCache, fetchPaginatedWithCache, fetchByIdWithCach
 export { paginate } from './pagination'
 
 export * as repositories from './repositories'
+export * as groupDetails from './groupDetails'

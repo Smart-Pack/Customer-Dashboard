@@ -583,6 +583,66 @@ Individual `save()` calls disable automatic transaction handling so that they ca
 
 The retrieval operations provide access to cached membership records, while `deleteByGroupId()`, `deleteById()`, and `clear()` support removing cached membership data at different levels.
 
+#### 4.6.6 Group Details Service
+
+The Group Details service is implemented in:
+
+`src/services/database/groupDetails.ts`
+
+It provides a higher-level interface for retrieving and caching complete group details using the local SQLite repositories.
+
+The service combines cached group summaries, SmartPacks, and group members into a single `GroupDetail` object matching the backend API response structure.
+
+It supports offline access to previously cached group details, allowing the application to display group information when the API is unavailable.
+
+**Available Operations**
+
+| Function | Description |
+|---|---|
+| `get(id)` | Retrieves a group's cached summary, SmartPacks, and members, returning them as a `GroupDetail` object or `null` if the group does not exist. |
+| `save(group)` | Saves a group summary and replaces its cached group members with the latest members supplied in the group details. |
+
+**Data Retrieval**
+
+The `get()` operation retrieves the group summary first. If the group does not exist in the local cache, it returns `null` without querying the associated SmartPacks or members.
+
+When the group exists, the service retrieves its cached SmartPacks and group members concurrently using `Promise.all()`.
+
+The resulting data is mapped into the `GroupDetail` API structure.
+
+**Data Handling**
+
+- **Group summary:** Retrieves the group's ID, name, creation timestamp, and last-update timestamp from the groups repository.
+- **SmartPacks:** Retrieves cached SmartPacks associated with the group using `getByGroupId()`.
+- **Group members:** Retrieves cached members associated with the group using `getByGroupId()`.
+- **Cache metadata:** Removes repository-specific fields such as `cached_at` and `group_id` from the returned SmartPack and member objects.
+- **Nested user details:** Preserves the nested user structure in group member records.
+- **API compatibility:** Returns a `GroupDetail` object without exposing SQLite-specific cache metadata.
+
+**Data Persistence**
+
+The `save()` operation persists group details by delegating to the relevant repositories.
+
+1. Saves the group summary using `repositories.groups.save()`.
+2. Calculates the total number of SmartPacks and members from the supplied group details.
+3. Updates the group's `total_smartpacks` and `total_users` summary fields.
+4. Replaces the cached group members using `repositories.groupMembers.replaceList()`.
+
+The operation ensures that the cached group summary reflects the totals supplied in the latest API response and that cached membership records are synchronized with the supplied members.
+
+**Repository Dependencies**
+
+The service delegates database operations to the following repositories:
+
+| Repository | Responsibility |
+|---|---|
+| `repositories.groups` | Retrieves and saves group summaries. |
+| `repositories.smartpacks` | Retrieves SmartPacks associated with a group. |
+| `repositories.groupMembers` | Retrieves and replaces group membership records. |
+
+The Group Details service is exported through `src/services/database/index.ts` as `groupDetails`, allowing consumers to access its operations through the database service module.
+
+
 ## 5. Cache Utilities
 
 The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.
