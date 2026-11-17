@@ -454,6 +454,7 @@ SmartPacks are cached to support offline access to device information, including
 | `getAll()` | Retrieves all cached SmartPacks, ordered by ID. |
 | `getPaginated(params)` | Retrieves cached SmartPacks, applies assignment and group filters, and returns the results using local pagination. |
 | `get(id)` | Retrieves a cached SmartPack by its ID or returns `null` when it does not exist. |
+| `getByGroupId(groupId)` | Retrieves cached SmartPacks belonging to the specified group ID. |
 | `deleteById(id)` | Deletes a cached SmartPack by its ID. |
 | `clear()` | Deletes all cached SmartPack records. |
 

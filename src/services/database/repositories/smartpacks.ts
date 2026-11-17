@@ -226,6 +226,27 @@ async function get(id: number): Promise<CachedSmartPack | null> {
 }
 
 /**
+ * Retrieves all cached SmartPacks belonging to a group.
+ *
+ * @param groupId - Group ID.
+ * @returns Cached SmartPacks belonging to the group.
+ */
+async function getByGroupId(groupId: number): Promise<CachedSmartPack[]> {
+  const db = await getDatabase()
+
+  const result = await db.query(
+    `
+      SELECT *
+      FROM cached_smartpacks
+      WHERE group_id = ?
+    `,
+    [groupId],
+  )
+
+  return (result.values ?? []).map((row) => mapRow(row as unknown as CachedSmartPackRow))
+}
+
+/**
  * Retrieves cached SmartPacks, applies filters, and paginates the resulting records.
  *
  * @param params - SmartPack filters and pagination parameters.
@@ -277,4 +298,4 @@ async function deleteById(id: number): Promise<void> {
   await db.run('DELETE FROM cached_smartpacks WHERE id = ?', [id])
 }
 
-export { save, saveList, getAll, get, getPaginated, clear, deleteById }
+export { save, saveList, getAll, get, getPaginated, getByGroupId, clear, deleteById }

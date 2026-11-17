@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clear, get, getAll, getPaginated, save, deleteById, saveList } from '../smartpacks'
+import {
+  clear,
+  get,
+  getAll,
+  getPaginated,
+  getByGroupId,
+  save,
+  deleteById,
+  saveList,
+} from '../smartpacks'
 
 import type { SmartPack } from '@/api/modules/smartpacks'
 
@@ -333,7 +342,59 @@ describe('SmartPacks Repository', () => {
       expect(result).toBeNull()
     })
   })
+  describe('getByGroupId', () => {
+    it('returns SmartPacks belonging to the specified group', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          mockSmartPackRow,
+          {
+            ...mockSmartPackRow,
+            id: 2,
+            device_uid: '550e8400-e29b-41d4-a716-446655440001',
+          },
+        ],
+      })
 
+      const result = await getByGroupId(20)
+
+      expect(mocks.db.query).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE group_id = ?'),
+        [20],
+      )
+
+      expect(result).toHaveLength(2)
+      expect(result[0]).toEqual(mockCachedSmartPack)
+      expect(result[1]).toMatchObject({
+        id: 2,
+        device_uid: '550e8400-e29b-41d4-a716-446655440001',
+        group: {
+          id: 20,
+          name: 'Test Group',
+        },
+      })
+    })
+
+    it('returns an empty array when the group has no SmartPacks', async () => {
+      mocks.db.query.mockResolvedValue({ values: [] })
+
+      const result = await getByGroupId(20)
+
+      expect(mocks.db.query).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE group_id = ?'),
+        [20],
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it('returns an empty array when query values are undefined', async () => {
+      mocks.db.query.mockResolvedValue({})
+
+      const result = await getByGroupId(20)
+
+      expect(result).toEqual([])
+    })
+  })
   describe('getPaginated', () => {
     const cachedSmartPacks = [
       mockSmartPackRow,
