@@ -1,6 +1,9 @@
 import { getDatabase } from '../database'
+import { paginate } from '../pagination'
 
-import type { Group } from '@/api/modules/groups'
+import type { Group, GroupQueryParams } from '@/api/modules/groups'
+import type { PaginatedResponse, PaginationQueryParams } from '@/api/types'
+import type { UserGroup } from '@/api/modules/users'
 
 /**
  * Represents a cached group summary.
@@ -138,4 +141,40 @@ async function deleteById(id: number): Promise<void> {
 
   await db.run('DELETE FROM cached_groups WHERE id = ?', [id])
 }
-export { save, saveList, getAll, get, clear, deleteById }
+
+/**
+ * Retrieves cached groups, applies user-specific filters, and paginates
+ * the resulting records.
+ *
+ * @param params - Group filters and pagination parameters.
+ * @param userGroups - Groups associated with the authenticated user.
+ * @returns Locally filtered and paginated groups.
+ */
+async function getPaginated(
+  params: GroupQueryParams & PaginationQueryParams,
+  userGroups: UserGroup[],
+): Promise<PaginatedResponse<CachedGroup>> {
+  const groups = await getAll()
+
+  let filteredGroups = groups
+
+  if (params.has_admin_access === true) {
+    const adminGroupIds = new Set(
+      userGroups
+        .filter((group) => ['owner', 'admin'].includes(group.role))
+        .map((group) => group.id),
+    )
+
+    filteredGroups = groups.filter((group) => adminGroupIds.has(group.id))
+  } else if (params.role) {
+    const matchingGroupIds = new Set(
+      userGroups.filter((group) => group.role === params.role).map((group) => group.id),
+    )
+
+    filteredGroups = groups.filter((group) => matchingGroupIds.has(group.id))
+  }
+
+  return paginate(filteredGroups, params.page ?? 1, params.page_size ?? 10)
+}
+
+export { save, saveList, getAll, get, getPaginated, clear, deleteById }

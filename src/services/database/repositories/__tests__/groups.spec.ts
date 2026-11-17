@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clear, get, getAll, save, deleteById, saveList } from '../groups'
+import { clear, get, getAll, getPaginated, save, deleteById, saveList } from '../groups'
 
 import type { Group } from '@/api/modules/groups'
+import type { UserGroup } from '@/api/modules/users'
 
 const mocks = vi.hoisted(() => {
   const db = {
@@ -189,6 +190,112 @@ describe('Groups Repository', () => {
       const result = await get(999)
 
       expect(result).toBeNull()
+    })
+  })
+
+  describe('getPaginated', () => {
+    const userGroups: UserGroup[] = [
+      { id: 1, name: 'Test Group', role: 'owner' },
+      { id: 2, name: 'Another Group', role: 'admin' },
+      { id: 3, name: 'Member Group', role: 'member' },
+    ]
+
+    const cachedGroups = [
+      mockCachedGroup,
+      { ...mockCachedGroup, id: 2, name: 'Another Group' },
+      { ...mockCachedGroup, id: 3, name: 'Member Group' },
+    ]
+
+    beforeEach(() => {
+      mocks.db.query.mockResolvedValue({ values: cachedGroups })
+    })
+
+    it('returns all cached groups when no role filter is provided', async () => {
+      const result = await getPaginated({ page: 1, page_size: 10 }, userGroups)
+
+      expect(result).toEqual({
+        count: 3,
+        next: null,
+        previous: null,
+        results: cachedGroups,
+      })
+    })
+
+    it('returns only groups where the user is an owner or admin when has_admin_access is true', async () => {
+      const result = await getPaginated(
+        { has_admin_access: true, page: 1, page_size: 10 },
+        userGroups,
+      )
+
+      expect(result.results).toEqual(cachedGroups.slice(0, 2))
+      expect(result.count).toBe(2)
+    })
+
+    it('returns only groups matching the requested user role', async () => {
+      const result = await getPaginated({ role: 'member', page: 1, page_size: 10 }, userGroups)
+
+      expect(result.results).toEqual([cachedGroups[2]])
+      expect(result.count).toBe(1)
+    })
+
+    it('supports filtering by owner role', async () => {
+      const result = await getPaginated({ role: 'owner', page: 1, page_size: 10 }, userGroups)
+
+      expect(result.results).toEqual([cachedGroups[0]])
+      expect(result.count).toBe(1)
+    })
+
+    it('supports filtering by admin role', async () => {
+      const result = await getPaginated({ role: 'admin', page: 1, page_size: 10 }, userGroups)
+
+      expect(result.results).toEqual([cachedGroups[1]])
+      expect(result.count).toBe(1)
+    })
+
+    it('returns an empty result when the user has no groups matching the requested role', async () => {
+      const result = await getPaginated({ role: 'member', page: 1, page_size: 10 }, [
+        { id: 4, name: 'Unrelated Group', role: 'owner' },
+      ])
+
+      expect(result).toEqual({
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      })
+    })
+
+    it('paginates filtered groups', async () => {
+      const result = await getPaginated(
+        { has_admin_access: true, page: 2, page_size: 1 },
+        userGroups,
+      )
+
+      expect(result).toEqual({
+        count: 2,
+        next: null,
+        previous: '1',
+        results: [cachedGroups[1]],
+      })
+    })
+
+    it('returns an empty result when the requested page exceeds the available pages', async () => {
+      const result = await getPaginated({ page: 5, page_size: 1 }, userGroups)
+
+      expect(result).toEqual({
+        count: 3,
+        next: null,
+        previous: null,
+        results: [],
+      })
+    })
+
+    it('retrieves cached groups from the database', async () => {
+      await getPaginated({ page: 1, page_size: 10 }, userGroups)
+
+      expect(mocks.db.query).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining('FROM cached_groups'),
+      )
     })
   })
 
