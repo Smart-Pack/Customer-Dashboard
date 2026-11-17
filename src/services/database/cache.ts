@@ -113,6 +113,59 @@ async function fetchPaginatedWithCache<T, P extends PaginationQueryParams>({
 }
 
 /**
+ * Fetches a record from an API function and maintains its local SQLite cache
+ * on native platforms.
+ *
+ * Saves every successful API response to SQLite on native platforms.
+ * Falls back to the locally cached record when the API request fails due to
+ * a network error.
+ *
+ * @param fetcher - API function that retrieves the record.
+ * @param repository - Repository responsible for reading and saving cached data.
+ * @param id - ID of the record to retrieve from the cache.
+ * @returns API response or cached record when offline.
+ */
+async function fetchByIdWithCache<T>(
+  fetcher: () => Promise<T>,
+  repository: {
+    save: (data: T) => Promise<void>
+    get: (id: number) => Promise<T | null>
+  },
+  id: number,
+): Promise<T> {
+  const isNative = Capacitor.isNativePlatform()
+
+  try {
+    const response = await fetcher()
+
+    if (isNative) {
+      try {
+        await repository.save(response)
+      } catch (error) {
+        console.error('[Database] Failed to cache API response:', error)
+      }
+    }
+
+    return response
+  } catch (error) {
+    if (isNative && isAxiosError(error) && !error.response) {
+      try {
+        const cachedData = await repository.get(id)
+
+        if (cachedData !== null) {
+          console.info('[Database] Returning cached record because the API is unavailable.')
+          return cachedData
+        }
+      } catch (cacheError) {
+        console.error('[Database] Failed to retrieve cached record:', cacheError)
+      }
+    }
+
+    throw error
+  }
+}
+
+/**
  * Updates the local SQLite cache on native platforms.
  *
  * @param data - Object to cache.
@@ -128,4 +181,4 @@ async function updateCache<T>(data: T, repository: CacheRepository<T>): Promise<
   }
 }
 
-export { fetchPaginatedWithCache, updateCache, fetchWithCache }
+export { fetchPaginatedWithCache, fetchByIdWithCache, fetchWithCache, updateCache }

@@ -517,6 +517,7 @@ Cache utilities are implemented in:
 | Function | Description |
 |---|---|
 | `fetchWithCache(fetcher, repository)` | Fetches data from an API, saves successful responses to SQLite on native platforms, and falls back to cached data when the request fails due to a network error. |
+| `fetchByIdWithCache(fetcher, repository, id)` | Fetches a single record from an API using its ID, saves successful responses to SQLite on native platforms, and falls back to the locally cached record when the request fails due to a network error. |
 | `fetchPaginatedWithCache(options)` | Fetches paginated data from an API, saves successful results to SQLite on native platforms, and falls back to locally cached and paginated data when the request fails due to a network error. |
 | `updateCache(data, repository)` | Saves an object to SQLite on native platforms without requiring the caller to handle platform detection. |
 

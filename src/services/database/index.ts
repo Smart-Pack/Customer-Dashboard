@@ -5,7 +5,7 @@
 
 export { initializeDatabase, getDatabase, closeDatabase } from './database'
 
-export { updateCache, fetchWithCache, fetchPaginatedWithCache } from './cache'
+export { updateCache, fetchWithCache, fetchPaginatedWithCache, fetchByIdWithCache } from './cache'
 
 export { paginate } from './pagination'
 
