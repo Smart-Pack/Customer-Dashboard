@@ -1,10 +1,9 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SmartPacksTable from '@/components/Smartpacks/Table.vue'
 import TablePageLayout, { type Getter } from '@/components/Base/TablePageLayout.vue'
-
-const mockSmartPacksList = vi.fn<Getter>()
+import { listWithCache } from '@/api/modules/smartpacks'
 
 const mountTable = (refreshKey = 0) =>
   mount(SmartPacksTable, {
@@ -12,13 +11,6 @@ const mountTable = (refreshKey = 0) =>
       refreshKey,
     },
     global: {
-      mocks: {
-        $api: {
-          smartpacks: {
-            list: mockSmartPacksList,
-          },
-        },
-      },
       stubs: {
         TablePageLayout: true,
         RouterLink: true,
@@ -26,7 +18,21 @@ const mountTable = (refreshKey = 0) =>
     },
   })
 
+vi.mock('@/api/modules/smartpacks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/modules/smartpacks')>()
+
+  return {
+    ...actual,
+    listWithCache: vi.fn<typeof actual.listWithCache>(),
+  }
+})
+
+const mockSmartPacksList = vi.mocked(listWithCache)
+
 describe('SmartPacksTable', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
   describe('rendering', () => {
     it('renders a TablePageLayout', () => {
       const wrapper = mountTable()
@@ -46,11 +52,23 @@ describe('SmartPacksTable', () => {
       expect(layout.props('enableSearch')).toBe(true)
     })
 
-    it('passes the SmartPacks API getter', () => {
+    it('passes a getter that fetches SmartPacks using listWithCache', async () => {
       const wrapper = mountTable()
       const layout = wrapper.findComponent(TablePageLayout)
 
-      expect(layout.props('getter')).toBe(mockSmartPacksList)
+      const getter = layout.props('getter') as Getter
+
+      expect(getter).toEqual(expect.any(Function))
+
+      const params = {
+        has_group: true,
+        page: 2,
+        page_size: 10,
+      }
+
+      await getter(params)
+
+      expect(mockSmartPacksList).toHaveBeenCalledWith(params)
     })
 
     it('passes the refresh key through', () => {

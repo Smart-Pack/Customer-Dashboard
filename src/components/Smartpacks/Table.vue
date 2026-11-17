@@ -1,6 +1,22 @@
+<!--
+  SmartPacksTable
+
+  Displays SmartPacks available to the authenticated user, including their
+  connectivity, firmware, assignment, and group information.
+
+  Features:
+  - Fetches SmartPacks through the API with SQLite offline caching on native platforms.
+  - Supports filtering using All, Grouped, and Ungrouped tabs.
+  - Supports searching and sorting SmartPack records.
+  - Provides navigation to individual SmartPack details.
+
+  Offline retrieval applies the requested filters and pagination to locally
+  cached SmartPack records.
+-->
+
 <template>
   <TablePageLayout
-    :getter="$api.smartpacks.list"
+    :getter="getSmartPacksList"
     page-description="Monitor your SmartPacks, track their connectivity and assignment status, and manage their group associations."
     :tabs="smartPackTabs"
     name="SmartPacks"
@@ -13,13 +29,33 @@
 
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { SmartPackQueryParams, SmartPackGroup } from '@/api/modules/smartpacks'
+import {
+  listWithCache,
+  type SmartPackQueryParams,
+  type SmartPackGroup,
+} from '@/api/modules/smartpacks'
 import Filters from '@/helpers/filters'
 
 defineOptions({
   name: 'SmartPacksTable',
 })
 
+/**
+ * Fetches SmartPacks using the API with local caching support.
+ *
+ * @param params - SmartPack filters and pagination parameters.
+ */
+function getSmartPacksList(params: SmartPackQueryParams) {
+  return listWithCache(params)
+}
+
+/**
+ * Defines the available SmartPack table tabs and their associated filters.
+ *
+ * - All: Displays all SmartPacks available to the authenticated user.
+ * - Grouped: Displays SmartPacks associated with a group.
+ * - Ungrouped: Displays SmartPacks without a group.
+ */
 const smartPackTabs: Array<{
   id: string
   caption: string
@@ -50,6 +86,13 @@ const smartPackTabs: Array<{
   },
 ]
 
+/**
+ * Defines the columns displayed in the SmartPacks table.
+ *
+ * Displays each SmartPack's IMEI, firmware version, connectivity status,
+ * associated group, child name, creation date, and an action for viewing
+ * SmartPack details.
+ */
 const smartPackHeadings = [
   {
     key: 'imei',
@@ -102,6 +145,7 @@ const smartPackHeadings = [
     },
   },
 ]
+
 /**
  * Props for the SmartPacks table.
  */
