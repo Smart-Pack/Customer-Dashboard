@@ -406,6 +406,7 @@ Group summaries are cached to support offline access to the user's groups, inclu
 | `save(group)` | Saves or updates a cached group summary. |
 | `saveList(groups)` | Saves multiple group summaries within a single transaction. |
 | `getAll()` | Retrieves all cached group summaries, ordered by ID. |
+| `getPaginated(params, userGroups)` | Retrieves cached group summaries, filters them by the authenticated user's group roles, and returns the results using local pagination. |
 | `get(id)` | Retrieves a cached group by its ID or returns `null` when it does not exist. |
 | `deleteById(id)` | Deletes a cached group by its ID. |
 | `clear()` | Deletes all cached group summaries. |
@@ -449,6 +450,7 @@ Cache utilities are implemented in:
 | Function | Description |
 |---|---|
 | `fetchWithCache(fetcher, repository)` | Fetches data from an API, saves successful responses to SQLite on native platforms, and falls back to cached data when the request fails due to a network error. |
+| `fetchPaginatedWithCache(options)` | Fetches paginated data from an API, saves successful results to SQLite on native platforms, and falls back to locally cached and paginated data when the request fails due to a network error. |
 | `updateCache(data, repository)` | Saves an object to SQLite on native platforms without requiring the caller to handle platform detection. |
 
 ### 5.2 Fetching Data with Cache
