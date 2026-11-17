@@ -6,6 +6,7 @@ import type {
   PaginatedResponse,
   PaginationQueryParams,
 } from '@/api/types'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 
 export type AssignSmartPackGroupPayload = {
   group: number
@@ -267,4 +268,24 @@ export const listSensorMeasurements = async (
   const response = await apiClient.get<SmartPackSensorMeasurementListResult>(url)
 
   return response.data
+}
+
+/**
+ * Fetches paginated SmartPacks from the API and caches successful responses.
+ *
+ * Falls back to locally cached, filtered, and paginated SmartPacks when the
+ * native application cannot reach the API.
+ *
+ * @param params - SmartPack filters and pagination parameters.
+ * @returns Paginated SmartPacks from the API or local cache.
+ */
+export const listWithCache = async (
+  params: SmartPackQueryParams,
+): Promise<PaginatedResponse<SmartPack>> => {
+  return fetchPaginatedWithCache({
+    fetcher: (query: SmartPackQueryParams) => list(query),
+    params,
+    save: (data: SmartPack[]) => repositories.smartpacks.saveList(data),
+    getCached: (query: SmartPackQueryParams) => repositories.smartpacks.getPaginated(query),
+  })
 }

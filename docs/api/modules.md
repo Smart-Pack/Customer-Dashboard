@@ -157,18 +157,19 @@ The push subscriptions module manages browser-based Web Push registrations for t
 
 The SmartPacks module manages SmartPack devices and their associations with customers and groups. It supports device retrieval, claiming, assignment, updating, and grouping. It also provides access to paginated sensor measurements and utilities for calculating step differences between measurements.
 
-| Function                           | Purpose                                                                                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `list(params?)`                    | Retrieves a paginated list of SmartPacks, with optional filtering by assigned customer, group, assignment status, or group association. |
-| `getById({ id })`                  | Retrieves a SmartPack using its ID.                                                                                                     |
-| `assign(id, payload)`              | Assigns a SmartPack to a customer.                                                                                                      |
-| `unassign(id)`                     | Removes a SmartPack's customer assignment.                                                                                              |
-| `edit(smartPack)`                  | Updates a SmartPack's child name.                                                                                                       |
-| `claim(deviceUid, payload)`        | Allows an authenticated customer to claim an unassigned SmartPack by verifying its IMEI.                                                |
-| `assignGroup(id, payload)`         | Assigns a SmartPack to a group.                                                                                                         |
-| `unassignGroup(id)`                | Removes a SmartPack's group association.                                                                                                |
-| `listSensorMeasurements(params?)`  | Retrieves paginated sensor measurements, with optional filtering by SmartPack and timestamp range.                                      |
-| `getStepsDelta(current, previous)` | Calculates the non-negative difference in step counts between two sensor measurements.                                                  |
+| Function                           | Purpose                                                                                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list(params?)`                    | Retrieves a paginated list of SmartPacks, with optional filtering by assigned customer, group, assignment status, or group association.                                                                 |
+| `listWithCache(params?)`           | Fetches a paginated list of SmartPacks from the API and caches successful responses. Falls back to locally cached, filtered, and paginated SmartPacks when the native application cannot reach the API. |
+| `getById({ id })`                  | Retrieves a SmartPack using its ID.                                                                                                                                                                     |
+| `assign(id, payload)`              | Assigns a SmartPack to a customer.                                                                                                                                                                      |
+| `unassign(id)`                     | Removes a SmartPack's customer assignment.                                                                                                                                                              |
+| `edit(smartPack)`                  | Updates a SmartPack's child name.                                                                                                                                                                       |
+| `claim(deviceUid, payload)`        | Allows an authenticated customer to claim an unassigned SmartPack by verifying its IMEI.                                                                                                                |
+| `assignGroup(id, payload)`         | Assigns a SmartPack to a group.                                                                                                                                                                         |
+| `unassignGroup(id)`                | Removes a SmartPack's group association.                                                                                                                                                                |
+| `listSensorMeasurements(params?)`  | Retrieves paginated sensor measurements, with optional filtering by SmartPack and timestamp range.                                                                                                      |
+| `getStepsDelta(current, previous)` | Calculates the non-negative difference in step counts between two sensor measurements.                                                                                                                  |
 
 ### 10. Two-Factor Authentication (`twoFactor`)
 

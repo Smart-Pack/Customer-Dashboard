@@ -8,6 +8,7 @@ import {
   claim,
   edit,
   list,
+  listWithCache,
   getById,
   listSensorMeasurements,
   assign,
@@ -22,6 +23,24 @@ import {
   type SmartPackSensorMeasurementQueryParams,
 } from '@/api/modules/smartpacks'
 import type { ItemNotFoundError } from '@/api/types'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
+
+vi.mock('@/services/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/database')>()
+
+  return {
+    ...actual,
+    fetchPaginatedWithCache: vi.fn<typeof actual.fetchPaginatedWithCache>(),
+    repositories: {
+      ...actual.repositories,
+      smartpacks: {
+        ...actual.repositories.smartpacks,
+        saveList: vi.fn<typeof actual.repositories.smartpacks.saveList>(),
+        getPaginated: vi.fn<typeof actual.repositories.smartpacks.getPaginated>(),
+      },
+    },
+  }
+})
 
 vi.mock('@/api/client', () => ({
   default: {
@@ -102,7 +121,71 @@ describe('SmartPacks API', () => {
       expect(response).toEqual(result)
     })
   })
+  describe('listWithCache', () => {
+    const params: SmartPackQueryParams = {
+      assigned_to: mockUser.id,
+      page: 1,
+      page_size: 10,
+    }
 
+    const result: SmartPackListResult = {
+      count: 1,
+      next: null,
+      previous: null,
+      results: [mockSmartPack],
+    }
+
+    it('passes the correct options to fetchPaginatedWithCache', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockResolvedValueOnce(result)
+
+      await listWithCache(params)
+
+      expect(fetchPaginatedWithCache).toHaveBeenCalledWith({
+        fetcher: expect.any(Function),
+        params,
+        save: expect.any(Function),
+        getCached: expect.any(Function),
+      })
+    })
+
+    it('uses list as the API fetcher', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ fetcher }) =>
+        fetcher(params),
+      )
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      } as never)
+
+      await listWithCache(params)
+
+      expect(apiClient.get).toHaveBeenCalledWith(
+        `${SMARTPACKS.COLLECTION}?assigned_to=${mockUser.id}&page=1&page_size=10`,
+      )
+    })
+
+    it('passes fetched SmartPacks to the repository saveList function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ save }) => {
+        await save([mockSmartPack])
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.smartpacks.saveList).toHaveBeenCalledWith([mockSmartPack])
+    })
+
+    it('retrieves cached SmartPacks using the repository getPaginated function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ getCached }) => {
+        await getCached(params)
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.smartpacks.getPaginated).toHaveBeenCalledWith(params)
+    })
+  })
   describe('getById', () => {
     it('fetches a single SmartPack by id', async () => {
       vi.mocked(apiClient.get).mockResolvedValueOnce({
