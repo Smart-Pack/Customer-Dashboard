@@ -9,6 +9,7 @@ import {
   edit,
   list,
   listWithCache,
+  listSensorMeasurementsWithCache,
   getById,
   listSensorMeasurements,
   assign,
@@ -37,6 +38,11 @@ vi.mock('@/services/database', async (importOriginal) => {
         ...actual.repositories.smartpacks,
         saveList: vi.fn<typeof actual.repositories.smartpacks.saveList>(),
         getPaginated: vi.fn<typeof actual.repositories.smartpacks.getPaginated>(),
+      },
+      smartpackSensorMeasurements: {
+        ...actual.repositories.smartpackSensorMeasurements,
+        saveList: vi.fn<typeof actual.repositories.smartpackSensorMeasurements.saveList>(),
+        getPaginated: vi.fn<typeof actual.repositories.smartpackSensorMeasurements.getPaginated>(),
       },
     },
   }
@@ -184,6 +190,95 @@ describe('SmartPacks API', () => {
       await listWithCache(params)
 
       expect(repositories.smartpacks.getPaginated).toHaveBeenCalledWith(params)
+    })
+  })
+  describe('listSensorMeasurementsWithCache', () => {
+    const smartpackId = mockSmartPack.id
+
+    const params: SmartPackSensorMeasurementQueryParams = {
+      smartpack: smartpackId,
+      page: 1,
+      page_size: 10,
+    }
+
+    const mockMeasurement: SmartPackSensorMeasurement = {
+      id: 1,
+      steps: 1500,
+      weight: 4500,
+      timestamp: '2026-11-13T10:00:00Z',
+      created: '2026-11-13T10:00:00Z',
+      updated: '2026-11-13T10:00:00Z',
+    }
+
+    const result: SmartPackSensorMeasurementListResult = {
+      count: 1,
+      next: null,
+      previous: null,
+      results: [mockMeasurement],
+    }
+
+    it('throws an error when the SmartPack ID is missing', async () => {
+      const invalidParams: SmartPackSensorMeasurementQueryParams = {
+        page: 1,
+        page_size: 10,
+      }
+
+      await expect(listSensorMeasurementsWithCache(invalidParams)).rejects.toThrow(
+        'A SmartPack ID is required to fetch sensor measurements with caching.',
+      )
+
+      expect(fetchPaginatedWithCache).not.toHaveBeenCalled()
+    })
+
+    it('passes the correct options to fetchPaginatedWithCache', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockResolvedValueOnce(result)
+
+      await listSensorMeasurementsWithCache(params)
+
+      expect(fetchPaginatedWithCache).toHaveBeenCalledWith({
+        fetcher: expect.any(Function),
+        params,
+        save: expect.any(Function),
+        getCached: expect.any(Function),
+      })
+    })
+
+    it('uses listSensorMeasurements as the API fetcher', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ fetcher }) =>
+        fetcher(params),
+      )
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      } as never)
+
+      await listSensorMeasurementsWithCache(params)
+
+      expect(apiClient.get).toHaveBeenCalled()
+    })
+
+    it('passes fetched measurements to the repository saveList function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ save }) => {
+        await save([mockMeasurement])
+        return result
+      })
+
+      await listSensorMeasurementsWithCache(params)
+
+      expect(repositories.smartpackSensorMeasurements.saveList).toHaveBeenCalledWith(smartpackId, [
+        mockMeasurement,
+      ])
+    })
+
+    it('retrieves cached measurements using the repository getPaginated function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ getCached }) => {
+        await getCached(params)
+        return result
+      })
+
+      await listSensorMeasurementsWithCache(params)
+
+      expect(repositories.smartpackSensorMeasurements.getPaginated).toHaveBeenCalledWith(params)
     })
   })
   describe('getById', () => {

@@ -289,3 +289,31 @@ export const listWithCache = async (
     getCached: (query: SmartPackQueryParams) => repositories.smartpacks.getPaginated(query),
   })
 }
+
+/**
+ * Fetches paginated sensor measurements for a SmartPack from the API and caches successful responses.
+ *
+ * Falls back to locally cached, filtered, and paginated sensor measurements when
+ * the native application cannot reach the API.
+ *
+ * @param params - Sensor measurement filters and pagination parameters. Requires a SmartPack ID.
+ * @returns Paginated sensor measurements from the API or local cache.
+ */
+export const listSensorMeasurementsWithCache = async (
+  params: SmartPackSensorMeasurementQueryParams,
+): Promise<PaginatedResponse<SmartPackSensorMeasurement>> => {
+  if (!params?.smartpack) {
+    throw new Error('A SmartPack ID is required to fetch sensor measurements with caching.')
+  }
+
+  const smartpackId = params.smartpack
+
+  return fetchPaginatedWithCache({
+    fetcher: (query: SmartPackSensorMeasurementQueryParams) => listSensorMeasurements(query),
+    params,
+    save: (data: SmartPackSensorMeasurement[]) =>
+      repositories.smartpackSensorMeasurements.saveList(smartpackId, data),
+    getCached: (query: SmartPackSensorMeasurementQueryParams) =>
+      repositories.smartpackSensorMeasurements.getPaginated(query),
+  })
+}
