@@ -181,8 +181,9 @@
 <script lang="ts">
 /**
  * @module views/SmartPacks/Details
- * @description Displays SmartPack details and allows authorized users
- * to assign or unassign groups, assign a child, and print the SmartPack QR code.
+ * @description Displays SmartPack details with offline caching support.
+ * Allows authorized users to assign or unassign groups, assign a child,
+ * view sensor measurements, connect via Bluetooth, and print the SmartPack QR code.
  */
 
 import { defineComponent } from 'vue'
@@ -199,6 +200,7 @@ import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
 import type { SmartPackSensorMessage, SmartPackSensorRecord } from '@/types/bluetooth'
 import { useAuthStore } from '@/stores/modules/auth'
+import { fetchByIdWithCache, repositories } from '@/services/database'
 
 /** Maximum number of Bluetooth sensor readings to retain. */
 const MAX_SENSOR_HISTORY = 1000
@@ -348,7 +350,13 @@ export default defineComponent({
      */
     async getSmartPack(): Promise<void> {
       try {
-        this.smartPack = await this.$api.smartpacks.getById(this.smartPackId)
+        const smartpack = await fetchByIdWithCache(
+          () => this.$api.smartpacks.getById(this.smartPackId),
+          repositories.smartpacks,
+          Number(this.smartPackId.id),
+        )
+
+        this.smartPack = smartpack
       } catch (error) {
         const itemError = error as ItemNotFoundError
 

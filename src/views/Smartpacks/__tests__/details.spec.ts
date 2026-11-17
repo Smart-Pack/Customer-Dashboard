@@ -13,6 +13,24 @@ import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
 import type { SmartPackSensorMessage } from '@/types/bluetooth'
 
+const { mockFetchByIdWithCache } = vi.hoisted(() => ({
+  mockFetchByIdWithCache:
+    vi.fn<
+      (
+        fetcher: () => Promise<import('@/api/modules/smartpacks').SmartPack>,
+        repository: object,
+        id: number,
+      ) => Promise<import('@/api/modules/smartpacks').SmartPack>
+    >(),
+}))
+
+vi.mock('@/services/database', () => ({
+  fetchByIdWithCache: mockFetchByIdWithCache,
+  repositories: {
+    smartpacks: {},
+  },
+}))
+
 vi.mock('@/components/Smartpacks/BluetoothButton.vue', async () => {
   const { defineComponent, h } = await import('vue')
 
@@ -227,6 +245,8 @@ describe('SmartPackDetails', () => {
 
     vi.clearAllMocks()
 
+    mockFetchByIdWithCache.mockImplementation((fetcher: () => Promise<SmartPack>) => fetcher())
+
     mockGetById.mockResolvedValue({ ...mockSmartPack })
     mockAssignGroup.mockResolvedValue('SmartPack assigned to group successfully')
     mockUnassignGroup.mockResolvedValue('SmartPack removed from group successfully')
@@ -246,8 +266,15 @@ describe('SmartPackDetails', () => {
 
       await flushPromises()
 
-      expect(mockGetById).toHaveBeenCalledTimes(1)
-      expect(mockGetById).toHaveBeenCalledWith({ id: '1' })
+      expect(mockFetchByIdWithCache).toHaveBeenCalledTimes(1)
+
+      expect(mockFetchByIdWithCache).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.any(Object),
+        1,
+      )
+
+      expect(mockGetById).toHaveBeenCalledExactlyOnceWith({ id: '1' })
     })
 
     it('displays the SmartPack hardware model', async () => {
