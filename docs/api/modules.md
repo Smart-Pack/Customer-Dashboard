@@ -103,6 +103,7 @@ The group members module manages group memberships and invitations. It supports 
 | Function                       | Purpose                                                                                                                                |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `list(params?)`                | Retrieves a paginated list of group members, with optional filtering by group, role, or administrative access.                         |
+| `listWithCache(params)` | Fetches a paginated list of group members from the API and caches successful responses. Falls back to locally cached, filtered, and paginated group members when the native application cannot reach the API. Requires a group ID. |
 | `sendInvite(groupId, payload)` | Sends an invitation to a user to join a group with the specified role.                                                                 |
 | `leaveGroup(id)`               | Removes the current user's membership from a group.                                                                                    |
 | `removeGroupMember(id)`        | Removes a specified user from a group.                                                                                                 |
