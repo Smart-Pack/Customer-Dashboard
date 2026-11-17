@@ -501,6 +501,84 @@ Individual `save()` calls disable automatic transaction handling so that they ca
 
 The `getAll()` and `get()` operations retrieve cached SmartPack records and reconstruct their nested data structures, while `deleteById()` and `clear()` remove individual or all cached SmartPack records, respectively.
 
+#### 4.6.5 Group Members Repository
+
+The Group Members repository is implemented in:
+
+`src/services/database/repositories/groupMembers.ts`
+
+It manages locally cached group membership records using the `cached_group_members` table.
+
+Group members are cached to support offline access to group membership information, including member details, assigned roles, and group associations.
+
+**Available Operations**
+
+| Function | Description |
+| --- | --- |
+| `save(groupId, member)` | Saves or updates a cached group member. |
+| `saveList(groupId, members)` | Saves multiple group members within a single transaction without removing existing records. |
+| `replaceList(groupId, members)` | Synchronizes cached group members with the supplied list, inserting new records, updating existing records, and deleting records absent from the list. |
+| `getAll()` | Retrieves all cached group members. |
+| `get(groupId, id)` | Retrieves a cached group member using its group ID and member ID, or returns `null` when it does not exist. |
+| `getByGroupId(groupId)` | Retrieves all cached members belonging to a specific group. |
+| `getPaginated(params)` | Retrieves cached group members, applies group membership and role filters, and returns the results using local pagination. |
+| `deleteByGroupId(groupId)` | Deletes all cached members belonging to a specific group. |
+| `deleteById(groupId, id)` | Deletes a specific cached group member. |
+| `clear()` | Deletes all cached group member records. |
+
+**Data Handling**
+
+- **Record identification:** Uses a composite primary key consisting of the group ID and member ID, allowing member records to be uniquely identified within their respective groups.
+- **Group association:** Stores the associated group ID to link each cached member to its group.
+- **User details:** Stores the member's user ID, UUID, full name, email, and phone number as flattened fields.
+- **Membership roles:** Stores the member's role, which can be `owner`, `admin`, or `member`.
+- **Timestamps:** Stores the membership creation and last-update timestamps.
+- **Cache timestamps:** Records when each group member was last saved using the `cached_at` column.
+- **Conflict handling:** Uses SQLite `ON CONFLICT(group_id, id) DO UPDATE` to update existing records instead of creating duplicates.
+- **Data representation:** Stores user information as flattened columns rather than nested objects, matching the SQLite schema.
+- **Group deletion:** Uses a foreign key with `ON DELETE CASCADE` to automatically remove cached group members when their associated cached group is deleted.
+
+**Filtering and Pagination**
+
+The `getPaginated()` operation retrieves cached group members, applies the requested filters, and paginates the resulting records locally.
+
+Supported filters include:
+
+| Parameter | Description |
+| --- | --- |
+| `group` | Filters members by their associated group ID. |
+| `role` | Filters members by their membership role (`owner`, `admin`, or `member`). |
+| `has_admin_access` | Filters members to include only owners and admins when set to `true`. |
+
+Multiple filters can be combined. Filtering is performed before pagination to ensure that the returned results and total count reflect the matching records.
+
+**Transaction Management**
+
+The `save()` operation inserts or updates a group member using a single SQL statement.
+
+The `saveList()` operation uses a SQLite transaction to persist multiple group members atomically.
+
+1. Begins a transaction.
+2. Saves each group member by delegating to `save()`.
+3. Commits the transaction when all members are saved successfully.
+4. Rolls back the transaction if any member fails to save.
+5. Logs rollback failures while preserving the original database error.
+
+The `replaceList()` operation uses a transaction to synchronize the cached membership records with a complete list retrieved from the API.
+
+1. Begins a transaction.
+2. Deletes existing cached members that are absent from the supplied list.
+3. Saves each supplied member by delegating to `save()`, inserting new records or updating existing ones.
+4. Commits the transaction when synchronization succeeds.
+5. Rolls back the transaction if deletion or saving fails.
+6. Logs rollback failures while preserving the original database error.
+
+When `replaceList()` receives an empty list, all cached members belonging to the specified group are deleted.
+
+Individual `save()` calls disable automatic transaction handling so that they can execute within the transaction managed by `saveList()` or `replaceList()`.
+
+The retrieval operations provide access to cached membership records, while `deleteByGroupId()`, `deleteById()`, and `clear()` support removing cached membership data at different levels.
+
 
 ## 5. Cache Utilities
 
