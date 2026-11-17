@@ -435,6 +435,73 @@ Individual `save()` calls disable automatic transaction handling so that they ca
 
 The `getAll()` and `get()` operations retrieve cached group summaries, while `deleteById()` and `clear()` remove individual or all cached group summaries, respectively.
 
+#### 4.6.4 SmartPacks Repository
+
+The SmartPacks repository is implemented in:
+
+`src/services/database/repositories/smartpacks.ts`
+
+It manages locally cached SmartPack device records using the `cached_smartpacks` table.
+
+SmartPacks are cached to support offline access to device information, including their hardware details, assignment status, associated groups, and connection status.
+
+**Available Operations**
+
+| Function | Description |
+| --- | --- |
+| `save(smartPack)` | Saves or updates a cached SmartPack record. |
+| `saveList(smartPacks)` | Saves multiple SmartPack records within a single transaction. |
+| `getAll()` | Retrieves all cached SmartPacks, ordered by ID. |
+| `getPaginated(params)` | Retrieves cached SmartPacks, applies assignment and group filters, and returns the results using local pagination. |
+| `get(id)` | Retrieves a cached SmartPack by its ID or returns `null` when it does not exist. |
+| `deleteById(id)` | Deletes a cached SmartPack by its ID. |
+| `clear()` | Deletes all cached SmartPack records. |
+
+**Data Handling**
+
+- **Device identification:** Uses the API-provided SmartPack ID as the primary key and stores the unique device UUID.
+- **Hardware details:** Stores the hardware model, IMEI, firmware version, and Bluetooth MAC address.
+- **Connection status:** Stores the device's last-seen timestamp and online status. Boolean online values are converted to integers (`1` or `0`) for SQLite storage and reconstructed as booleans when retrieved.
+- **User assignment:** Stores assigned user details, including their ID, UUID, full name, email, and phone number. These fields are nullable when a SmartPack is unassigned.
+- **Group association:** Stores the associated group ID and name. Both fields are nullable when a SmartPack does not belong to a group.
+- **Child information:** Stores the name of the child associated with the SmartPack.
+- **Cache timestamps:** Records when each SmartPack was last saved using the `cached_at` column.
+- **Conflict handling:** Uses SQLite `ON CONFLICT(id) DO UPDATE` to update existing records instead of creating duplicates.
+- **Ordering:** Retrieves all cached SmartPacks in ascending order of their IDs.
+- **Data reconstruction:** Converts flattened SQLite records into the API's nested SmartPack structure, reconstructing the `assigned_to` and `group` objects when their corresponding records are available.
+
+**Filtering and Pagination**
+
+The `getPaginated()` operation retrieves cached SmartPacks, applies the requested filters, and paginates the resulting records locally.
+
+Supported filters include:
+
+| Parameter | Description |
+| --- | --- |
+| `assigned_to` | Filters SmartPacks by the ID of their assigned user. |
+| `group` | Filters SmartPacks by their associated group ID. |
+| `is_assigned` | Filters SmartPacks based on whether they are assigned to a user. |
+| `has_group` | Filters SmartPacks based on whether they belong to a group. |
+
+Multiple filters can be combined. Filtering is performed before pagination to ensure that the returned results and total count reflect the matching records.
+
+**Transaction Management**
+
+The `save()` operation inserts or updates a SmartPack using a single SQL statement.
+
+The `saveList()` operation uses a SQLite transaction to ensure that all SmartPack records are persisted atomically.
+
+1. Begins a transaction.
+2. Saves each SmartPack by delegating to `save()`.
+3. Commits the transaction when all SmartPacks are saved successfully.
+4. Rolls back the transaction if any SmartPack fails to save.
+5. Logs rollback failures while preserving the original database error.
+
+Individual `save()` calls disable automatic transaction handling so that they can execute within the transaction managed by `saveList()`.
+
+The `getAll()` and `get()` operations retrieve cached SmartPack records and reconstruct their nested data structures, while `deleteById()` and `clear()` remove individual or all cached SmartPack records, respectively.
+
+
 ## 5. Cache Utilities
 
 The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.

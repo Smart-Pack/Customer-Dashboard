@@ -5,6 +5,7 @@
 
 import * as users from './users'
 import * as groups from './groups'
+import * as smartpacks from './smartpacks'
 import * as notificationPreferences from './notificationPreferences'
 
 /**
@@ -16,6 +17,7 @@ import * as notificationPreferences from './notificationPreferences'
 async function clearAll(): Promise<void> {
   await users.clear()
   await notificationPreferences.clear()
+  await smartpacks.clear()
   await groups.clear()
 }
 
@@ -23,9 +25,10 @@ const repositories = {
   users,
   notificationPreferences,
   groups,
+  smartpacks,
   clearAll,
 }
 
-export { users, notificationPreferences, groups, clearAll }
+export { users, notificationPreferences, groups, smartpacks, clearAll }
 
 export default repositories
