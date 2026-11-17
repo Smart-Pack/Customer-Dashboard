@@ -1,6 +1,15 @@
 import { Capacitor } from '@capacitor/core'
 import { isAxiosError } from 'axios'
 
+import type { PaginatedResponse, PaginationQueryParams } from '@/api/types'
+
+interface PaginatedCacheOptions<T, P extends PaginationQueryParams> {
+  fetcher: (params: P) => Promise<PaginatedResponse<T>>
+  params: P
+  save: (items: T[]) => Promise<void>
+  getCached: (params: P) => Promise<PaginatedResponse<T>>
+}
+
 interface CacheRepository<T> {
   get: () => Promise<T | null>
   save: (data: T) => Promise<void>
@@ -54,6 +63,56 @@ async function fetchWithCache<T>(
 }
 
 /**
+ * Fetches paginated data from the API and falls back to locally cached
+ * records when the native application has no network connection.
+ *
+ * - Web: Always uses the API.
+ * - Native: Uses the API when available and caches successful results.
+ * - Native offline: Returns locally cached records, paginated locally.
+ *
+ * Cache failures do not affect successful API responses.
+ *
+ * @param options - API fetcher, query parameters, and cache operations.
+ * @returns The API or locally paginated response.
+ */
+async function fetchPaginatedWithCache<T, P extends PaginationQueryParams>({
+  fetcher,
+  params,
+  save,
+  getCached,
+}: PaginatedCacheOptions<T, P>): Promise<PaginatedResponse<T>> {
+  const isNative = Capacitor.isNativePlatform()
+
+  try {
+    const response = await fetcher(params)
+
+    if (isNative) {
+      try {
+        await save(response.results)
+      } catch (error) {
+        console.error('[Database] Failed to cache API response:', error)
+      }
+    }
+
+    return response
+  } catch (error) {
+    if (isNative && isAxiosError(error) && !error.response) {
+      try {
+        const cachedResponse = await getCached(params)
+
+        console.info('[Database] Returning locally cached paginated data.')
+
+        return cachedResponse
+      } catch (cacheError) {
+        console.error('[Database] Failed to retrieve cached data:', cacheError)
+      }
+    }
+
+    throw error
+  }
+}
+
+/**
  * Updates the local SQLite cache on native platforms.
  *
  * @param data - Object to cache.
@@ -69,4 +128,4 @@ async function updateCache<T>(data: T, repository: CacheRepository<T>): Promise<
   }
 }
 
-export { updateCache, fetchWithCache }
+export { fetchPaginatedWithCache, updateCache, fetchWithCache }

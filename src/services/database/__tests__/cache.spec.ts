@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Capacitor } from '@capacitor/core'
-import { fetchWithCache, updateCache } from '../cache'
+import { fetchPaginatedWithCache, fetchWithCache, updateCache } from '../cache'
+
+import type { PaginatedResponse, PaginationQueryParams } from '@/api/types'
 
 vi.mock('@capacitor/core', () => ({
   Capacitor: {
@@ -21,6 +23,36 @@ interface MockRepository {
 const mockData: MockData = {
   id: 1,
   name: 'Test data',
+}
+
+const mockPaginatedData: PaginatedResponse<MockData> = {
+  count: 2,
+  next: 'http://localhost/api/items/?page=2',
+  previous: null,
+  results: [mockData, { id: 2, name: 'Another test data' }],
+}
+
+interface MockPaginationParams extends PaginationQueryParams {
+  search?: string
+}
+
+function createPaginatedCacheOptions() {
+  const params: MockPaginationParams = {
+    page: 1,
+    page_size: 10,
+    search: 'test',
+  }
+
+  return {
+    params,
+    fetcher: vi
+      .fn<(params: MockPaginationParams) => Promise<PaginatedResponse<MockData>>>()
+      .mockResolvedValue(mockPaginatedData),
+    save: vi.fn<(items: MockData[]) => Promise<void>>().mockResolvedValue(undefined),
+    getCached: vi
+      .fn<(params: MockPaginationParams) => Promise<PaginatedResponse<MockData>>>()
+      .mockResolvedValue(mockPaginatedData),
+  }
 }
 
 function createRepository(): MockRepository {
@@ -165,6 +197,126 @@ describe('Database Cache Utilities', () => {
       await expect(fetchWithCache(fetcher, repository)).rejects.toBe(networkError)
 
       expect(repository.get).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('fetchPaginatedWithCache()', () => {
+    it('should return the API response and save results on native platforms', async () => {
+      const options = createPaginatedCacheOptions()
+
+      const result = await fetchPaginatedWithCache(options)
+
+      expect(result).toEqual(mockPaginatedData)
+      expect(options.fetcher).toHaveBeenCalledExactlyOnceWith(options.params)
+      expect(options.save).toHaveBeenCalledExactlyOnceWith(mockPaginatedData.results)
+      expect(options.getCached).not.toHaveBeenCalled()
+    })
+
+    it('should return the API response without saving on web platforms', async () => {
+      vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false)
+
+      const options = createPaginatedCacheOptions()
+
+      const result = await fetchPaginatedWithCache(options)
+
+      expect(result).toEqual(mockPaginatedData)
+      expect(options.fetcher).toHaveBeenCalledExactlyOnceWith(options.params)
+      expect(options.save).not.toHaveBeenCalled()
+      expect(options.getCached).not.toHaveBeenCalled()
+    })
+
+    it('should return the API response when saving results to cache fails', async () => {
+      const options = createPaginatedCacheOptions()
+
+      options.save.mockRejectedValue(new Error('Database save failed'))
+
+      const result = await fetchPaginatedWithCache(options)
+
+      expect(result).toEqual(mockPaginatedData)
+      expect(console.error).toHaveBeenCalledWith(
+        '[Database] Failed to cache API response:',
+        expect.any(Error),
+      )
+    })
+
+    it('should return locally cached paginated data when the native API request fails due to a network error', async () => {
+      const options = createPaginatedCacheOptions()
+
+      const networkError = createNetworkError()
+
+      options.fetcher.mockRejectedValue(networkError)
+
+      const result = await fetchPaginatedWithCache(options)
+
+      expect(result).toEqual(mockPaginatedData)
+      expect(options.getCached).toHaveBeenCalledExactlyOnceWith(options.params)
+      expect(options.save).not.toHaveBeenCalled()
+    })
+
+    it('should throw the original network error when no cached data is available', async () => {
+      const options = createPaginatedCacheOptions()
+      const networkError = createNetworkError()
+
+      options.fetcher.mockRejectedValue(networkError)
+      options.getCached.mockRejectedValue(new Error('Database read failed'))
+
+      await expect(fetchPaginatedWithCache(options)).rejects.toBe(networkError)
+
+      expect(options.getCached).toHaveBeenCalledOnce()
+      expect(console.error).toHaveBeenCalledWith(
+        '[Database] Failed to retrieve cached data:',
+        expect.any(Error),
+      )
+    })
+
+    it('should throw the original network error when the cache retrieval fails', async () => {
+      const options = createPaginatedCacheOptions()
+      const networkError = createNetworkError()
+
+      options.fetcher.mockRejectedValue(networkError)
+      options.getCached.mockRejectedValue(new Error('Database read failed'))
+
+      await expect(fetchPaginatedWithCache(options)).rejects.toBe(networkError)
+    })
+
+    it('should throw HTTP errors without attempting to retrieve cached data', async () => {
+      const options = createPaginatedCacheOptions()
+      const apiError = createApiError()
+
+      options.fetcher.mockRejectedValue(apiError)
+
+      await expect(fetchPaginatedWithCache(options)).rejects.toBe(apiError)
+
+      expect(options.getCached).not.toHaveBeenCalled()
+      expect(options.save).not.toHaveBeenCalled()
+    })
+
+    it('should throw network errors on web platforms without retrieving cached data', async () => {
+      vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false)
+
+      const options = createPaginatedCacheOptions()
+      const networkError = createNetworkError()
+
+      options.fetcher.mockRejectedValue(networkError)
+
+      await expect(fetchPaginatedWithCache(options)).rejects.toBe(networkError)
+
+      expect(options.getCached).not.toHaveBeenCalled()
+      expect(options.save).not.toHaveBeenCalled()
+    })
+
+    it('should pass pagination and resource-specific parameters to the cache getter', async () => {
+      const options = createPaginatedCacheOptions()
+
+      options.fetcher.mockRejectedValue(createNetworkError())
+
+      await fetchPaginatedWithCache(options)
+
+      expect(options.getCached).toHaveBeenCalledExactlyOnceWith({
+        page: 1,
+        page_size: 10,
+        search: 'test',
+      })
     })
   })
 
