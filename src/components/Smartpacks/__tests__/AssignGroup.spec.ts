@@ -1,9 +1,32 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { vi, beforeEach, describe, expect, it } from 'vitest'
 
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
 import type { Group } from '@/api/modules/groups'
+import { listWithCache } from '@/api/modules/groups'
+import type { GroupQueryParams } from '@/api/modules/groups'
+import type { User } from '@/api/modules/users'
+import { mockUser } from '@/tests/constants'
+
+vi.mock('@/api/modules/groups', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/modules/groups')>()
+
+  return {
+    ...actual,
+    listWithCache: vi.fn<typeof actual.listWithCache>(),
+  }
+})
+
+const mockAuthStore = vi.hoisted(() => ({
+  loggedInUser: null as User | null,
+}))
+
+vi.mock('@/stores/modules/auth', () => ({
+  useAuthStore: () => mockAuthStore,
+}))
+
+const mockGroupsList = vi.mocked(listWithCache)
 
 const mockGroup: Group = {
   id: 1,
@@ -17,13 +40,6 @@ const mountAssignGroup = (props: { submitting: boolean } = { submitting: false }
   mount(AssignGroup, {
     props,
     global: {
-      mocks: {
-        $api: {
-          groups: {
-            list: () => Promise.resolve({ count: 0, next: null, previous: null, results: [] }),
-          },
-        },
-      },
       stubs: {
         TablePageLayout: true,
       },
@@ -37,6 +53,19 @@ const selectGroup = async (wrapper: ReturnType<typeof mountAssignGroup>, groups:
 }
 
 describe('AssignGroup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuthStore.loggedInUser = {
+      ...mockUser,
+    }
+
+    mockGroupsList.mockResolvedValue({
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    })
+  })
   describe('rendering', () => {
     it('renders a TablePageLayout', () => {
       const wrapper = mountAssignGroup()
@@ -71,6 +100,25 @@ describe('AssignGroup', () => {
       expect(buttons).toHaveLength(2)
       expect(buttons[0]?.text()).toBe('Cancel')
       expect(buttons[1]?.text()).toBe('Assign Group')
+    })
+    it('fetches groups using listWithCache and authenticated user groups', async () => {
+      const wrapper = mountAssignGroup()
+      const layout = wrapper.findComponent(TablePageLayout)
+
+      const getter = layout.props('getter') as (params: GroupQueryParams) => Promise<unknown>
+
+      const params: GroupQueryParams = {
+        has_admin_access: true,
+        page: 2,
+        page_size: 10,
+      }
+
+      await getter(params)
+
+      expect(mockGroupsList).toHaveBeenCalledExactlyOnceWith(
+        params,
+        mockAuthStore.loggedInUser?.groups,
+      )
     })
   })
 
