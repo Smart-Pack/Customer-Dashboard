@@ -222,7 +222,7 @@ describe('Group Members Repository', () => {
       expect(mocks.db.run).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM cached_group_members'),
         [1, 1, 2],
-        true,
+        false,
       )
 
       expect(mocks.db.run).toHaveBeenCalledTimes(3)
@@ -238,7 +238,7 @@ describe('Group Members Repository', () => {
       expect(mocks.db.run).toHaveBeenCalledExactlyOnceWith(
         expect.stringContaining('DELETE FROM cached_group_members WHERE group_id = ?'),
         [1],
-        true,
+        false,
       )
 
       expect(mocks.db.commitTransaction).toHaveBeenCalledOnce()

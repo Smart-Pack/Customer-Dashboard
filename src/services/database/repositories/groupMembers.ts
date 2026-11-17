@@ -1,4 +1,6 @@
 import { getDatabase } from '../database'
+import { withTransaction } from '../transaction'
+import type { SQLiteDBConnection } from '@capacitor-community/sqlite'
 import { paginate } from '../pagination'
 
 import type { GroupMember } from '@/api/modules/groups'
@@ -51,31 +53,11 @@ function mapRow(row: CachedGroupMemberRow): CachedGroupMember {
   }
 }
 
-/**
- * Saves a group member to the local SQLite database.
- *
- * Inserts a new member or updates an existing record when its
- * group ID and member ID already exist.
- *
- * @param groupId - ID of the group the member belongs to.
- * @param member - Group member retrieved from the API.
- */
-async function save(groupId: number, member: GroupMember): Promise<void> {
-  const db = await getDatabase()
-
+async function upsert(db: SQLiteDBConnection, groupId: number, member: GroupMember): Promise<void> {
   await db.run(
     `INSERT INTO cached_group_members (
-      id,
-      group_id,
-      user_id,
-      user_uuid,
-      user_full_name,
-      user_email,
-      user_phone,
-      role,
-      created,
-      updated,
-      cached_at
+      id, group_id, user_id, user_uuid, user_full_name,
+      user_email, user_phone, role, created, updated, cached_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(group_id, id) DO UPDATE SET
       user_id = excluded.user_id,
@@ -105,6 +87,19 @@ async function save(groupId: number, member: GroupMember): Promise<void> {
 }
 
 /**
+ * Saves a group member to the local SQLite database.
+ *
+ * Inserts a new member or updates an existing record when its
+ * group ID and member ID already exist.
+ *
+ * @param groupId - ID of the group the member belongs to.
+ * @param member - Group member retrieved from the API.
+ */
+async function save(groupId: number, member: GroupMember): Promise<void> {
+  await withTransaction((db) => upsert(db, groupId, member))
+}
+
+/**
  * Saves a list of group members to the local SQLite database.
  *
  * Uses a transaction to ensure all members are persisted together.
@@ -114,26 +109,13 @@ async function save(groupId: number, member: GroupMember): Promise<void> {
  * @param members - Group members retrieved from the API.
  */
 async function saveList(groupId: number, members: GroupMember[]): Promise<void> {
-  const db = await getDatabase()
-
   try {
-    await db.beginTransaction()
-
-    for (const member of members) {
-      await save(groupId, member)
-    }
-
-    await db.commitTransaction()
+    await withTransaction(async (db) => {
+      for (const member of members) {
+        await upsert(db, groupId, member)
+      }
+    })
   } catch (error) {
-    try {
-      await db.rollbackTransaction()
-    } catch (rollbackError) {
-      console.error(
-        '[Database] Failed to roll back group members cache transaction:',
-        rollbackError,
-      )
-    }
-
     console.error('[Database] Failed to save group members:', error)
     throw error
   }
@@ -151,44 +133,25 @@ async function saveList(groupId: number, members: GroupMember[]): Promise<void> 
  * @param members - Latest group members retrieved from the API.
  */
 async function replaceList(groupId: number, members: GroupMember[]): Promise<void> {
-  const db = await getDatabase()
-
   try {
-    await db.beginTransaction()
+    await withTransaction(async (db) => {
+      if (members.length > 0) {
+        const placeholders = members.map(() => '?').join(', ')
+        await db.run(
+          `DELETE FROM cached_group_members
+           WHERE group_id = ? AND id NOT IN (${placeholders})`,
+          [groupId, ...members.map((m) => m.id)],
+          false,
+        )
+      } else {
+        await db.run('DELETE FROM cached_group_members WHERE group_id = ?', [groupId], false)
+      }
 
-    // Remove existing members that are no longer in the API response.
-    if (members.length > 0) {
-      const memberIds = members.map((member) => member.id)
-      const placeholders = memberIds.map(() => '?').join(', ')
-
-      await db.run(
-        `DELETE FROM cached_group_members
-         WHERE group_id = ?
-         AND id NOT IN (${placeholders})`,
-        [groupId, ...memberIds],
-        true,
-      )
-    } else {
-      // An empty API response means the group has no members.
-      await db.run('DELETE FROM cached_group_members WHERE group_id = ?', [groupId], true)
-    }
-
-    // Insert new members and update existing ones.
-    for (const member of members) {
-      await save(groupId, member)
-    }
-
-    await db.commitTransaction()
+      for (const member of members) {
+        await upsert(db, groupId, member)
+      }
+    })
   } catch (error) {
-    try {
-      await db.rollbackTransaction()
-    } catch (rollbackError) {
-      console.error(
-        '[Database] Failed to roll back group members replacement transaction:',
-        rollbackError,
-      )
-    }
-
     console.error('[Database] Failed to replace group members:', error)
     throw error
   }

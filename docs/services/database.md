@@ -53,19 +53,22 @@ src/
 └── services/
     └── database/
         ├── database.ts
+        ├── transaction.ts
         └── index.ts
 ```
 
 - `database.ts`: Implements database initialization, connection retrieval, and connection closing.
-- `index.ts`: Exposes the database service functions through a public module interface.
+- `transaction.ts`: Provides `withTransaction()` for executing database operations within a transaction. Serializes transaction execution through a queue to prevent concurrent transactions on the shared SQLite connection.
+- `index.ts`: Exposes the database service functions and transaction utilities through a public module interface.
 
 ### Available Functions
 
-| Function               | Description                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `initializeDatabase()` | Initializes the database and returns the database connection. Returns `null` on web platforms.   |
-| `getDatabase()`        | Returns the initialized database connection. Throws an error if initialization has not occurred. |
-| `closeDatabase()`      | Closes the database connection and resets the local connection reference.                        |
+| Function               | Description                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initializeDatabase()` | Initializes the database and returns the database connection. Returns `null` on web platforms.                                                                |
+| `getDatabase()`        | Returns the initialized database connection. Throws an error if initialization has not occurred.                                                              |
+| `closeDatabase()`      | Closes the database connection and resets the local connection reference.                                                                                     |
+| `withTransaction()`    | Executes an asynchronous database operation within a transaction. Queues transaction operations to prevent overlapping transactions on the shared connection. |
 
 ### Application Startup Integration
 
@@ -401,15 +404,15 @@ Group summaries are cached to support offline access to the user's groups, inclu
 
 **Available Operations**
 
-| Function | Description |
-| --- | --- |
-| `save(group)` | Saves or updates a cached group summary. |
-| `saveList(groups)` | Saves multiple group summaries within a single transaction. |
-| `getAll()` | Retrieves all cached group summaries, ordered by ID. |
+| Function                           | Description                                                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `save(group)`                      | Saves or updates a cached group summary.                                                                                                |
+| `saveList(groups)`                 | Saves multiple group summaries within a single transaction.                                                                             |
+| `getAll()`                         | Retrieves all cached group summaries, ordered by ID.                                                                                    |
 | `getPaginated(params, userGroups)` | Retrieves cached group summaries, filters them by the authenticated user's group roles, and returns the results using local pagination. |
-| `get(id)` | Retrieves a cached group by its ID or returns `null` when it does not exist. |
-| `deleteById(id)` | Deletes a cached group by its ID. |
-| `clear()` | Deletes all cached group summaries. |
+| `get(id)`                          | Retrieves a cached group by its ID or returns `null` when it does not exist.                                                            |
+| `deleteById(id)`                   | Deletes a cached group by its ID.                                                                                                       |
+| `clear()`                          | Deletes all cached group summaries.                                                                                                     |
 
 **Data Handling**
 
@@ -447,16 +450,16 @@ SmartPacks are cached to support offline access to device information, including
 
 **Available Operations**
 
-| Function | Description |
-| --- | --- |
-| `save(smartPack)` | Saves or updates a cached SmartPack record. |
-| `saveList(smartPacks)` | Saves multiple SmartPack records within a single transaction. |
-| `getAll()` | Retrieves all cached SmartPacks, ordered by ID. |
-| `getPaginated(params)` | Retrieves cached SmartPacks, applies assignment and group filters, and returns the results using local pagination. |
-| `get(id)` | Retrieves a cached SmartPack by its ID or returns `null` when it does not exist. |
-| `getByGroupId(groupId)` | Retrieves cached SmartPacks belonging to the specified group ID. |
-| `deleteById(id)` | Deletes a cached SmartPack by its ID. |
-| `clear()` | Deletes all cached SmartPack records. |
+| Function                | Description                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `save(smartPack)`       | Saves or updates a cached SmartPack record.                                                                        |
+| `saveList(smartPacks)`  | Saves multiple SmartPack records within a single transaction.                                                      |
+| `getAll()`              | Retrieves all cached SmartPacks, ordered by ID.                                                                    |
+| `getPaginated(params)`  | Retrieves cached SmartPacks, applies assignment and group filters, and returns the results using local pagination. |
+| `get(id)`               | Retrieves a cached SmartPack by its ID or returns `null` when it does not exist.                                   |
+| `getByGroupId(groupId)` | Retrieves cached SmartPacks belonging to the specified group ID.                                                   |
+| `deleteById(id)`        | Deletes a cached SmartPack by its ID.                                                                              |
+| `clear()`               | Deletes all cached SmartPack records.                                                                              |
 
 **Data Handling**
 
@@ -477,12 +480,12 @@ The `getPaginated()` operation retrieves cached SmartPacks, applies the requeste
 
 Supported filters include:
 
-| Parameter | Description |
-| --- | --- |
-| `assigned_to` | Filters SmartPacks by the ID of their assigned user. |
-| `group` | Filters SmartPacks by their associated group ID. |
+| Parameter     | Description                                                      |
+| ------------- | ---------------------------------------------------------------- |
+| `assigned_to` | Filters SmartPacks by the ID of their assigned user.             |
+| `group`       | Filters SmartPacks by their associated group ID.                 |
 | `is_assigned` | Filters SmartPacks based on whether they are assigned to a user. |
-| `has_group` | Filters SmartPacks based on whether they belong to a group. |
+| `has_group`   | Filters SmartPacks based on whether they belong to a group.      |
 
 Multiple filters can be combined. Filtering is performed before pagination to ensure that the returned results and total count reflect the matching records.
 
@@ -514,18 +517,18 @@ Group members are cached to support offline access to group membership informati
 
 **Available Operations**
 
-| Function | Description |
-| --- | --- |
-| `save(groupId, member)` | Saves or updates a cached group member. |
-| `saveList(groupId, members)` | Saves multiple group members within a single transaction without removing existing records. |
+| Function                        | Description                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `save(groupId, member)`         | Saves or updates a cached group member.                                                                                                                |
+| `saveList(groupId, members)`    | Saves multiple group members within a single transaction without removing existing records.                                                            |
 | `replaceList(groupId, members)` | Synchronizes cached group members with the supplied list, inserting new records, updating existing records, and deleting records absent from the list. |
-| `getAll()` | Retrieves all cached group members. |
-| `get(groupId, id)` | Retrieves a cached group member using its group ID and member ID, or returns `null` when it does not exist. |
-| `getByGroupId(groupId)` | Retrieves all cached members belonging to a specific group. |
-| `getPaginated(params)` | Retrieves cached group members, applies group membership and role filters, and returns the results using local pagination. |
-| `deleteByGroupId(groupId)` | Deletes all cached members belonging to a specific group. |
-| `deleteById(groupId, id)` | Deletes a specific cached group member. |
-| `clear()` | Deletes all cached group member records. |
+| `getAll()`                      | Retrieves all cached group members.                                                                                                                    |
+| `get(groupId, id)`              | Retrieves a cached group member using its group ID and member ID, or returns `null` when it does not exist.                                            |
+| `getByGroupId(groupId)`         | Retrieves all cached members belonging to a specific group.                                                                                            |
+| `getPaginated(params)`          | Retrieves cached group members, applies group membership and role filters, and returns the results using local pagination.                             |
+| `deleteByGroupId(groupId)`      | Deletes all cached members belonging to a specific group.                                                                                              |
+| `deleteById(groupId, id)`       | Deletes a specific cached group member.                                                                                                                |
+| `clear()`                       | Deletes all cached group member records.                                                                                                               |
 
 **Data Handling**
 
@@ -545,11 +548,11 @@ The `getPaginated()` operation retrieves cached group members, applies the reque
 
 Supported filters include:
 
-| Parameter | Description |
-| --- | --- |
-| `group` | Filters members by their associated group ID. |
-| `role` | Filters members by their membership role (`owner`, `admin`, or `member`). |
-| `has_admin_access` | Filters members to include only owners and admins when set to `true`. |
+| Parameter          | Description                                                               |
+| ------------------ | ------------------------------------------------------------------------- |
+| `group`            | Filters members by their associated group ID.                             |
+| `role`             | Filters members by their membership role (`owner`, `admin`, or `member`). |
+| `has_admin_access` | Filters members to include only owners and admins when set to `true`.     |
 
 Multiple filters can be combined. Filtering is performed before pagination to ensure that the returned results and total count reflect the matching records.
 
@@ -580,7 +583,6 @@ Individual `save()` calls disable automatic transaction handling so that they ca
 
 The retrieval operations provide access to cached membership records, while `deleteByGroupId()`, `deleteById()`, and `clear()` support removing cached membership data at different levels.
 
-
 ## 5. Cache Utilities
 
 The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.
@@ -593,12 +595,12 @@ Cache utilities are implemented in:
 
 ### 5.1 Available Utilities
 
-| Function | Description |
-|---|---|
-| `fetchWithCache(fetcher, repository)` | Fetches data from an API, saves successful responses to SQLite on native platforms, and falls back to cached data when the request fails due to a network error. |
+| Function                                      | Description                                                                                                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fetchWithCache(fetcher, repository)`         | Fetches data from an API, saves successful responses to SQLite on native platforms, and falls back to cached data when the request fails due to a network error.                                       |
 | `fetchByIdWithCache(fetcher, repository, id)` | Fetches a single record from an API using its ID, saves successful responses to SQLite on native platforms, and falls back to the locally cached record when the request fails due to a network error. |
-| `fetchPaginatedWithCache(options)` | Fetches paginated data from an API, saves successful results to SQLite on native platforms, and falls back to locally cached and paginated data when the request fails due to a network error. |
-| `updateCache(data, repository)` | Saves an object to SQLite on native platforms without requiring the caller to handle platform detection. |
+| `fetchPaginatedWithCache(options)`            | Fetches paginated data from an API, saves successful results to SQLite on native platforms, and falls back to locally cached and paginated data when the request fails due to a network error.         |
+| `updateCache(data, repository)`               | Saves an object to SQLite on native platforms without requiring the caller to handle platform detection.                                                                                               |
 
 ### 5.2 Fetching Data with Cache
 
@@ -621,15 +623,12 @@ HTTP errors and other non-network errors are propagated without attempting cache
 import { fetchWithCache, repositories } from '@/services/database'
 
 // Fetch the authenticated user.
-const user = await fetchWithCache(
-  getMe,
-  repositories.users,
-)
+const user = await fetchWithCache(getMe, repositories.users)
 
 // Fetch notification preferences.
 const preferences = await fetchWithCache(
-  getNotificationPreferences,
-  repositories.notificationPreferences,
+    getNotificationPreferences,
+    repositories.notificationPreferences
 )
 ```
 
@@ -670,8 +669,8 @@ Both utilities accept a repository implementing the following interface:
 
 ```typescript
 interface CacheRepository<T> {
-  get: () => Promise<T | null>
-  save: (data: T) => Promise<void>
+    get: () => Promise<T | null>
+    save: (data: T) => Promise<void>
 }
 ```
 
@@ -681,14 +680,14 @@ Repositories may expose additional operations, such as `clear()`, without affect
 
 ### 5.5 Platform Behaviour
 
-| Operation | Web | Android / iOS |
-|---|---|---|
-| API request | Executes normally | Executes normally |
-| Save successful API response | Skipped | Performed |
-| Retrieve cached data after network failure | Skipped | Attempted |
-| Return cached data when available | No | Yes |
-| Explicit cache update | Skipped | Performed |
-| Cache persistence failure | Not applicable | Logged without affecting the main operation |
+| Operation                                  | Web               | Android / iOS                               |
+| ------------------------------------------ | ----------------- | ------------------------------------------- |
+| API request                                | Executes normally | Executes normally                           |
+| Save successful API response               | Skipped           | Performed                                   |
+| Retrieve cached data after network failure | Skipped           | Attempted                                   |
+| Return cached data when available          | No                | Yes                                         |
+| Explicit cache update                      | Skipped           | Performed                                   |
+| Cache persistence failure                  | Not applicable    | Logged without affecting the main operation |
 
 ### 5.6 Error Handling
 
@@ -720,7 +719,6 @@ Run the cache utility tests with:
 pnpm vitest --run src/services/database/__tests__/cache.spec.ts
 ```
 
-
 ## Logging and Troubleshooting
 
 The database service provides console messages for initialization events.
@@ -748,7 +746,6 @@ To clear previous logs before testing:
 ```bash
 adb logcat -c
 ```
-
 
 ### Current Implementation Notes
 
