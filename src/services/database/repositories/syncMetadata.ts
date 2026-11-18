@@ -159,4 +159,39 @@ async function clear(): Promise<void> {
   await db.run('DELETE FROM sync_metadata', [], false)
 }
 
-export { get, getAll, save, deleteByModule, clear }
+/**
+ * Retrieves the most recent successful synchronization timestamp.
+ *
+ * Uses the last successful timestamp of each module, regardless of its
+ * current synchronization status.
+ *
+ * @returns The latest successful synchronization timestamp, or null
+ *          if no module has successfully synchronized.
+ */
+async function getLastSyncedAt(): Promise<string | null> {
+  const metadata = await getAll()
+
+  const timestamps = metadata
+    .map((record) => record.last_synced_at)
+    .filter((timestamp): timestamp is string => timestamp !== null)
+
+  if (timestamps.length === 0) return null
+
+  return timestamps.reduce((latest, current) =>
+    new Date(current).getTime() > new Date(latest).getTime() ? current : latest,
+  )
+}
+
+/**
+ * Checks whether all registered synchronization modules have
+ * successfully synchronized.
+ *
+ * @returns True when all metadata records have a successful status.
+ */
+async function isFullySynced(): Promise<boolean> {
+  const metadata = await getAll()
+
+  return metadata.length > 0 && metadata.every((record) => record.sync_status === 'success')
+}
+
+export { get, getAll, save, deleteByModule, clear, getLastSyncedAt, isFullySynced }

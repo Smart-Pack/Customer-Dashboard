@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clear, deleteByModule, get, getAll, save } from '../syncMetadata'
+import {
+  clear,
+  deleteByModule,
+  get,
+  getAll,
+  getLastSyncedAt,
+  isFullySynced,
+  save,
+} from '../syncMetadata'
 
 import type { SyncMetadata } from '../syncMetadata'
 
@@ -29,6 +37,24 @@ const mockSyncMetadata: SyncMetadata = {
   last_attempted_at: '2026-11-18T09:00:00.000Z',
   last_error: null,
 }
+
+const mockMetadataRecords: SyncMetadata[] = [
+  mockSyncMetadata,
+  {
+    module: 'groups',
+    last_synced_at: '2026-11-18T10:00:00.000Z',
+    sync_status: 'success',
+    last_attempted_at: '2026-11-18T10:00:00.000Z',
+    last_error: null,
+  },
+  {
+    module: 'notifications',
+    last_synced_at: null,
+    sync_status: 'idle',
+    last_attempted_at: null,
+    last_error: null,
+  },
+]
 
 describe('Sync Metadata Repository', () => {
   beforeEach(() => {
@@ -82,6 +108,189 @@ describe('Sync Metadata Repository', () => {
       mocks.db.query.mockRejectedValue(error)
 
       await expect(get('smartpacks')).rejects.toThrow(error)
+    })
+  })
+
+  // ---------------------------------------------------------
+  // getLastSyncedAt
+  // ---------------------------------------------------------
+
+  describe('getLastSyncedAt', () => {
+    it('returns the latest successful synchronization timestamp', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: mockMetadataRecords,
+      })
+
+      const result = await getLastSyncedAt()
+
+      expect(result).toBe('2026-11-18T10:00:00.000Z')
+    })
+
+    it('returns null when no metadata records exist', async () => {
+      mocks.db.query.mockResolvedValue({ values: [] })
+
+      const result = await getLastSyncedAt()
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when no module has a successful synchronization timestamp', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          {
+            ...mockSyncMetadata,
+            last_synced_at: null,
+            sync_status: 'failed',
+          },
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+            last_synced_at: null,
+            sync_status: 'idle',
+          },
+        ],
+      })
+
+      const result = await getLastSyncedAt()
+
+      expect(result).toBeNull()
+    })
+
+    it('uses previous successful timestamps even when modules have failed', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          {
+            ...mockSyncMetadata,
+            last_synced_at: '2026-11-18T09:00:00.000Z',
+            sync_status: 'failed',
+            last_error: 'Network unavailable',
+          },
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+            last_synced_at: '2026-11-18T10:00:00.000Z',
+            sync_status: 'success',
+          },
+        ],
+      })
+
+      const result = await getLastSyncedAt()
+
+      expect(result).toBe('2026-11-18T10:00:00.000Z')
+    })
+
+    it('ignores null timestamps', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          {
+            ...mockSyncMetadata,
+            last_synced_at: null,
+            sync_status: 'idle',
+          },
+          mockSyncMetadata,
+        ],
+      })
+
+      const result = await getLastSyncedAt()
+
+      expect(result).toBe(mockSyncMetadata.last_synced_at)
+    })
+
+    it('propagates database errors', async () => {
+      const error = new Error('Database error')
+
+      mocks.db.query.mockRejectedValue(error)
+
+      await expect(getLastSyncedAt()).rejects.toThrow(error)
+    })
+  })
+
+  // ---------------------------------------------------------
+  // isFullySynced
+  // ---------------------------------------------------------
+
+  describe('isFullySynced', () => {
+    it('returns true when all modules have successfully synchronized', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          mockSyncMetadata,
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+          },
+        ],
+      })
+
+      const result = await isFullySynced()
+
+      expect(result).toBe(true)
+    })
+
+    it('returns false when no metadata records exist', async () => {
+      mocks.db.query.mockResolvedValue({ values: [] })
+
+      const result = await isFullySynced()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when at least one module is idle', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          mockSyncMetadata,
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+            sync_status: 'idle',
+          },
+        ],
+      })
+
+      const result = await isFullySynced()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when at least one module has failed', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          mockSyncMetadata,
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+            sync_status: 'failed',
+          },
+        ],
+      })
+
+      const result = await isFullySynced()
+
+      expect(result).toBe(false)
+    })
+
+    it('returns false when at least one module is syncing', async () => {
+      mocks.db.query.mockResolvedValue({
+        values: [
+          mockSyncMetadata,
+          {
+            ...mockSyncMetadata,
+            module: 'groups',
+            sync_status: 'syncing',
+          },
+        ],
+      })
+
+      const result = await isFullySynced()
+
+      expect(result).toBe(false)
+    })
+
+    it('propagates database errors', async () => {
+      const error = new Error('Database error')
+
+      mocks.db.query.mockRejectedValue(error)
+
+      await expect(isFullySynced()).rejects.toThrow(error)
     })
   })
 

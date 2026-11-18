@@ -861,6 +861,8 @@ The repository maintains synchronization state independently for each cached mod
 |---|---|
 | `get(module)` | Retrieves synchronization metadata for a specific module. |
 | `getAll()` | Retrieves synchronization metadata for all registered modules. |
+| `getLastSyncedAt()` | Retrieves the most recent successful synchronization timestamp across all modules, returning `null` if none exists. |
+| `isFullySynced()` | Checks whether all registered modules have successfully synchronized. Returns `false` if no metadata records exist or any module has not synchronized successfully. |
 | `save(metadata)` | Creates or updates synchronization metadata for a module. |
 | `deleteByModule(module)` | Deletes synchronization metadata associated with a specific module. |
 | `clear()` | Removes all synchronization metadata records. |
