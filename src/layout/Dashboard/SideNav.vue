@@ -69,11 +69,42 @@
         </span>
       </button>
     </div>
+
+    <!-- Manual Synchronization (Mobile Only) -->
+    <button
+      v-if="isMobileDevice"
+      type="button"
+      class="primary-text center-flex-col gap-1 mb-4 py-2 px-4 text-center disabled:opacity-50"
+      :disabled="isSyncing"
+      :aria-label="isSyncing ? 'Synchronizing data' : 'Synchronize data now'"
+      @click="handleManualSync"
+    >
+      <RefreshIcon class="w-6 h-6" />
+
+      <span class="text-xs font-poppins font-semibold"> Sync Now </span>
+
+      <div v-if="isSyncing" class="submit-spinner"></div>
+    </button>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { markRaw } from 'vue'
+/**
+ * @module components/Dashboard/SideNav
+ * @description
+ * Provides the dashboard's responsive side navigation, including navigation
+ * links, mobile user information, theme switching, and logout functionality.
+ *
+ * On mobile devices, it also provides manual cache synchronization and
+ * manages automatic synchronization through a 30-minute scheduler.
+ * Synchronization is triggered when the application starts and whenever
+ * it returns to the foreground.
+ *
+ * Automatic synchronization failures are logged, while manual synchronization
+ * provides success and error notifications to the user.
+ */
+import { onMounted, onUnmounted, ref, markRaw } from 'vue'
+import { App } from '@capacitor/app'
 import { useRoute, useRouter } from 'vue-router'
 
 import HomeIcon from '@/components/Icons/HomeIcon.vue'
@@ -83,8 +114,13 @@ import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import LightModeIcon from '@/components/Icons/LightModeIcon.vue'
 import LogOutIcon from '@/components/Icons/LogOutIcon.vue'
 import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
+import RefreshIcon from '@/components/Icons/RefreshIcon.vue'
+
 import { useAuthStore, useUiStore } from '@/stores'
+import { useGlobals } from '@/composables/useGlobals'
+import { isMobile } from '@/utils/platform'
 import { withCacheBust } from '@/utils/urlSecurity'
+import { startSyncScheduler, stopSyncScheduler, triggerSync } from '@/services/database/sync'
 
 defineOptions({
   name: 'DashboardSideNav',
@@ -103,6 +139,14 @@ const route = useRoute()
 
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+const { $notifySuccess, $notifyError } = useGlobals()
+
+const isMobileDevice = isMobile()
+const isSyncing = ref(false)
+
+let appStateListener: Awaited<ReturnType<typeof App.addListener>> | null = null
+let isUnmounted = false
 
 function toggleTheme(): void {
   uiStore.updateThemePreference(uiStore.isLightMode ? 2 : 1)
@@ -129,6 +173,71 @@ function navigateTo(item: MenuItem): void {
 async function logout(): Promise<void> {
   await authStore.logOut()
   await router.push({ name: 'login' })
+}
+
+/**
+ * Manually synchronizes cached data with the backend.
+ *
+ * Unlike automatic synchronization, manual synchronization provides
+ * feedback to the user through success and error notifications.
+ */
+async function handleManualSync(): Promise<void> {
+  if (isSyncing.value) {
+    return
+  }
+
+  isSyncing.value = true
+
+  try {
+    await triggerSync()
+    await $notifySuccess('Data synchronized successfully.')
+  } catch (error) {
+    console.error('Manual synchronization failed:', error)
+
+    const message =
+      error instanceof Error ? error.message : 'Unable to synchronize data. Please try again.'
+
+    await $notifyError(message)
+  } finally {
+    isSyncing.value = false
+  }
+}
+
+/**
+ * Starts mobile synchronization services.
+ *
+ * Synchronization runs immediately, then every 30 minutes.
+ * The app-state listener also triggers synchronization whenever
+ * the application returns to the foreground.
+ */
+function startMobileSync(): void {
+  startSyncScheduler({
+    intervalMs: 30 * 60 * 1000,
+    onError: (error) => {
+      console.error('Automatic synchronization failed:', error)
+    },
+  })
+
+  void App.addListener('appStateChange', ({ isActive }) => {
+    if (!isActive) {
+      return
+    }
+
+    void triggerSync().catch((error) => {
+      console.error('Foreground synchronization failed:', error)
+    })
+  })
+    .then((listener) => {
+      if (isUnmounted) {
+        void listener.remove()
+        return
+      }
+
+      appStateListener = listener
+    })
+    .catch((error) => {
+      console.error('Failed to register app-state listener:', error)
+    })
 }
 
 function splitLabel(label: string): string[] {
@@ -166,4 +275,20 @@ const menuItems: MenuItem[] = [
     extraClass: 'lg:hidden',
   },
 ]
+
+onMounted(() => {
+  if (isMobileDevice) {
+    startMobileSync()
+  }
+})
+
+onUnmounted(() => {
+  isUnmounted = true
+
+  if (isMobileDevice) {
+    stopSyncScheduler()
+    void appStateListener?.remove()
+    appStateListener = null
+  }
+})
 </script>

@@ -8,6 +8,33 @@ import type { ApiDetailResponse } from '@/api/types'
 import { useAuthStore, useUiStore } from '@/stores'
 import { mockUser } from '@/tests/constants'
 
+const mocks = vi.hoisted(() => ({
+  isMobile: false,
+
+  startSyncScheduler:
+    vi.fn<(options: { intervalMs: number; onError: (error: unknown) => void }) => void>(),
+
+  stopSyncScheduler: vi.fn<() => void>(),
+
+  triggerSync: vi.fn<() => Promise<void>>(),
+
+  notifySuccess: vi.fn<(message: string) => void | Promise<void>>(),
+
+  notifyError: vi.fn<(message: string) => void | Promise<void>>(),
+
+  addAppListener:
+    vi.fn<
+      (
+        event: string,
+        callback: (state: { isActive: boolean }) => void,
+      ) => Promise<{ remove: () => Promise<void> }>
+    >(),
+
+  removeAppListener: vi.fn<() => Promise<void>>(),
+
+  appStateCallback: null as ((state: { isActive: boolean }) => void) | null,
+}))
+
 const routerPush = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
 
 const findMenuButton = (
@@ -50,6 +77,29 @@ vi.mock('@/api', () => ({
   },
 }))
 
+vi.mock('@/utils/platform', () => ({
+  isMobile: () => mocks.isMobile,
+}))
+
+vi.mock('@/services/database/sync', () => ({
+  startSyncScheduler: mocks.startSyncScheduler,
+  stopSyncScheduler: mocks.stopSyncScheduler,
+  triggerSync: mocks.triggerSync,
+}))
+
+vi.mock('@/composables/useGlobals', () => ({
+  useGlobals: () => ({
+    $notifySuccess: mocks.notifySuccess,
+    $notifyError: mocks.notifyError,
+  }),
+}))
+
+vi.mock('@capacitor/app', () => ({
+  App: {
+    addListener: mocks.addAppListener,
+  },
+}))
+
 const stubs = {
   HomeIcon: {
     name: 'HomeIcon',
@@ -84,6 +134,10 @@ const stubs = {
   DarkModeIcon: {
     name: 'DarkModeIcon',
     template: '<svg data-testid="dark-mode-icon" />',
+  },
+  RefreshIcon: {
+    name: 'RefreshIcon',
+    template: '<svg data-testid="refresh-icon" />',
   },
 }
 
@@ -123,6 +177,32 @@ describe('SideNav', () => {
     uiStore.themePreference = 0
     uiStore.isLightMode = true
     uiStore.breadcrumbs = []
+
+    mocks.isMobile = false
+
+    mocks.startSyncScheduler.mockReset()
+    mocks.stopSyncScheduler.mockReset()
+    mocks.triggerSync.mockReset()
+    mocks.triggerSync.mockResolvedValue(undefined)
+
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
+
+    mocks.removeAppListener.mockReset()
+
+    mocks.appStateCallback = null
+
+    mocks.addAppListener
+      .mockReset()
+      .mockImplementation(
+        async (_event: string, callback: (state: { isActive: boolean }) => void) => {
+          mocks.appStateCallback = callback
+
+          return {
+            remove: mocks.removeAppListener,
+          }
+        },
+      )
   })
 
   describe('rendering', () => {
@@ -436,6 +516,240 @@ describe('SideNav', () => {
 
       expect(profileButton).toBeDefined()
       expect(profileButton!.classes()).toContain('form-submit')
+    })
+  })
+  describe('mobile synchronization', () => {
+    beforeEach(() => {
+      mocks.isMobile = true
+    })
+
+    it('renders the Sync Now button on mobile', () => {
+      const wrapper = mountSideNav()
+
+      expect(wrapper.find('button[aria-label="Synchronize data now"]').exists()).toBe(true)
+
+      expect(wrapper.findComponent({ name: 'RefreshIcon' }).exists()).toBe(true)
+    })
+
+    it('does not render the Sync Now button on desktop', () => {
+      mocks.isMobile = false
+
+      const wrapper = mountSideNav()
+
+      expect(wrapper.find('button[aria-label="Synchronize data now"]').exists()).toBe(false)
+    })
+
+    it('renders Sync Now below the Logout button', () => {
+      const wrapper = mountSideNav()
+
+      const buttons = wrapper.findAll('nav button')
+
+      const logoutIndex = buttons.findIndex((button) => button.text().includes('Logout'))
+
+      const syncIndex = buttons.findIndex(
+        (button) => button.attributes('aria-label') === 'Synchronize data now',
+      )
+
+      expect(logoutIndex).toBeGreaterThan(-1)
+      expect(syncIndex).toBeGreaterThan(logoutIndex)
+    })
+
+    it('starts the sync scheduler on mobile mount', () => {
+      mountSideNav()
+
+      expect(mocks.startSyncScheduler).toHaveBeenCalledExactlyOnceWith({
+        intervalMs: 30 * 60 * 1000,
+        onError: expect.any(Function),
+      })
+    })
+
+    it('registers an app-state listener on mobile mount', async () => {
+      mountSideNav()
+
+      await flushPromises()
+
+      expect(mocks.addAppListener).toHaveBeenCalledExactlyOnceWith(
+        'appStateChange',
+        expect.any(Function),
+      )
+    })
+
+    it('does not start synchronization services on desktop', () => {
+      mocks.isMobile = false
+
+      mountSideNav()
+
+      expect(mocks.startSyncScheduler).not.toHaveBeenCalled()
+      expect(mocks.addAppListener).not.toHaveBeenCalled()
+    })
+
+    it('triggers synchronization when the application becomes active', async () => {
+      mountSideNav()
+
+      await flushPromises()
+
+      expect(mocks.appStateCallback).not.toBeNull()
+
+      mocks.appStateCallback!({ isActive: true })
+
+      expect(mocks.triggerSync).toHaveBeenCalledExactlyOnceWith()
+    })
+
+    it('does not trigger synchronization when the application becomes inactive', async () => {
+      mountSideNav()
+
+      await flushPromises()
+
+      mocks.appStateCallback!({ isActive: false })
+
+      expect(mocks.triggerSync).not.toHaveBeenCalled()
+    })
+
+    it('stops the scheduler when the component unmounts', () => {
+      const wrapper = mountSideNav()
+
+      wrapper.unmount()
+
+      expect(mocks.stopSyncScheduler).toHaveBeenCalledExactlyOnceWith()
+    })
+
+    it('removes the app-state listener when the component unmounts', async () => {
+      const wrapper = mountSideNav()
+
+      await flushPromises()
+
+      wrapper.unmount()
+
+      expect(mocks.removeAppListener).toHaveBeenCalledExactlyOnceWith()
+    })
+
+    it('logs automatic synchronization failures without displaying notifications', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      mountSideNav()
+
+      const schedulerOptions = mocks.startSyncScheduler.mock.calls[0]?.[0]
+
+      expect(schedulerOptions).toBeDefined()
+
+      schedulerOptions!.onError(new Error('Automatic sync failed'))
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Automatic synchronization failed:',
+        expect.any(Error),
+      )
+
+      expect(mocks.notifySuccess).not.toHaveBeenCalled()
+      expect(mocks.notifyError).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe('manual synchronization', () => {
+    beforeEach(() => {
+      mocks.isMobile = true
+    })
+
+    it('successfully synchronizes data and displays a success notification', async () => {
+      mocks.triggerSync.mockResolvedValue(undefined)
+
+      const wrapper = mountSideNav()
+
+      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+
+      await syncButton.trigger('click')
+      await flushPromises()
+
+      expect(mocks.triggerSync).toHaveBeenCalledExactlyOnceWith()
+
+      expect(mocks.notifySuccess).toHaveBeenCalledExactlyOnceWith('Data synchronized successfully.')
+
+      expect(mocks.notifyError).not.toHaveBeenCalled()
+    })
+
+    it('displays an error notification when synchronization fails', async () => {
+      mocks.triggerSync.mockRejectedValue(new Error('Network unavailable'))
+
+      const wrapper = mountSideNav()
+
+      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+
+      await syncButton.trigger('click')
+      await flushPromises()
+
+      expect(mocks.notifyError).toHaveBeenCalledExactlyOnceWith('Network unavailable')
+
+      expect(mocks.notifySuccess).not.toHaveBeenCalled()
+    })
+
+    it('displays a fallback error message for non-Error failures', async () => {
+      mocks.triggerSync.mockRejectedValue('Unknown failure')
+
+      const wrapper = mountSideNav()
+
+      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+
+      await syncButton.trigger('click')
+      await flushPromises()
+
+      expect(mocks.notifyError).toHaveBeenCalledExactlyOnceWith(
+        'Unable to synchronize data. Please try again.',
+      )
+    })
+
+    it('disables the Sync Now button while synchronization is running', async () => {
+      let resolveSync!: () => void
+
+      mocks.triggerSync.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSync = resolve
+          }),
+      )
+
+      const wrapper = mountSideNav()
+
+      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+
+      await syncButton.trigger('click')
+
+      expect(syncButton.attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.submit-spinner').exists()).toBe(true)
+
+      resolveSync()
+
+      await flushPromises()
+
+      expect(
+        wrapper.find('button[aria-label="Synchronize data now"]').attributes('disabled'),
+      ).toBeUndefined()
+
+      expect(wrapper.find('.submit-spinner').exists()).toBe(false)
+    })
+
+    it('prevents multiple manual synchronization requests while one is running', async () => {
+      let resolveSync!: () => void
+
+      mocks.triggerSync.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSync = resolve
+          }),
+      )
+
+      const wrapper = mountSideNav()
+
+      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+
+      await syncButton.trigger('click')
+      await syncButton.trigger('click')
+
+      expect(mocks.triggerSync).toHaveBeenCalledTimes(1)
+
+      resolveSync()
+
+      await flushPromises()
     })
   })
 })

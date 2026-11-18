@@ -40,7 +40,7 @@ The dashboard route uses the dashboard layout as its parent component:
     },
   ],
 }
-````
+```
 
 The layout is therefore responsible for rendering the shared dashboard shell while the matched child route is rendered through `<router-view />`.
 
@@ -68,13 +68,13 @@ DashboardLayout
 
 It is responsible for:
 
-* SmartPack dashboard branding.
-* Dashboard navigation.
-* Mobile side-navigation toggle.
-* Theme switching.
-* Authenticated-user information.
-* Profile navigation.
-* Logout.
+- SmartPack dashboard branding.
+- Dashboard navigation.
+- Mobile side-navigation toggle.
+- Theme switching.
+- Authenticated-user information.
+- Profile navigation.
+- Logout.
 
 The component manages its own interaction behavior and uses the UI and authentication stores.
 
@@ -84,13 +84,42 @@ The component manages its own interaction behavior and uses the UI and authentic
 
 It is responsible for:
 
-* Dashboard navigation items.
-* Mobile navigation behavior.
-* User information on mobile.
-* Theme switching on mobile.
-* Highlighting the active dashboard section.
+- Dashboard navigation items.
+- Mobile navigation behavior.
+- User information on mobile.
+- Theme switching on mobile.
+- Highlighting the active dashboard section.
+- Manual mobile data synchronization.
+- Managing automatic mobile synchronization.
 
-The side navigation uses the UI store to determine whether it is open and to determine the active breadcrumb.
+#### Mobile Data Synchronization
+
+On mobile devices, the side navigation provides a **Sync Now** button that allows users to manually synchronize locally cached data with the backend.
+
+The button:
+
+- Triggers synchronization of all registered synchronization modules.
+- Displays a loading spinner while synchronization is in progress.
+- Is disabled during an active manual synchronization.
+- Displays a success notification when synchronization completes.
+- Displays an error notification if synchronization fails.
+
+Automatic synchronization is also managed by the side navigation on mobile devices.
+
+It uses the synchronization scheduler with the following behavior:
+
+| Trigger | Behavior |
+| --- | --- |
+| Dashboard navigation mounted | Starts the synchronization scheduler and performs an initial synchronization. |
+| Every 30 minutes | Automatically synchronizes cached data. |
+| Application returns to foreground | Triggers synchronization immediately. |
+| Manual Sync Now action | Triggers synchronization immediately and provides user feedback. |
+
+Automatic synchronization failures are logged without displaying notifications to the user. The scheduler continues running, allowing subsequent synchronization attempts.
+
+The scheduler and application state listener are cleaned up when the side navigation component is unmounted.
+
+These synchronization features are mobile-only and are not initialized on desktop devices.
 
 ### ContentHeader
 
@@ -98,8 +127,8 @@ The side navigation uses the UI store to determine whether it is open and to det
 
 It provides:
 
-* Breadcrumb navigation.
-* Current date information.
+- Breadcrumb navigation.
+- Current date information.
 
 Breadcrumb state is obtained from the UI store and is updated by the router guard.
 
@@ -226,9 +255,11 @@ onMounted(() => {
 
 This ensures that:
 
-* A notification backdrop does not remain active when entering the dashboard.
-* The mobile side navigation starts closed.
-* The document theme matches the current UI store state.
+- A notification backdrop does not remain active when entering the dashboard.
+- The mobile side navigation starts closed.
+- The document theme matches the current UI store state.
+
+Mobile synchronization initialization is handled separately by `SideNav`.
 
 ## Responsive Behavior
 
@@ -238,35 +269,39 @@ The dashboard layout adapts between mobile and desktop screen sizes.
 
 The layout:
 
-* Uses the mobile TopBar.
-* Allows the SideNav to open as an overlay.
-* Displays a backdrop when the SideNav is open.
-* Uses reduced header and content heights.
-* Allows the SideNav to provide mobile-specific controls.
+- Uses the mobile TopBar.
+- Allows the SideNav to open as an overlay.
+- Displays a backdrop when the SideNav is open.
+- Uses reduced header and content heights.
+- Provides mobile-specific controls through the SideNav.
+- Provides manual and automatic data synchronization.
+- Synchronizes cached data every 30 minutes.
+- Triggers synchronization when the application returns to the foreground.
 
 ### Desktop
 
 The layout:
 
-* Displays the TopBar across the page.
-* Keeps the SideNav as part of the dashboard structure.
-* Removes the mobile SideNav backdrop.
-* Uses the larger desktop header and content dimensions.
+- Displays the TopBar across the page.
+- Keeps the SideNav as part of the dashboard structure.
+- Removes the mobile SideNav backdrop.
+- Uses the larger desktop header and content dimensions.
+- Does not initialize the mobile synchronization scheduler or manual synchronization controls.
 
-The responsive behavior is implemented primarily through Tailwind CSS responsive utilities.
+The responsive behavior is implemented primarily through Tailwind CSS responsive utilities, with mobile-specific functionality determined by the platform utility.
 
 ## Component Responsibilities
 
 The dashboard layout intentionally keeps component responsibilities separated:
 
-| Component         | Responsibility                                                             |
-| ----------------- | -------------------------------------------------------------------------- |
+| Component | Responsibility |
+| --- | --- |
 | `DashboardLayout` | Shared dashboard shell, routed content, backdrop and theme synchronization |
-| `TopBar`          | Primary navigation, account controls and desktop theme control             |
-| `SideNav`         | Dashboard navigation and mobile navigation controls                        |
-| `ContentHeader`   | Breadcrumbs and current date                                               |
-| `ContentFooter`   | Dashboard footer                                                           |
-| Dashboard view    | Feature-specific page content                                              |
+| `TopBar` | Primary navigation, account controls and desktop theme control |
+| `SideNav` | Dashboard navigation, mobile navigation controls and mobile data synchronization |
+| `ContentHeader` | Breadcrumbs and current date |
+| `ContentFooter` | Dashboard footer |
+| Dashboard view | Feature-specific page content |
 
 The layout should coordinate these components rather than duplicate their internal behavior.
 
@@ -280,17 +315,41 @@ src/layout/Dashboard/__tests__/index.spec.ts
 
 The tests cover:
 
-* Rendering of dashboard layout components.
-* Notification backdrop visibility.
-* Mobile side-navigation backdrop visibility.
-* Resetting notification and side-navigation state on mount.
-* Initial light and dark theme synchronization.
-* Theme synchronization when the UI store changes.
+- Rendering of dashboard layout components.
+- Notification backdrop visibility.
+- Mobile side-navigation backdrop visibility.
+- Resetting notification and side-navigation state on mount.
+- Initial light and dark theme synchronization.
+- Theme synchronization when the UI store changes.
+
+Side navigation tests are located under:
+
+```text
+src/layout/Dashboard/__tests__/SideNav.spec.ts
+```
+
+These tests cover:
+
+- Navigation rendering and behavior.
+- Mobile-only Sync Now button visibility.
+- Manual synchronization success and failure handling.
+- Synchronization loading state and duplicate-trigger prevention.
+- Automatic scheduler initialization with a 30-minute interval.
+- Synchronization when the application returns to the foreground.
+- Automatic synchronization error handling.
+- Scheduler and application listener cleanup on unmount.
+- Ensuring desktop devices do not initialize mobile synchronization.
 
 Run the layout tests with:
 
 ```bash
 pnpm vitest --run src/layout/Dashboard/__tests__/index.spec.ts
+```
+
+Run the side navigation tests with:
+
+```bash
+pnpm vitest --run src/layout/Dashboard/__tests__/SideNav.spec.ts
 ```
 
 ## Related Components
@@ -303,7 +362,10 @@ src/layout/Dashboard/
 ├── TopBar.vue
 ├── SideNav.vue
 ├── ContentHeader.vue
-└── ContentFooter.vue
+├── ContentFooter.vue
+└── __tests__/
+    ├── index.spec.ts
+    └── SideNav.spec.ts
 ```
 
 Component-specific behavior should be documented alongside the corresponding component when additional documentation is required.
