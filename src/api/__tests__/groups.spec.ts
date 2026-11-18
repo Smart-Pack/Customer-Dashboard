@@ -2,10 +2,12 @@ import type { AxiosError, AxiosInstance } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import apiClient from '@/api/client'
+import { type PaginatedResponse } from '@/api/types'
 import { GROUPS } from '../endpoints'
 import {
   add,
   list,
+  listWithCache,
   getById,
   remove,
   edit,
@@ -15,6 +17,24 @@ import {
   type GroupListResult,
   type GroupQueryParams,
 } from '@/api/modules/groups'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
+
+vi.mock('@/services/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/database')>()
+
+  return {
+    ...actual,
+    fetchPaginatedWithCache: vi.fn<typeof actual.fetchPaginatedWithCache>(),
+    repositories: {
+      ...actual.repositories,
+      groups: {
+        ...actual.repositories.groups,
+        saveList: vi.fn<typeof actual.repositories.groups.saveList>(),
+        getPaginated: vi.fn<typeof actual.repositories.groups.getPaginated>(),
+      },
+    },
+  }
+})
 
 vi.mock('@/api/client', () => ({
   default: {
@@ -146,7 +166,93 @@ describe('Groups API', () => {
       expect(response).toEqual(result)
     })
   })
+  describe('listWithCache', () => {
+    const params: GroupQueryParams = {
+      page: 1,
+      page_size: 10,
+      has_admin_access: true,
+    }
 
+    const userGroups = [{ id: 1, name: 'SmartPack Family', role: 'owner' as const }]
+    const paginatedResponse: PaginatedResponse<Group> = {
+      count: 1,
+      next: null,
+      previous: null,
+      results: [mockGroup],
+    }
+
+    it('calls fetchPaginatedWithCache with the correct options', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockResolvedValueOnce({
+        count: 1,
+        next: null,
+        previous: null,
+        results: [mockGroup],
+      })
+
+      const response = await listWithCache(params, userGroups)
+
+      expect(fetchPaginatedWithCache).toHaveBeenCalledExactlyOnceWith({
+        fetcher: expect.any(Function),
+        params,
+        save: expect.any(Function),
+        getCached: expect.any(Function),
+      })
+
+      expect(response).toEqual({
+        count: 1,
+        next: null,
+        previous: null,
+        results: [mockGroup],
+      })
+    })
+
+    it('uses list as the API fetcher', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async (options) => {
+        const response = await options.fetcher(params)
+        return response
+      })
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: paginatedResponse,
+      } as never)
+
+      await listWithCache(params, userGroups)
+
+      expect(apiClient.get).toHaveBeenCalledWith(GROUPS.collectionWithQuery(params))
+    })
+
+    it('passes cached groups to the repository save function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async (options) => {
+        await options.save([mockGroup])
+        return {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [mockGroup],
+        }
+      })
+
+      await listWithCache(params, userGroups)
+
+      expect(repositories.groups.saveList).toHaveBeenCalledExactlyOnceWith([mockGroup])
+    })
+
+    it('uses the repository to retrieve cached groups with user groups', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async (options) => {
+        await options.getCached(params)
+        return {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [mockGroup],
+        }
+      })
+
+      await listWithCache(params, userGroups)
+
+      expect(repositories.groups.getPaginated).toHaveBeenCalledExactlyOnceWith(params, userGroups)
+    })
+  })
   describe('getById', () => {
     it('fetches a single group by ID', async () => {
       vi.mocked(apiClient.get).mockResolvedValueOnce({

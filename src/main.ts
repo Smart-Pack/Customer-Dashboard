@@ -12,8 +12,10 @@ import router from './router'
 import VueTelInput from 'vue-tel-input'
 import VueApexCharts from 'vue3-apexcharts'
 import GoogleSignInPlugin from 'vue3-google-signin'
+import { SocialLogin } from '@capgo/capacitor-social-login'
 import { useAuthStore } from './stores'
 import { setupRouterGuard } from './router/guards'
+import { initializeDatabase } from './services/database'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -23,9 +25,27 @@ app.use(VueTelInput)
 app.use(VueApexCharts)
 // Google OAuth client ID used for Google Sign-In.
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-app.use(GoogleSignInPlugin, {
-  clientId: googleClientId,
-})
+
+// Initialize native Google Sign-In for the mobile application using the Web OAuth Client ID.
+// For web builds, register the Google Sign-In Vue plugin using the same Web OAuth Client ID.
+if (import.meta.env.MODE === 'mobile') {
+  await SocialLogin.initialize({
+    google: {
+      webClientId: googleClientId,
+    },
+  })
+  try {
+    await initializeDatabase()
+  } catch (error) {
+    // Database caching is optional.
+    // Allow the application to continue using the API.
+    console.error('Database initialization failed:', error)
+  }
+} else {
+  app.use(GoogleSignInPlugin, {
+    clientId: googleClientId,
+  })
+}
 setupValidation()
 
 /**

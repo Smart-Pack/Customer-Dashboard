@@ -1,0 +1,306 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { isNativePlatform, randomUUID } = vi.hoisted(() => ({
+  isNativePlatform: vi.fn<() => boolean>(),
+  randomUUID: vi.fn<() => string>(),
+}))
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    isNativePlatform,
+  },
+}))
+
+vi.mock('capacitor-secure-storage-plugin', () => ({
+  SecureStoragePlugin: {
+    set: vi.fn<(options: { key: string; value: string }) => Promise<void>>(),
+    get: vi.fn<(options: { key: string }) => Promise<{ value: string }>>(),
+    remove: vi.fn<(options: { key: string }) => Promise<void>>(),
+  },
+}))
+
+vi.stubGlobal('crypto', {
+  randomUUID,
+})
+
+import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
+import { secureTokenStorage } from '../secureTokenStorage'
+
+const REFRESH_TOKEN_KEY = 'refresh_token'
+const DEVICE_ID_KEY = 'device_id'
+const SQLITE_PASSPHRASE_KEY = 'sqlite_passphrase'
+
+describe('secureTokenStorage', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    isNativePlatform.mockReturnValue(true)
+    randomUUID.mockReturnValue('123e4567-e89b-42d3-a456-426614174000')
+  })
+
+  describe('setRefreshToken', () => {
+    it('stores the refresh token securely on native platforms', async () => {
+      const token = 'test-refresh-token'
+
+      await secureTokenStorage.setRefreshToken(token)
+
+      expect(SecureStoragePlugin.set).toHaveBeenCalledExactlyOnceWith({
+        key: REFRESH_TOKEN_KEY,
+        value: token,
+      })
+    })
+
+    it('does not store the refresh token on web platforms', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      await secureTokenStorage.setRefreshToken('test-refresh-token')
+
+      expect(SecureStoragePlugin.set).not.toHaveBeenCalled()
+    })
+
+    it('propagates secure storage errors', async () => {
+      const error = new Error('Storage unavailable')
+
+      vi.mocked(SecureStoragePlugin.set).mockRejectedValue(error)
+
+      await expect(secureTokenStorage.setRefreshToken('test-refresh-token')).rejects.toThrow(error)
+    })
+  })
+
+  describe('getRefreshToken', () => {
+    it('retrieves the refresh token from native secure storage', async () => {
+      const token = 'test-refresh-token'
+
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: token,
+      })
+
+      const result = await secureTokenStorage.getRefreshToken()
+
+      expect(SecureStoragePlugin.get).toHaveBeenCalledExactlyOnceWith({
+        key: REFRESH_TOKEN_KEY,
+      })
+      expect(result).toBe(token)
+    })
+
+    it('returns null when no refresh token is stored', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: '',
+      })
+
+      const result = await secureTokenStorage.getRefreshToken()
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on web platforms without accessing secure storage', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await secureTokenStorage.getRefreshToken()
+
+      expect(result).toBeNull()
+      expect(SecureStoragePlugin.get).not.toHaveBeenCalled()
+    })
+
+    it('returns null when secure storage retrieval fails', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockRejectedValue(new Error('Storage unavailable'))
+
+      const result = await secureTokenStorage.getRefreshToken()
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('removeRefreshToken', () => {
+    it('removes the refresh token from native secure storage', async () => {
+      await secureTokenStorage.removeRefreshToken()
+
+      expect(SecureStoragePlugin.remove).toHaveBeenCalledOnce()
+      expect(SecureStoragePlugin.remove).toHaveBeenCalledExactlyOnceWith({
+        key: REFRESH_TOKEN_KEY,
+      })
+    })
+
+    it('does not remove the refresh token on web platforms', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      await secureTokenStorage.removeRefreshToken()
+
+      expect(SecureStoragePlugin.remove).not.toHaveBeenCalled()
+    })
+
+    it('ignores the error when no refresh token is stored', async () => {
+      vi.mocked(SecureStoragePlugin.remove).mockRejectedValue(
+        new Error('Item with given key does not exist'),
+      )
+
+      await expect(secureTokenStorage.removeRefreshToken()).resolves.toBeUndefined()
+    })
+
+    it('ignores a missing-key rejection that is a plain object', async () => {
+      // Capacitor plugins often reject with plain objects instead of Error instances.
+      vi.mocked(SecureStoragePlugin.remove).mockRejectedValue({
+        message: 'Item with given key does not exist',
+      })
+
+      await expect(secureTokenStorage.removeRefreshToken()).resolves.toBeUndefined()
+    })
+
+    it('propagates secure storage removal errors', async () => {
+      const error = new Error('Storage removal failed')
+
+      vi.mocked(SecureStoragePlugin.remove).mockRejectedValue(error)
+
+      await expect(secureTokenStorage.removeRefreshToken()).rejects.toThrow(error)
+    })
+  })
+
+  describe('setDeviceId', () => {
+    it('generates a UUID and stores it securely on native platforms', async () => {
+      const deviceId = '123e4567-e89b-42d3-a456-426614174000'
+
+      const result = await secureTokenStorage.setDeviceId()
+
+      expect(randomUUID).toHaveBeenCalledOnce()
+      expect(SecureStoragePlugin.set).toHaveBeenCalledExactlyOnceWith({
+        key: DEVICE_ID_KEY,
+        value: deviceId,
+      })
+      expect(result).toBe(deviceId)
+    })
+
+    it('does not generate or store a device ID on web platforms', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await secureTokenStorage.setDeviceId()
+
+      expect(result).toBeNull()
+      expect(randomUUID).not.toHaveBeenCalled()
+      expect(SecureStoragePlugin.set).not.toHaveBeenCalled()
+    })
+
+    it('propagates secure storage errors', async () => {
+      const error = new Error('Storage unavailable')
+
+      vi.mocked(SecureStoragePlugin.set).mockRejectedValue(error)
+
+      await expect(secureTokenStorage.setDeviceId()).rejects.toThrow(error)
+    })
+  })
+
+  describe('getDeviceId', () => {
+    it('retrieves the stored device ID from native secure storage', async () => {
+      const deviceId = '123e4567-e89b-42d3-a456-426614174000'
+
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: deviceId,
+      })
+
+      const result = await secureTokenStorage.getDeviceId()
+
+      expect(SecureStoragePlugin.get).toHaveBeenCalledExactlyOnceWith({
+        key: DEVICE_ID_KEY,
+      })
+      expect(result).toBe(deviceId)
+    })
+
+    it('returns null when no device ID is stored', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: '',
+      })
+
+      const result = await secureTokenStorage.getDeviceId()
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on web platforms without accessing secure storage', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await secureTokenStorage.getDeviceId()
+
+      expect(result).toBeNull()
+      expect(SecureStoragePlugin.get).not.toHaveBeenCalled()
+    })
+
+    it('returns null when secure storage retrieval fails', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockRejectedValue(new Error('Storage unavailable'))
+
+      const result = await secureTokenStorage.getDeviceId()
+
+      expect(result).toBeNull()
+    })
+  })
+  describe('setSqlitePassphrase', () => {
+    it('stores the SQLite passphrase securely on native platforms', async () => {
+      const passphrase = 'test-sqlite-passphrase'
+
+      await secureTokenStorage.setSqlitePassphrase(passphrase)
+
+      expect(SecureStoragePlugin.set).toHaveBeenCalledExactlyOnceWith({
+        key: SQLITE_PASSPHRASE_KEY,
+        value: passphrase,
+      })
+    })
+
+    it('does not store the SQLite passphrase on web platforms', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      await secureTokenStorage.setSqlitePassphrase('test-sqlite-passphrase')
+
+      expect(SecureStoragePlugin.set).not.toHaveBeenCalled()
+    })
+
+    it('propagates secure storage errors', async () => {
+      const error = new Error('Storage unavailable')
+
+      vi.mocked(SecureStoragePlugin.set).mockRejectedValue(error)
+
+      await expect(
+        secureTokenStorage.setSqlitePassphrase('test-sqlite-passphrase'),
+      ).rejects.toThrow(error)
+    })
+  })
+  describe('getSqlitePassphrase', () => {
+    it('retrieves the SQLite passphrase from native secure storage', async () => {
+      const passphrase = 'test-sqlite-passphrase'
+
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: passphrase,
+      })
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(SecureStoragePlugin.get).toHaveBeenCalledExactlyOnceWith({
+        key: SQLITE_PASSPHRASE_KEY,
+      })
+      expect(result).toBe(passphrase)
+    })
+
+    it('returns null when no SQLite passphrase is stored', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: '',
+      })
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on web platforms without accessing secure storage', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(result).toBeNull()
+      expect(SecureStoragePlugin.get).not.toHaveBeenCalled()
+    })
+
+    it('returns null when secure storage retrieval fails', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockRejectedValue(new Error('Storage unavailable'))
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(result).toBeNull()
+    })
+  })
+})

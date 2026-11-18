@@ -10,6 +10,10 @@ import type { User } from '@/api/modules/users'
 import { getMe } from '@/api/modules/users'
 import type { AuthState } from './state'
 import { ALLOWED_ACCOUNT_TYPES } from './constants'
+import { secureTokenStorage } from '@/services/secureTokenStorage'
+import { isAxiosError } from 'axios'
+import { repositories } from '@/services/database'
+import { Capacitor } from '@capacitor/core'
 
 export interface AuthActions {
   clearStore(): void
@@ -18,6 +22,7 @@ export interface AuthActions {
   initializeAuth(): Promise<void>
   googleLogIn(credential: string): Promise<string>
   logIn(payload: LoginRequest): Promise<string>
+  logOut(): Promise<void>
   refreshToken(skipAuthRedirect?: boolean): Promise<void>
   setLoggedInUser(user: User): void
   validateAccountType(): void
@@ -66,35 +71,108 @@ export const actions: AuthActions = {
   },
 
   /**
-   * Refreshes the authentication token using the refresh token.
+   * Refreshes the authentication token using the securely stored
+   * refresh token on native platforms or the authentication cookie on web.
    *
-   * @param skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
-   * @throws The error returned by the refresh request.
+   * 1. Retrieves the refresh token from native secure storage.
+   * 2. Sends the refresh token when available; otherwise uses cookie authentication.
+   * 3. Updates the access token.
+   * 4. Persists rotated refresh tokens on native platforms.
+   * 5. Preserves the existing authentication state when the refresh request
+   *    fails without an API response and a refresh token exists in secure storage.
+   * 6. Clears the local authentication state and removes the stored refresh token
+   *    when authentication is invalidated.
+   * 7. Clears cached account-specific SQLite data on native platforms
+   *    when authentication is invalidated.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {boolean} skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
+   * @throws The error returned by the refresh request, except for network failures when a refresh token exists.
    */
   async refreshToken(this: AuthStoreContext, skipAuthRedirect = false) {
-    this.accessToken = null
-
     try {
-      const { access } = await auth.refresh({ skipAuthRedirect })
+      const refreshToken = await secureTokenStorage.getRefreshToken()
+
+      const { access, refresh } = await auth.refresh(refreshToken ?? undefined, {
+        skipAuthRedirect,
+      })
 
       this.accessToken = access
+
+      // Persist rotated refresh tokens on native platforms.
+      await secureTokenStorage.setRefreshToken(refresh)
     } catch (error) {
+      // Preserve authentication state only when a refresh token exists.
+      if (isAxiosError(error) && !error.response) {
+        const refreshToken = await secureTokenStorage.getRefreshToken()
+
+        if (refreshToken) {
+          return
+        }
+      }
+
       this.clearStore()
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await secureTokenStorage.removeRefreshToken()
+          await repositories.clearAll()
+        } catch {
+          // Preserve the original authentication error.
+        }
+      }
+
       throw error
     }
   },
+
   /**
    * Fetches the currently logged-in user's details using the API service.
-   * On success, updates the user data in the store.
    *
+   * On success, updates the store and asynchronously caches the user
+   * on native platforms.
+   *
+   * If the API request fails due to a network error, preserves the
+   * existing user or falls back to the locally cached user on native platforms.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
    * @returns {Promise<void>}
    */
   async fetchUser(this: AuthStoreContext) {
     try {
       const loggedInUser = await getMe()
+
       this.loggedInUser = loggedInUser
+
+      // Cache the user on native platforms without blocking the API response.
+      if (Capacitor.isNativePlatform()) {
+        void repositories.users.save(loggedInUser).catch(() => {})
+      }
     } catch (error) {
+      // Only fall back to cached data for network errors.
+      if (isAxiosError(error) && !error.response) {
+        // Preserve the existing user if already loaded.
+        if (this.loggedInUser) {
+          return
+        }
+
+        // Fall back to SQLite only on native platforms.
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const cachedUser = await repositories.users.get()
+
+            if (cachedUser) {
+              this.loggedInUser = cachedUser
+              return
+            }
+          } catch {
+            // Continue with the original API error.
+          }
+        }
+      }
+
       this.clearStore()
+
       throw error
     }
   },
@@ -113,23 +191,27 @@ export const actions: AuthActions = {
   },
   /**
    * Orchestrates the entire login flow.
-   * 1. Calls the API service to log in with credentials.
-   * 2. Stores the access token.
-   * 3. Fetches the logged-in user's profile.
-   * 4. Requests the 2FA token.
+   *
+   * 1. Authenticates the user with their credentials.
+   * 2. Stores the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   * 4. Fetches the logged-in user's profile.
+   * 5. Requests the 2FA token.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    * @param {LoginRequest} payload - The user's login credentials.
-   * @returns {Promise<{ detail: string }>} The 2FA request confirmation.
+   * @returns {Promise<string>} The 2FA request confirmation.
    * @throws {Error} Throws an error on failure.
    */
   async logIn(this: AuthStoreContext, payload: LoginRequest) {
     this.loginBtn = 'Logging In...'
 
     try {
-      const { access } = await auth.login(payload)
+      const { access, refresh } = await auth.login(payload)
 
       this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
 
       this.loginBtn = 'Fetching user info...'
       await this.fetchUser()
@@ -140,46 +222,76 @@ export const actions: AuthActions = {
       return 'OTP sent successfully.'
     } catch (error) {
       this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
       throw error
     } finally {
       this.loginBtn = 'Log In'
     }
   },
   /**
-   * Logs in a customer using Google authentication.
-   * 1. Authenticates with the Google credential.
-   * 2. Stores the access token.
-   * 3. Fetches the logged-in user's profile.
-   * 4. Validates the user's account type.
+   * Orchestrates the entire Google Sign-In flow.
    *
-   * @param credential - Google ID token credential.
+   * 1. Authenticates the user using their Google credential.
+   * 2. Stores the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   * 4. Fetches the logged-in user's profile.
+   * 5. Validates the user's account type.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {string} credential - Google ID token credential.
    * @returns {Promise<string>} Google Sign-In confirmation message.
    * @throws {Error} Throws an error on failure.
    */
   async googleLogIn(this: AuthStoreContext, credential: string) {
     try {
-      const { access } = await auth.googleLogin({ credential })
+      const { access, refresh } = await auth.googleLogin({ credential })
 
       this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
+
       await this.fetchUser()
       this.validateAccountType()
+
       return 'Google Sign-In successful.'
     } catch (error) {
       this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
       throw error
     }
   },
   /**
    * Verifies the 2FA token using the API service.
-   * On success, updates the access token.
    *
-   * @param payload - The 2FA token payload.
+   * 1. Verifies the submitted 2FA token.
+   * 2. Updates the access token in memory.
+   * 3. Persists the refresh token securely on native platforms.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   * @param {TwoFactorVerifyRequest} payload - The 2FA token payload.
    * @returns A promise that resolves when verification is complete.
+   * @throws {Error} Throws an error if verification fails.
    */
   async verifyTwoFaToken(this: AuthStoreContext, payload: TwoFactorVerifyRequest): Promise<string> {
-    const { access } = await twoFactor.verify(payload)
-    this.accessToken = access
-    return 'OTP confirmed successfully'
+    try {
+      const { access, refresh } = await twoFactor.verify(payload)
+
+      this.accessToken = access
+
+      await secureTokenStorage.setRefreshToken(refresh)
+
+      return 'OTP confirmed successfully'
+    } catch (error) {
+      this.clearStore()
+
+      await secureTokenStorage.removeRefreshToken()
+
+      throw error
+    }
   },
   /**
    * Restores the authentication state on application startup.
@@ -204,5 +316,37 @@ export const actions: AuthActions = {
    */
   setLoggedInUser(this: AuthStoreContext, user: User): void {
     this.loggedInUser = user
+  },
+  /**
+   * Logs out the authenticated user.
+   *
+   * 1. Retrieves the native refresh token if available.
+   * 2. Attempts to invalidate the server-side authentication session.
+   * 3. Removes the locally stored refresh token.
+   * 4. Clears cached account-specific data from SQLite on native platforms.
+   * 5. Clears the local authentication state.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
+   */
+  async logOut(this: AuthStoreContext): Promise<void> {
+    try {
+      const refreshToken = await secureTokenStorage.getRefreshToken()
+
+      await auth.logout(refreshToken ?? undefined)
+    } catch {
+      // Continue with local logout if server logout fails.
+    } finally {
+      try {
+        await secureTokenStorage.removeRefreshToken()
+      } finally {
+        try {
+          if (Capacitor.isNativePlatform()) {
+            await repositories.clearAll()
+          }
+        } finally {
+          this.clearStore()
+        }
+      }
+    }
   },
 }

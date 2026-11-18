@@ -1,26 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+import { AxiosError } from 'axios'
 import { auth, twoFactor } from '@/api'
+import type { ApiDetailResponse } from '@/api/types'
 import { getMe } from '@/api/modules/users'
+import { secureTokenStorage } from '@/services/secureTokenStorage'
 import { mockUser } from '@/tests/constants'
 import type { RefreshOptions } from '@/api/modules/auth'
 import type { User } from '@/api/modules/users'
-
+import { Capacitor } from '@capacitor/core'
+import { repositories } from '@/services/database'
 import { actions, type AuthActions } from '../actions'
 import type { AuthState } from '../state'
 
 vi.mock('@/api/modules/users', () => ({
   getMe: vi.fn<() => Promise<User>>(),
 }))
+
 vi.mock('@/api', () => ({
   auth: {
-    googleLogin: vi.fn<(payload: { credential: string }) => Promise<{ access: string }>>(),
+    googleLogin:
+      vi.fn<(payload: { credential: string }) => Promise<{ access: string; refresh: string }>>(),
     login: vi.fn<() => Promise<{ access: string; refresh: string }>>(),
-    refresh: vi.fn<(options?: RefreshOptions) => Promise<{ access: string; refresh: string }>>(),
+    refresh:
+      vi.fn<
+        (
+          refreshToken?: string,
+          options?: RefreshOptions,
+        ) => Promise<{ access: string; refresh: string }>
+      >(),
+    logout: vi.fn<() => Promise<ApiDetailResponse>>(),
   },
   twoFactor: {
     request: vi.fn<() => Promise<{ detail: string }>>(),
-    verify: vi.fn<() => Promise<{ access: string }>>(),
+    verify: vi.fn<() => Promise<{ access: string; refresh: string }>>(),
+  },
+}))
+
+vi.mock('@/services/secureTokenStorage', () => ({
+  secureTokenStorage: {
+    setRefreshToken: vi.fn<(token: string) => Promise<void>>(),
+    getRefreshToken: vi.fn<() => Promise<string | null>>(),
+    removeRefreshToken: vi.fn<() => Promise<void>>(),
+  },
+}))
+
+vi.mock('@/services/database', () => ({
+  repositories: {
+    users: {
+      save: vi.fn<(user: User) => Promise<void>>(),
+      get: vi.fn<() => Promise<User | null>>(),
+      clear: vi.fn<() => Promise<void>>(),
+    },
+    clearAll: vi.fn<() => Promise<void>>(),
   },
 }))
 
@@ -41,6 +72,16 @@ describe('auth store actions', () => {
     }
 
     vi.clearAllMocks()
+    vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true)
+
+    vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(null)
+    vi.mocked(secureTokenStorage.setRefreshToken).mockResolvedValue(undefined)
+    vi.mocked(secureTokenStorage.removeRefreshToken).mockResolvedValue(undefined)
+
+    vi.mocked(repositories.clearAll).mockResolvedValue(undefined)
+    vi.mocked(repositories.users.save).mockResolvedValue(undefined)
+    vi.mocked(repositories.users.get).mockResolvedValue(null)
+    vi.mocked(repositories.users.clear).mockResolvedValue(undefined)
   })
 
   describe('clearStore', () => {
@@ -55,7 +96,32 @@ describe('auth store actions', () => {
   })
 
   describe('refreshToken', () => {
-    it('refreshes the access token successfully', async () => {
+    it('refreshes the access token and persists the rotated refresh token', async () => {
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue('stored-refresh-token')
+
+      vi.mocked(auth.refresh).mockResolvedValue({
+        access: 'new-access-token',
+        refresh: 'rotated-refresh-token',
+      })
+
+      await store.refreshToken()
+
+      expect(secureTokenStorage.getRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith('stored-refresh-token', {
+        skipAuthRedirect: false,
+      })
+
+      expect(store.accessToken).toBe('new-access-token')
+
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith(
+        'rotated-refresh-token',
+      )
+    })
+
+    it('uses cookie authentication when no refresh token is stored', async () => {
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(null)
+
       vi.mocked(auth.refresh).mockResolvedValue({
         access: 'new-access-token',
         refresh: 'refresh-token',
@@ -63,11 +129,14 @@ describe('auth store actions', () => {
 
       await store.refreshToken()
 
-      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith({
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith(undefined, {
         skipAuthRedirect: false,
       })
+
       expect(store.accessToken).toBe('new-access-token')
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith('refresh-token')
     })
+
     it('refreshes the access token without redirect when requested', async () => {
       vi.mocked(auth.refresh).mockResolvedValue({
         access: 'new-access-token',
@@ -76,13 +145,15 @@ describe('auth store actions', () => {
 
       await store.refreshToken(true)
 
-      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith({
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith(undefined, {
         skipAuthRedirect: true,
       })
+
       expect(store.accessToken).toBe('new-access-token')
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith('refresh-token')
     })
 
-    it('clears the existing access token before refreshing', async () => {
+    it('preserves the existing access token while refreshing', async () => {
       let tokenDuringRefresh: string | null | undefined
 
       vi.mocked(auth.refresh).mockImplementation(async () => {
@@ -96,18 +167,48 @@ describe('auth store actions', () => {
 
       await store.refreshToken()
 
-      expect(tokenDuringRefresh).toBeNull()
+      expect(tokenDuringRefresh).toBe('old-access-token')
       expect(store.accessToken).toBe('new-access-token')
     })
 
-    it('clears the store and rethrows when refresh fails', async () => {
-      const error = new Error('Refresh failed')
+    it('preserves the existing session when offline and a refresh token is stored', async () => {
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue('stored-refresh-token')
+
+      vi.mocked(auth.refresh).mockRejectedValue(new AxiosError('Network Error'))
+
+      await expect(store.refreshToken()).resolves.toBeUndefined()
+
+      expect(store.accessToken).toBe('old-access-token')
+      expect(secureTokenStorage.removeRefreshToken).not.toHaveBeenCalled()
+    })
+
+    it('clears the session when offline and no refresh token is stored', async () => {
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(null)
+
+      vi.mocked(auth.refresh).mockRejectedValue(new AxiosError('Network Error'))
+
+      await expect(store.refreshToken()).rejects.toThrow('Network Error')
+
+      expect(store.accessToken).toBeNull()
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+      expect(repositories.clearAll).toHaveBeenCalledExactlyOnceWith()
+    })
+
+    it('removes the stored refresh token when refresh fails with an API response', async () => {
+      const error = new AxiosError('Refresh failed', undefined, undefined, undefined, {
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {},
+        config: { headers: {} } as never,
+        data: {},
+      })
 
       vi.mocked(auth.refresh).mockRejectedValue(error)
 
       await expect(store.refreshToken()).rejects.toThrow('Refresh failed')
 
       expect(store.accessToken).toBeNull()
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
     })
   })
 
@@ -119,9 +220,45 @@ describe('auth store actions', () => {
 
       expect(getMe).toHaveBeenCalledExactlyOnceWith()
       expect(store.loggedInUser).toEqual(mockUser)
+      expect(repositories.users.save).toHaveBeenCalledExactlyOnceWith(mockUser)
     })
 
-    it('clears the store and rethrows when fetching the user fails', async () => {
+    it('preserves the existing user when the API request fails offline', async () => {
+      const existingUser = { ...mockUser, id: 2 }
+
+      store.loggedInUser = existingUser
+
+      vi.mocked(getMe).mockRejectedValue(new AxiosError('Network Error'))
+
+      await store.fetchUser()
+
+      expect(store.loggedInUser).toEqual(existingUser)
+      expect(repositories.users.get).not.toHaveBeenCalled()
+    })
+
+    it('loads the cached user when the API request fails offline', async () => {
+      vi.mocked(getMe).mockRejectedValue(new AxiosError('Network Error'))
+      vi.mocked(repositories.users.get).mockResolvedValue(mockUser)
+
+      await store.fetchUser()
+
+      expect(repositories.users.get).toHaveBeenCalledExactlyOnceWith()
+      expect(store.loggedInUser).toEqual(mockUser)
+    })
+
+    it('clears the store and rethrows when fetching the user fails without a cached user', async () => {
+      const error = new AxiosError('Network Error')
+
+      vi.mocked(getMe).mockRejectedValue(error)
+      vi.mocked(repositories.users.get).mockResolvedValue(null)
+
+      await expect(store.fetchUser()).rejects.toThrow('Network Error')
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('clears the store and rethrows when the API returns an error', async () => {
       const error = new Error('Failed to fetch user')
 
       vi.mocked(getMe).mockRejectedValue(error)
@@ -130,8 +267,22 @@ describe('auth store actions', () => {
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()
+      expect(repositories.users.get).not.toHaveBeenCalled()
+    })
+
+    it('continues with the original API error when reading the cached user fails', async () => {
+      const error = new AxiosError('Network Error')
+
+      vi.mocked(getMe).mockRejectedValue(error)
+      vi.mocked(repositories.users.get).mockRejectedValue(new Error('Database read failed'))
+
+      await expect(store.fetchUser()).rejects.toBe(error)
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
     })
   })
+
   describe('createTwoFaToken', () => {
     it('requests a 2FA token for an allowed account type', async () => {
       store.loggedInUser = { ...mockUser }
@@ -176,13 +327,14 @@ describe('auth store actions', () => {
       await expect(store.createTwoFaToken()).rejects.toThrow('Failed to request 2FA token')
     })
   })
+
   describe('logIn', () => {
     const credentials = {
       email: 'john@example.com',
       password: 'password123',
     }
 
-    it('logs in, stores the access token, fetches the user, and requests 2FA', async () => {
+    it('logs in, securely stores the refresh token, fetches the user, and requests 2FA', async () => {
       vi.mocked(auth.login).mockResolvedValue({
         access: 'new-access-token',
         refresh: 'refresh-token',
@@ -198,12 +350,15 @@ describe('auth store actions', () => {
 
       expect(auth.login).toHaveBeenCalledExactlyOnceWith(credentials)
       expect(store.accessToken).toBe('new-access-token')
+
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith('refresh-token')
+
       expect(getMe).toHaveBeenCalledExactlyOnceWith()
       expect(twoFactor.request).toHaveBeenCalledExactlyOnceWith()
       expect(store.loginBtn).toBe('Log In')
     })
 
-    it('clears the store and rethrows when login fails', async () => {
+    it('clears the store and removes the refresh token when login fails', async () => {
       const error = new Error('Invalid credentials')
 
       vi.mocked(auth.login).mockRejectedValue(error)
@@ -213,13 +368,17 @@ describe('auth store actions', () => {
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
       expect(getMe).not.toHaveBeenCalled()
       expect(twoFactor.request).not.toHaveBeenCalled()
       expect(store.loginBtn).toBe('Log In')
     })
   })
+
   describe('verifyTwoFaToken', () => {
-    it('verifies the 2FA token and updates the access token', async () => {
+    it('verifies the 2FA token, updates the access token, and stores the refresh token', async () => {
       const payload = {
         otp: '123456',
       }
@@ -233,21 +392,41 @@ describe('auth store actions', () => {
 
       expect(twoFactor.verify).toHaveBeenCalledWith(payload)
       expect(store.accessToken).toBe('new-access-token')
+
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith(
+        'new-refresh-token',
+      )
+    })
+
+    it('clears the store and removes the refresh token when verification fails', async () => {
+      const error = new Error('OTP verification failed')
+
+      vi.mocked(twoFactor.verify).mockRejectedValue(error)
+
+      await expect(store.verifyTwoFaToken({ otp: '123456' })).rejects.toThrow(
+        'OTP verification failed',
+      )
+
+      expect(store.accessToken).toBeNull()
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
     })
   })
+
   describe('initializeAuth', () => {
     it('refreshes the token without redirect and fetches the user successfully', async () => {
       vi.mocked(auth.refresh).mockResolvedValue({
         access: 'new-access-token',
         refresh: 'refresh-token',
       })
+
       vi.mocked(getMe).mockResolvedValue(mockUser)
 
       await store.initializeAuth()
 
-      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith({
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith(undefined, {
         skipAuthRedirect: true,
       })
+
       expect(getMe).toHaveBeenCalledTimes(1)
     })
 
@@ -256,9 +435,10 @@ describe('auth store actions', () => {
 
       await expect(store.initializeAuth()).resolves.toBeUndefined()
 
-      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith({
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith(undefined, {
         skipAuthRedirect: true,
       })
+
       expect(getMe).not.toHaveBeenCalled()
     })
 
@@ -267,16 +447,19 @@ describe('auth store actions', () => {
         access: 'new-access-token',
         refresh: 'refresh-token',
       })
+
       vi.mocked(getMe).mockRejectedValue(new Error('Failed to fetch user'))
 
       await expect(store.initializeAuth()).resolves.toBeUndefined()
 
-      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith({
+      expect(auth.refresh).toHaveBeenCalledExactlyOnceWith(undefined, {
         skipAuthRedirect: true,
       })
+
       expect(getMe).toHaveBeenCalledTimes(1)
     })
   })
+
   describe('setLoggedInUser', () => {
     it('updates the authenticated user in the store', () => {
       const updatedUser = {
@@ -289,8 +472,9 @@ describe('auth store actions', () => {
       expect(store.loggedInUser).toEqual(updatedUser)
     })
   })
+
   describe('googleLogIn', () => {
-    it('logs in successfully with Google', async () => {
+    it('logs in successfully with Google and securely stores the refresh token', async () => {
       store.loggedInUser = null
 
       vi.mocked(auth.googleLogin).mockResolvedValue({
@@ -305,13 +489,18 @@ describe('auth store actions', () => {
       expect(auth.googleLogin).toHaveBeenCalledExactlyOnceWith({
         credential: 'google-credential',
       })
+
+      expect(secureTokenStorage.setRefreshToken).toHaveBeenCalledExactlyOnceWith(
+        'google-refresh-token',
+      )
+
       expect(getMe).toHaveBeenCalledExactlyOnceWith()
       expect(store.accessToken).toBe('google-access-token')
       expect(store.loggedInUser).toEqual(mockUser)
       expect(result).toBe('Google Sign-In successful.')
     })
 
-    it('clears the store and rethrows when Google login fails', async () => {
+    it('clears the store and removes the refresh token when Google login fails', async () => {
       const error = new Error('Google Sign-In failed')
 
       vi.mocked(auth.googleLogin).mockRejectedValue(error)
@@ -320,9 +509,11 @@ describe('auth store actions', () => {
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
     })
 
-    it('clears the store and rethrows when fetching the user fails', async () => {
+    it('clears the store and removes the refresh token when fetching the user fails', async () => {
       vi.mocked(auth.googleLogin).mockResolvedValue({
         access: 'google-access-token',
         refresh: 'google-refresh-token',
@@ -335,6 +526,8 @@ describe('auth store actions', () => {
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
     })
 
     it('throws when the Google user has an unauthorized account type', async () => {
@@ -351,6 +544,67 @@ describe('auth store actions', () => {
       await expect(store.googleLogIn('google-credential')).rejects.toThrow(
         'Your credentials are for accessing the Admin dashboard. Accessing the SmartPack dashboard is restricted for your account type.',
       )
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+    })
+  })
+
+  describe('logOut', () => {
+    it('logs out, removes the stored refresh token, and clears the store', async () => {
+      store.loggedInUser = mockUser
+
+      const refreshToken = 'test-refresh-token'
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(refreshToken)
+
+      vi.mocked(auth.logout).mockResolvedValue({
+        detail: 'Successfully logged out.',
+      })
+
+      await store.logOut()
+
+      expect(secureTokenStorage.getRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(auth.logout).toHaveBeenCalledExactlyOnceWith(refreshToken)
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('logs out without a refresh token when none is stored', async () => {
+      store.loggedInUser = mockUser
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue(null)
+
+      vi.mocked(auth.logout).mockResolvedValue({
+        detail: 'Successfully logged out.',
+      })
+
+      await store.logOut()
+
+      expect(auth.logout).toHaveBeenCalledExactlyOnceWith(undefined)
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+
+      expect(store.accessToken).toBeNull()
+      expect(store.loggedInUser).toBeNull()
+    })
+
+    it('removes the stored refresh token and clears the store when server logout fails', async () => {
+      store.loggedInUser = mockUser
+
+      vi.mocked(secureTokenStorage.getRefreshToken).mockResolvedValue('test-refresh-token')
+      vi.mocked(auth.logout).mockRejectedValue(new Error('Server logout failed'))
+
+      await expect(store.logOut()).resolves.toBeUndefined()
+
+      expect(secureTokenStorage.removeRefreshToken).toHaveBeenCalledExactlyOnceWith()
+      expect(repositories.clearAll).toHaveBeenCalledExactlyOnceWith()
 
       expect(store.accessToken).toBeNull()
       expect(store.loggedInUser).toBeNull()

@@ -20,9 +20,15 @@ const mocks = vi.hoisted(() => ({
   routerPush: vi.fn<(location: { name: string; params?: { id: number } }) => Promise<void>>(),
 }))
 
-vi.mock('vue-router', () => ({
-  useRoute: vi.fn<() => ReturnType<typeof useRoute>>(),
-}))
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+
+  return {
+    ...actual,
+    useRouter: vi.fn<typeof actual.useRouter>(),
+    useRoute: vi.fn<typeof actual.useRoute>(),
+  }
+})
 
 vi.mock('@/api/modules/groupMembers', () => ({
   verifyInvite: mocks.verifyInvite,

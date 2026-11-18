@@ -142,3 +142,17 @@ export const NOTIFICATIONS = {
 
   detail: (id: string | number): string => `v1/core/notifications/${id}/`,
 } as const
+
+export const FCM_DEVICES = {
+  COLLECTION: 'v1/core/fcm-devices/',
+  collectionWithQuery: (params?: object) => {
+    if (!params) return FCM_DEVICES.COLLECTION
+
+    const query = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    )
+
+    return `${FCM_DEVICES.COLLECTION}?${query.toString()}`
+  },
+  detail: (deviceId: string): string => `v1/core/fcm-devices/${deviceId}/`,
+} as const

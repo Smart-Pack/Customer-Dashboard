@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import apiClient from '@/api/client'
 import { NOTIFICATIONS } from '@/api/endpoints'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 import type { ItemNotFoundError } from '@/api/types'
-import { edit, getById, list } from '../modules/notifications'
+import { edit, getById, list, listWithCache } from '../modules/notifications'
 import type {
   Notification,
   NotificationListResult,
+  NotificationQueryParams,
   UpdateNotificationPayload,
 } from '../modules/notifications'
 
@@ -15,6 +17,23 @@ vi.mock('@/api/client', () => ({
     patch: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   },
 }))
+
+vi.mock('@/services/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/database')>()
+
+  return {
+    ...actual,
+    fetchPaginatedWithCache: vi.fn<typeof actual.fetchPaginatedWithCache>(),
+    repositories: {
+      ...actual.repositories,
+      notifications: {
+        ...actual.repositories.notifications,
+        replaceList: vi.fn<typeof actual.repositories.notifications.replaceList>(),
+        getPaginated: vi.fn<typeof actual.repositories.notifications.getPaginated>(),
+      },
+    },
+  }
+})
 
 const mockNotification: Notification = {
   id: 1,
@@ -97,7 +116,65 @@ describe('notifications API', () => {
       await expect(list()).rejects.toThrow('Network error')
     })
   })
+  describe('listWithCache', () => {
+    const params: NotificationQueryParams = {
+      page: 1,
+      page_size: 10,
+    }
 
+    const result = mockPaginatedResponse
+
+    it('passes the correct options to fetchPaginatedWithCache', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockResolvedValueOnce(result)
+
+      await listWithCache(params)
+
+      expect(fetchPaginatedWithCache).toHaveBeenCalledWith({
+        fetcher: expect.any(Function),
+        params,
+        save: expect.any(Function),
+        getCached: expect.any(Function),
+      })
+    })
+
+    it('uses list as the API fetcher', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ fetcher }) =>
+        fetcher(params),
+      )
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      })
+
+      await listWithCache(params)
+
+      expect(apiClient.get).toHaveBeenCalledWith(NOTIFICATIONS.collectionWithQuery(params))
+    })
+
+    it('passes fetched notifications to the repository replaceList function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ save }) => {
+        await save([mockNotification])
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.notifications.replaceList).toHaveBeenCalledExactlyOnceWith([
+        mockNotification,
+      ])
+    })
+
+    it('retrieves cached notifications using the repository getPaginated function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ getCached }) => {
+        await getCached(params)
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.notifications.getPaginated).toHaveBeenCalledExactlyOnceWith(params)
+    })
+  })
   describe('getById', () => {
     it('fetches a notification by ID', async () => {
       vi.mocked(apiClient.get).mockResolvedValueOnce({

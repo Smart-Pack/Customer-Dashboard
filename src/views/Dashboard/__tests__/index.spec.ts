@@ -83,8 +83,8 @@ vi.mock('@/stores/modules/auth', () => ({
 vi.mock('@/api/modules', () => ({
   default: {
     smartpacks: {
-      list: mocks.listSmartPacks,
-      listSensorMeasurements: mocks.listMeasurements,
+      listWithCache: mocks.listSmartPacks,
+      listSensorMeasurementsWithCache: mocks.listMeasurements,
     },
   },
 }))

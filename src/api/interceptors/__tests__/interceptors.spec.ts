@@ -142,6 +142,7 @@ describe('API interceptors', () => {
       )
       expect(handle401).not.toHaveBeenCalled()
     })
+
     it('sets a default message for bad requests', async () => {
       const error = {
         response: {
@@ -188,7 +189,7 @@ describe('API interceptors', () => {
       expect(result).toBe(retryResponse)
     })
 
-    it('delegates refresh errors to handle401', async () => {
+    it('delegates refresh errors with an API response to handle401', async () => {
       const error = {
         response: {
           status: 500,
@@ -205,6 +206,23 @@ describe('API interceptors', () => {
       await expect(responseErrorHandler(error)).rejects.toBe(refreshError)
 
       expect(handle401).toHaveBeenCalledExactlyOnceWith(error)
+    })
+
+    it('does not delegate refresh network errors to handle401', async () => {
+      const error = {
+        response: undefined,
+        config: {
+          url: AUTH.REFRESH,
+        },
+        message: 'Network Error',
+      } as AxiosError
+
+      await expect(responseErrorHandler(error)).rejects.toBe(error)
+
+      expect(error.message).toBe(
+        'Unable to reach the server. Please check your network connection.',
+      )
+      expect(handle401).not.toHaveBeenCalled()
     })
 
     it('rejects non-401 errors unchanged', async () => {

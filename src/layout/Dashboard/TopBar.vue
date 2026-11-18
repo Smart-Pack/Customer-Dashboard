@@ -107,7 +107,6 @@ import LightModeIcon from '@/components/Icons/LightModeIcon.vue'
 import SmartPackLogo from '@/components/Icons/SmartPackLogo.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import NotificationBell from '@/components/Notifications/NotificationBell.vue'
-import { auth } from '@/api'
 import { useAuthStore, useUiStore } from '@/stores'
 import { withCacheBust } from '@/utils/urlSecurity'
 
@@ -167,14 +166,8 @@ function toggleDropdown(): void {
  * to the login page even if the server-side logout request fails.
  */
 async function logout(): Promise<void> {
-  try {
-    await auth.logout()
-  } catch {
-    // Continue with local logout if the server logout request fails.
-  } finally {
-    authStore.clearStore()
-    await router.push({ name: 'login' })
-  }
+  await authStore.logOut()
+  await router.push({ name: 'login' })
 }
 
 /**

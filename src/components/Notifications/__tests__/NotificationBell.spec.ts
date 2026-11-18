@@ -101,7 +101,7 @@ describe('NotificationBell', () => {
       expect(mounted.get(TOGGLE).attributes('aria-expanded')).toBe('false')
     })
 
-    it('shows the disabled state when the browser is not subscribed', async () => {
+    it('shows the disabled state when notifications are not subscribed', async () => {
       const mounted = await mountAndSettle()
 
       expect(isSubscribedToPushNotifications).toHaveBeenCalledTimes(1)
@@ -170,7 +170,7 @@ describe('NotificationBell', () => {
       expect(mounted.find(DROPDOWN).exists()).toBe(false)
     })
 
-    it('renders the notification content and browser push controls', async () => {
+    it('renders the notification content and push notification controls', async () => {
       const mounted = await openDropdown()
 
       expect(mounted.text()).toContain('Notifications')
@@ -206,19 +206,19 @@ describe('NotificationBell', () => {
       )
     })
 
-    it('disables the action and explains when push is unsupported', async () => {
+    it('disables the action and explains when notifications are unsupported', async () => {
       vi.mocked(isPushNotificationSupported).mockReturnValue(false)
 
       const mounted = await openDropdown()
 
       expect(mounted.get(ACTION).attributes('disabled')).toBeDefined()
-      expect(mounted.text()).toContain('Browser notifications are not supported by this browser.')
+      expect(mounted.text()).toContain('Notifications are not supported on this platform.')
     })
 
-    it('does not show the unsupported message when push is supported', async () => {
+    it('does not show the unsupported message when notifications are supported', async () => {
       const mounted = await openDropdown()
 
-      expect(mounted.text()).not.toContain('not supported by this browser')
+      expect(mounted.text()).not.toContain('Notifications are not supported on this platform.')
     })
 
     it('closes when clicking outside', async () => {
@@ -282,7 +282,7 @@ describe('NotificationBell', () => {
 
       expect(subscribeToPushNotifications).toHaveBeenCalledTimes(1)
       expect(unsubscribeFromPushNotifications).not.toHaveBeenCalled()
-      expect(notifySuccess).toHaveBeenCalledWith('Browser notifications have been enabled.')
+      expect(notifySuccess).toHaveBeenCalledWith('Notifications have been enabled.')
       expect(notifyError).not.toHaveBeenCalled()
       expect(mounted.find(DROPDOWN).exists()).toBe(false)
       expect(mounted.findComponent(BellIcon).exists()).toBe(true)
@@ -299,7 +299,7 @@ describe('NotificationBell', () => {
 
       expect(unsubscribeFromPushNotifications).toHaveBeenCalledTimes(1)
       expect(subscribeToPushNotifications).not.toHaveBeenCalled()
-      expect(notifySuccess).toHaveBeenCalledWith('Browser notifications have been disabled.')
+      expect(notifySuccess).toHaveBeenCalledWith('Notifications have been disabled.')
       expect(mounted.find(DROPDOWN).exists()).toBe(false)
       expect(mounted.findComponent(BellSlashIcon).exists()).toBe(true)
     })
@@ -330,14 +330,14 @@ describe('NotificationBell', () => {
       expect(mounted.find(ACTION).exists()).toBe(false)
     })
 
-    it('reports an error when the browser state does not match the request', async () => {
+    it('reports an error when the notification state does not match the request', async () => {
       // Subscribe resolves but the browser still reports "not subscribed".
       const mounted = await openDropdown()
 
       await mounted.get(ACTION).trigger('click')
       await flushPromises()
 
-      expect(notifyError).toHaveBeenCalledWith('Unable to update browser notification settings.')
+      expect(notifyError).toHaveBeenCalledWith('Unable to update notification settings.')
       expect(notifySuccess).not.toHaveBeenCalled()
       expect(mounted.find(DROPDOWN).exists()).toBe(true)
     })
@@ -369,7 +369,7 @@ describe('NotificationBell', () => {
       expect(notifyError).toHaveBeenCalledWith('Unable to update notification settings.')
     })
 
-    it('rechecks the actual browser state after a failure', async () => {
+    it('rechecks the actual notification state after a failure', async () => {
       vi.mocked(isSubscribedToPushNotifications)
         .mockResolvedValueOnce(false) // on mount
         .mockResolvedValueOnce(true) // recheck after failure
@@ -408,10 +408,7 @@ describe('NotificationBell', () => {
       await mounted.get(ACTION).trigger('click')
       await flushPromises()
 
-      expect(notifyError).toHaveBeenNthCalledWith(
-        2,
-        'Unable to refresh notification subscription status.',
-      )
+      expect(notifyError).toHaveBeenNthCalledWith(2, 'Unable to refresh notification status.')
     })
   })
 })

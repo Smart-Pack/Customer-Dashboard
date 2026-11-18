@@ -1,14 +1,110 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 import SmartPackDetails from '@/views/Smartpacks/details.vue'
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
 import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
+import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
+import SensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
+import type { SmartPackSensorMessage } from '@/types/bluetooth'
+
+const { mockFetchByIdWithCache, mockGetBluetoothMeasurements, mockSaveBluetoothMeasurements } =
+  vi.hoisted(() => ({
+    mockFetchByIdWithCache:
+      vi.fn<
+        (
+          fetcher: () => Promise<import('@/api/modules/smartpacks').SmartPack>,
+          repository: object,
+          id: number,
+        ) => Promise<import('@/api/modules/smartpacks').SmartPack>
+      >(),
+    mockGetBluetoothMeasurements: vi.fn<
+      (smartpackId: number) => Promise<
+        {
+          smartpack_id: number
+          weight: number
+          steps: number
+          timestamp: string
+        }[]
+      >
+    >(),
+    mockSaveBluetoothMeasurements: vi.fn<
+      (
+        smartpackId: number,
+        measurements: {
+          weight: number
+          steps: number
+          timestamp: string
+        }[],
+      ) => Promise<void>
+    >(),
+  }))
+
+vi.mock('@/services/database', () => ({
+  fetchByIdWithCache: mockFetchByIdWithCache,
+  repositories: {
+    smartpacks: {},
+    bluetoothSensorMeasurements: {
+      getBySmartPackId: mockGetBluetoothMeasurements,
+      saveList: mockSaveBluetoothMeasurements,
+    },
+  },
+}))
+
+vi.mock('@/components/Smartpacks/BluetoothButton.vue', async () => {
+  const { defineComponent, h } = await import('vue')
+
+  return {
+    default: defineComponent({
+      name: 'BluetoothButton',
+      props: {
+        macAddress: {
+          type: String,
+          default: null,
+        },
+        isBluetoothConnected: {
+          type: Boolean,
+          default: false,
+        },
+      },
+      emits: ['update:isBluetoothConnected', 'message'],
+      setup(_, { emit }) {
+        return () =>
+          h('div', { 'data-testid': 'bluetooth-button' }, [
+            h(
+              'button',
+              {
+                'data-testid': 'bluetooth-connect',
+                onClick: () => emit('update:isBluetoothConnected', true),
+              },
+              'Connect',
+            ),
+            h(
+              'button',
+              {
+                'data-testid': 'bluetooth-message',
+                onClick: () =>
+                  emit('message', {
+                    type: 'sensors',
+                    data: {
+                      weight: 4250,
+                      steps: 1250,
+                    },
+                  }),
+              },
+              'Send sensor message',
+            ),
+          ])
+      },
+    }),
+  }
+})
+
 vi.mock('@/components/Smartpacks/SensorMeasurements.vue', async () => {
   const { defineComponent, h } = await import('vue')
 
@@ -18,6 +114,8 @@ vi.mock('@/components/Smartpacks/SensorMeasurements.vue', async () => {
       props: {
         smartpackId: { type: Number, required: true },
         smartpackUid: { type: String, required: true },
+        isBluetoothConnected: { type: Boolean, required: true },
+        sensorHistory: { type: Array, required: true },
       },
       setup() {
         return () => h('div', { 'data-testid': 'sensor-measurements' })
@@ -25,7 +123,6 @@ vi.mock('@/components/Smartpacks/SensorMeasurements.vue', async () => {
     }),
   }
 })
-import SensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 
 const mockGetById = vi.fn<(params: { id: string }) => Promise<SmartPack>>()
 
@@ -67,6 +164,7 @@ const mockSmartPack: SmartPack = {
   hardware_model: 'SP-X1',
   imei: '490154203237518',
   firmware_version: '1.4.2',
+  bluetooth_mac_address: null,
   last_seen: '2026-09-23T14:30:00Z',
   is_online: true,
   assigned_to: null,
@@ -168,7 +266,11 @@ const mountView = () =>
 
 describe('SmartPackDetails', () => {
   beforeEach(() => {
+    vi.stubEnv('MODE', 'test')
+
     vi.clearAllMocks()
+
+    mockFetchByIdWithCache.mockImplementation((fetcher: () => Promise<SmartPack>) => fetcher())
 
     mockGetById.mockResolvedValue({ ...mockSmartPack })
     mockAssignGroup.mockResolvedValue('SmartPack assigned to group successfully')
@@ -177,6 +279,14 @@ describe('SmartPackDetails', () => {
     mockDeleteModal.mockResolvedValue(true)
     mockAuthStore.fetchUser.mockResolvedValue(undefined)
     mockAuthStore.isGroupAdmin.mockReturnValue(true)
+
+    mockGetBluetoothMeasurements.mockResolvedValue([])
+    mockSaveBluetoothMeasurements.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllEnvs()
   })
 
   describe('Fetching SmartPack details', () => {
@@ -185,8 +295,15 @@ describe('SmartPackDetails', () => {
 
       await flushPromises()
 
-      expect(mockGetById).toHaveBeenCalledTimes(1)
-      expect(mockGetById).toHaveBeenCalledWith({ id: '1' })
+      expect(mockFetchByIdWithCache).toHaveBeenCalledTimes(1)
+
+      expect(mockFetchByIdWithCache).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.any(Object),
+        1,
+      )
+
+      expect(mockGetById).toHaveBeenCalledExactlyOnceWith({ id: '1' })
     })
 
     it('displays the SmartPack hardware model', async () => {
@@ -284,7 +401,439 @@ describe('SmartPackDetails', () => {
       expect(measurements.props('smartpackUid')).toBe(mockSmartPack.device_uid)
     })
   })
+  describe('Bluetooth integration', () => {
+    it('renders the Bluetooth button in mobile mode', async () => {
+      vi.stubEnv('MODE', 'mobile')
 
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="bluetooth-button"]').exists()).toBe(true)
+    })
+
+    it('does not render the Bluetooth button outside mobile mode', async () => {
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="bluetooth-button"]').exists()).toBe(false)
+    })
+
+    it('passes the SmartPack Bluetooth MAC address to BluetoothButton', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const macAddress = 'AA:BB:CC:DD:EE:FF'
+
+      mockGetById.mockResolvedValueOnce({
+        ...mockSmartPack,
+        bluetooth_mac_address: macAddress,
+      })
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      expect(bluetoothButton.exists()).toBe(true)
+      expect(bluetoothButton.props('macAddress')).toBe(macAddress)
+    })
+
+    it('passes Bluetooth connection state and sensor history to SensorMeasurements', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      await bluetoothButton.find('[data-testid="bluetooth-connect"]').trigger('click')
+
+      const measurements = wrapper.findComponent(SensorMeasurements)
+
+      expect(measurements.props('isBluetoothConnected')).toBe(true)
+      expect(measurements.props('sensorHistory')).toEqual([])
+    })
+
+    it('records valid sensor messages received over Bluetooth', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const message: SmartPackSensorMessage = {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      }
+
+      wrapper.findComponent(BluetoothButton).vm.$emit('message', message)
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        sensorHistory: Array<{
+          weight: number
+          steps: number
+          timestamp: string
+        }>
+      }
+
+      expect(vm.sensorHistory).toHaveLength(1)
+      expect(vm.sensorHistory[0]).toMatchObject({
+        weight: 4250,
+        steps: 1250,
+      })
+      expect(Number.isNaN(Date.parse(vm.sensorHistory[0]?.timestamp ?? ''))).toBe(false)
+    })
+
+    it('passes received sensor history to SensorMeasurements', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const message: SmartPackSensorMessage = {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      }
+
+      wrapper.findComponent(BluetoothButton).vm.$emit('message', message)
+
+      await wrapper.vm.$nextTick()
+
+      const measurements = wrapper.findComponent(SensorMeasurements)
+
+      expect(measurements.props('sensorHistory')).toHaveLength(1)
+      expect(measurements.props('sensorHistory')[0]).toMatchObject({
+        weight: 4250,
+        steps: 1250,
+      })
+    })
+
+    it('ignores unsupported Bluetooth message types', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      wrapper.findComponent(BluetoothButton).vm.$emit('message', {
+        type: 'sos',
+        data: {},
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        sensorHistory: unknown[]
+      }
+
+      expect(vm.sensorHistory).toHaveLength(0)
+    })
+
+    it('ignores invalid sensor readings received over Bluetooth', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      const invalidMessages = [
+        {
+          type: 'sensors',
+          data: {
+            weight: -100,
+            steps: 1250,
+          },
+        },
+        {
+          type: 'sensors',
+          data: {
+            weight: 4250,
+            steps: -1,
+          },
+        },
+        {
+          type: 'sensors',
+          data: {
+            weight: '4250',
+            steps: 1250,
+          },
+        },
+        {
+          type: 'sensors',
+          data: {
+            weight: 4250,
+          },
+        },
+        null,
+        'invalid message',
+      ]
+
+      for (const message of invalidMessages) {
+        bluetoothButton.vm.$emit('message', message)
+      }
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        sensorHistory: unknown[]
+      }
+
+      expect(vm.sensorHistory).toHaveLength(0)
+    })
+
+    it('retains only the latest 1000 Bluetooth sensor readings', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      for (let index = 0; index < 1001; index++) {
+        bluetoothButton.vm.$emit('message', {
+          type: 'sensors',
+          data: {
+            weight: index,
+            steps: index,
+          },
+        })
+      }
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        sensorHistory: Array<{
+          weight: number
+          steps: number
+          timestamp: string
+        }>
+      }
+
+      expect(vm.sensorHistory).toHaveLength(1000)
+      expect(vm.sensorHistory[0]?.weight).toBe(1)
+      expect(vm.sensorHistory[999]?.weight).toBe(1000)
+    })
+    it('loads cached Bluetooth sensor measurements in chronological order', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      mockGetBluetoothMeasurements.mockResolvedValueOnce([
+        {
+          smartpack_id: 1,
+          weight: 4500,
+          steps: 1500,
+          timestamp: '2026-11-18T10:00:03.000Z',
+        },
+        {
+          smartpack_id: 1,
+          weight: 4400,
+          steps: 1400,
+          timestamp: '2026-11-18T10:00:02.000Z',
+        },
+        {
+          smartpack_id: 1,
+          weight: 4300,
+          steps: 1300,
+          timestamp: '2026-11-18T10:00:01.000Z',
+        },
+      ])
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      expect(mockGetBluetoothMeasurements).toHaveBeenCalledExactlyOnceWith(1)
+
+      const vm = wrapper.vm as unknown as {
+        sensorHistory: Array<{
+          weight: number
+          steps: number
+          timestamp: string
+        }>
+      }
+
+      expect(vm.sensorHistory).toEqual([
+        {
+          weight: 4300,
+          steps: 1300,
+          timestamp: '2026-11-18T10:00:01.000Z',
+        },
+        {
+          weight: 4400,
+          steps: 1400,
+          timestamp: '2026-11-18T10:00:02.000Z',
+        },
+        {
+          weight: 4500,
+          steps: 1500,
+          timestamp: '2026-11-18T10:00:03.000Z',
+        },
+      ])
+
+      wrapper.unmount()
+    })
+    it('queues sensor readings for persistence when Bluetooth is connected', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      await bluetoothButton.find('[data-testid="bluetooth-connect"]').trigger('click')
+
+      bluetoothButton.vm.$emit('message', {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        bluetoothMeasurementBuffer: Array<{
+          weight: number
+          steps: number
+          timestamp: string
+        }>
+      }
+
+      expect(vm.bluetoothMeasurementBuffer).toHaveLength(1)
+      expect(vm.bluetoothMeasurementBuffer[0]).toMatchObject({
+        weight: 4250,
+        steps: 1250,
+      })
+
+      expect(mockSaveBluetoothMeasurements).not.toHaveBeenCalled()
+
+      wrapper.unmount()
+      await flushPromises()
+    })
+    it('persists buffered Bluetooth measurements periodically', async () => {
+      vi.stubEnv('MODE', 'mobile')
+      vi.useFakeTimers()
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      await bluetoothButton.find('[data-testid="bluetooth-connect"]').trigger('click')
+
+      bluetoothButton.vm.$emit('message', {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      expect(mockSaveBluetoothMeasurements).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(5000)
+
+      expect(mockSaveBluetoothMeasurements).toHaveBeenCalledExactlyOnceWith(1, [
+        expect.objectContaining({
+          weight: 4250,
+          steps: 1250,
+        }),
+      ])
+
+      wrapper.unmount()
+      await flushPromises()
+    })
+    it('flushes pending measurements when Bluetooth disconnects', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      await bluetoothButton.find('[data-testid="bluetooth-connect"]').trigger('click')
+
+      bluetoothButton.vm.$emit('message', {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const vm = wrapper.vm as unknown as {
+        isBluetoothConnected: boolean
+      }
+
+      vm.isBluetoothConnected = false
+
+      await flushPromises()
+
+      expect(mockSaveBluetoothMeasurements).toHaveBeenCalledExactlyOnceWith(1, [
+        expect.objectContaining({
+          weight: 4250,
+          steps: 1250,
+        }),
+      ])
+
+      wrapper.unmount()
+      await flushPromises()
+    })
+    it('flushes pending Bluetooth measurements when the component unmounts', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountView()
+
+      await flushPromises()
+
+      const bluetoothButton = wrapper.findComponent(BluetoothButton)
+
+      await bluetoothButton.find('[data-testid="bluetooth-connect"]').trigger('click')
+
+      bluetoothButton.vm.$emit('message', {
+        type: 'sensors',
+        data: {
+          weight: 4250,
+          steps: 1250,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      wrapper.unmount()
+
+      await flushPromises()
+
+      expect(mockSaveBluetoothMeasurements).toHaveBeenCalledExactlyOnceWith(1, [
+        expect.objectContaining({
+          weight: 4250,
+          steps: 1250,
+        }),
+      ])
+    })
+  })
   describe('SmartPack summary', () => {
     it('displays the online status when the SmartPack is online', async () => {
       const wrapper = mountView()

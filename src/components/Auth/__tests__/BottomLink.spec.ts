@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import AuthCardBottomLink from '../BottomLink.vue'
 
 describe('AuthCardBottomLink', () => {
@@ -17,8 +17,16 @@ describe('AuthCardBottomLink', () => {
     template: '<button data-testid="google-login-button">Google Sign-In</button>',
   }
 
+  const GoogleSocialLoginButtonStub = {
+    template: '<button data-testid="google-social-login-button">Native Google Sign-In</button>',
+  }
+
   const GoogleSignupButtonStub = {
     template: '<button data-testid="google-signup-button">Google Sign-Up</button>',
+  }
+
+  const GoogleSocialSignupButtonStub = {
+    template: '<button data-testid="google-social-signup-button">Native Google Sign-Up</button>',
   }
 
   const wrapperFactory = (mode: 'create' | 'signIn') =>
@@ -30,28 +38,78 @@ describe('AuthCardBottomLink', () => {
         stubs: {
           RouterLink: RouterLinkStub,
           GoogleLoginButton: GoogleLoginButtonStub,
+          GoogleSocialLoginButton: GoogleSocialLoginButtonStub,
           GoogleSignupButton: GoogleSignupButtonStub,
+          GoogleSocialSignupButton: GoogleSocialSignupButtonStub,
         },
       },
     })
 
-  it('renders sign-in prompt, login route, and Google signup button in create mode', () => {
-    const wrapper = wrapperFactory('create')
-
-    expect(wrapper.find('span').text()).toContain('Already have an account?')
-    expect(wrapper.find('a').text()).toBe('Sign in')
-    expect(wrapper.find('a').attributes('data-to')).toBe('login')
-    expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(true)
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
-  it('renders sign-up prompt, signup route, and Google login button in signIn mode', () => {
-    const wrapper = wrapperFactory('signIn')
+  describe('web mode', () => {
+    it('renders the Google signup button in create mode', () => {
+      vi.stubEnv('MODE', 'test')
 
-    expect(wrapper.find('span').text()).toContain("Don't have an account yet?")
-    expect(wrapper.find('a').text()).toBe('Sign up')
-    expect(wrapper.find('a').attributes('data-to')).toBe('signup')
-    expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(false)
+      const wrapper = wrapperFactory('create')
+
+      expect(wrapper.find('span').text()).toContain('Already have an account?')
+      expect(wrapper.find('a').text()).toBe('Sign in')
+      expect(wrapper.find('a').attributes('data-to')).toBe('login')
+
+      expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="google-social-signup-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-social-login-button"]').exists()).toBe(false)
+    })
+
+    it('renders the Google login button in signIn mode', () => {
+      vi.stubEnv('MODE', 'test')
+
+      const wrapper = wrapperFactory('signIn')
+
+      expect(wrapper.find('span').text()).toContain("Don't have an account yet?")
+      expect(wrapper.find('a').text()).toBe('Sign up')
+      expect(wrapper.find('a').attributes('data-to')).toBe('signup')
+
+      expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="google-social-login-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-social-signup-button"]').exists()).toBe(false)
+    })
+  })
+
+  describe('mobile mode', () => {
+    it('renders the native Google signup button in create mode', () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = wrapperFactory('create')
+
+      expect(wrapper.find('span').text()).toContain('Already have an account?')
+      expect(wrapper.find('a').text()).toBe('Sign in')
+      expect(wrapper.find('a').attributes('data-to')).toBe('login')
+
+      expect(wrapper.find('[data-testid="google-social-signup-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-social-login-button"]').exists()).toBe(false)
+    })
+
+    it('renders the native Google login button in signIn mode', () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = wrapperFactory('signIn')
+
+      expect(wrapper.find('span').text()).toContain("Don't have an account yet?")
+      expect(wrapper.find('a').text()).toBe('Sign up')
+      expect(wrapper.find('a').attributes('data-to')).toBe('signup')
+
+      expect(wrapper.find('[data-testid="google-social-login-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="google-login-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-signup-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="google-social-signup-button"]').exists()).toBe(false)
+    })
   })
 })

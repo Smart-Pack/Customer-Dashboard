@@ -94,6 +94,8 @@ import type { Notification } from '@/api/modules/notifications'
 import CloseIcon from '@/components/Icons/CloseIcon.vue'
 import { useGlobals } from '@/composables/useGlobals'
 import { useAuthStore, useMqttStore } from '@/stores'
+import { repositories } from '@/services/database'
+import { isMobile } from '@/utils/platform'
 
 defineOptions({
   name: 'NotificationContent',
@@ -221,6 +223,12 @@ function handleMqttMessage(payload: Uint8Array): void {
 
     mqttUnreadIds.add(notification.id)
     updateUnreadCount(unreadCount.value + 1)
+    // Persist new MQTT notifications locally in mobile mode.
+    if (isMobile()) {
+      void repositories.notifications.save(notification).catch((error: unknown) => {
+        console.error('[MQTT] Failed to cache notification:', notification.id, error)
+      })
+    }
 
     console.info('[MQTT] Notification added:', notification.id)
   } catch (error: unknown) {
@@ -361,10 +369,10 @@ function disconnectFromNotifications(): void {
 }
 
 /**
- * Fetches unread notifications from the REST API.
+ * Fetches unread notifications from the REST API with local cache fallback.
  *
  * MQTT events received while this request is in progress are preserved,
- * even if they are not present in the API response.
+ * even if they are not present in the API or cached response.
  */
 async function fetchNotifications(): Promise<void> {
   if (fetchAttempt) {
@@ -379,7 +387,7 @@ async function fetchNotifications(): Promise<void> {
     const existingNotifications = [...notifications.value]
 
     try {
-      const response = await notificationsApi.list({
+      const response = await notificationsApi.listWithCache({
         status: 'unread_not_dismissed',
         page_size: 20,
       })
@@ -463,6 +471,16 @@ async function markAsRead(notification: Notification): Promise<void> {
     const updatedNotification = await notificationsApi.edit(notification.id, {
       read_at: new Date().toISOString(),
     })
+    // Synchronize the server response with the local SQLite cache.
+    if (isMobile()) {
+      void repositories.notifications.save(updatedNotification).catch((error: unknown) => {
+        console.error(
+          '[Notifications] Failed to update cached notification:',
+          notification.id,
+          error,
+        )
+      })
+    }
 
     if (isUnmounted) return
 

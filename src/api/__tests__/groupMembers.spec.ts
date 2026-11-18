@@ -9,10 +9,14 @@ import {
   joinInvite,
   leaveGroup,
   list,
+  listWithCache,
   removeGroupMember,
   sendInvite,
   verifyInvite,
+  type GroupMemberQueryParams,
 } from '../modules/groupMembers'
+
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 import type {
   GroupMemberListResult,
   SendGroupInvitePayload,
@@ -31,7 +35,22 @@ vi.mock('@/api/client', () => ({
     post: vi.fn<AxiosInstance['post']>(),
   },
 }))
+vi.mock('@/services/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/database')>()
 
+  return {
+    ...actual,
+    fetchPaginatedWithCache: vi.fn<typeof actual.fetchPaginatedWithCache>(),
+    repositories: {
+      ...actual.repositories,
+      groupMembers: {
+        ...actual.repositories.groupMembers,
+        saveList: vi.fn<typeof actual.repositories.groupMembers.saveList>(),
+        getPaginated: vi.fn<typeof actual.repositories.groupMembers.getPaginated>(),
+      },
+    },
+  }
+})
 const mockGroupMembers: GroupMember[] = [
   {
     id: 1,
@@ -111,7 +130,97 @@ describe('groupMembers API', () => {
       await expect(list()).rejects.toThrow('Failed to fetch group members')
     })
   })
+  describe('listWithCache', () => {
+    const params: GroupMemberQueryParams = {
+      group: 3,
+      page: 1,
+      page_size: 10,
+    }
 
+    const result: GroupMemberListResult = {
+      count: mockGroupMembers.length,
+      next: null,
+      previous: null,
+      results: mockGroupMembers,
+    }
+
+    it('passes the correct options to fetchPaginatedWithCache', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockResolvedValueOnce(result)
+
+      await listWithCache(params)
+
+      expect(fetchPaginatedWithCache).toHaveBeenCalledWith({
+        fetcher: expect.any(Function),
+        params,
+        save: expect.any(Function),
+        getCached: expect.any(Function),
+      })
+    })
+
+    it('uses list as the API fetcher', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ fetcher }) =>
+        fetcher(params),
+      )
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: result,
+      })
+
+      await listWithCache(params)
+
+      expect(apiClient.get).toHaveBeenCalledWith(GROUP_MEMBERS.collectionWithQuery(params))
+    })
+
+    it('passes the group ID and fetched members to the repository saveList function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ save }) => {
+        await save(mockGroupMembers)
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.groupMembers.saveList).toHaveBeenCalledExactlyOnceWith(
+        params.group,
+        mockGroupMembers,
+      )
+    })
+
+    it('retrieves cached group members using the repository getPaginated function', async () => {
+      vi.mocked(fetchPaginatedWithCache).mockImplementationOnce(async ({ getCached }) => {
+        await getCached(params)
+        return result
+      })
+
+      await listWithCache(params)
+
+      expect(repositories.groupMembers.getPaginated).toHaveBeenCalledExactlyOnceWith(params)
+    })
+    it('throws an error when the group ID is missing', async () => {
+      const params: GroupMemberQueryParams = {
+        page: 1,
+        page_size: 10,
+      }
+
+      await expect(listWithCache(params)).rejects.toThrow(
+        'A group ID is required to fetch group members with caching.',
+      )
+
+      expect(fetchPaginatedWithCache).not.toHaveBeenCalled()
+    })
+    it('throws an error when the group ID is zero', async () => {
+      const params: GroupMemberQueryParams = {
+        group: 0,
+        page: 1,
+        page_size: 10,
+      }
+
+      await expect(listWithCache(params)).rejects.toThrow(
+        'A group ID is required to fetch group members with caching.',
+      )
+
+      expect(fetchPaginatedWithCache).not.toHaveBeenCalled()
+    })
+  })
   describe('sendInvite', () => {
     const groupId = 1
 

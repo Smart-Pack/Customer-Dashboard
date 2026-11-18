@@ -1,6 +1,22 @@
+<!--
+  GroupsTable
+
+  Displays groups available to the authenticated user, including their
+  membership and management information.
+
+  Features:
+  - Fetches groups through the API with SQLite offline caching on native platforms.
+  - Supports role-based filtering using All, Managed, and Member tabs.
+  - Supports searching and sorting group records.
+  - Provides navigation to individual group details.
+
+  Offline retrieval uses the authenticated user's group roles to apply
+  the appropriate filters to locally cached data.
+-->
+
 <template>
   <TablePageLayout
-    :getter="$api.groups.list"
+    :getter="getGroupsList"
     page-description="Manage groups, view their members and SmartPacks, and keep track of group ownership and creation."
     :tabs="groupTabs"
     name="Groups"
@@ -12,12 +28,27 @@
 
 <script setup lang="ts">
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { GroupQueryParams } from '@/api/modules/groups'
+import { listWithCache, type GroupQueryParams } from '@/api/modules/groups'
+import { useAuthStore } from '@/stores/modules/auth'
 import Filters from '@/helpers/filters'
 
 defineOptions({
   name: 'GroupsTable',
 })
+
+const authStore = useAuthStore()
+
+/**
+ * Fetches groups using the API with local caching support.
+ *
+ * Passes the authenticated user's groups to support role-based filtering
+ * when retrieving cached data offline.
+ *
+ * @param params - Group filters and pagination parameters.
+ */
+function getGroupsList(params: GroupQueryParams) {
+  return listWithCache(params, authStore.loggedInUser?.groups ?? [])
+}
 
 /**
  * Defines the available group table tabs and their associated filters.
