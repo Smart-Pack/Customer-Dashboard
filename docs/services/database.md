@@ -1044,6 +1044,271 @@ Run the cache utility tests with:
 pnpm vitest --run src/services/database/__tests__/cache.spec.ts
 ```
 
+## 6. Synchronization Utilities
+
+The database service provides reusable synchronization utilities for retrieving data from the backend and keeping locally cached SQLite records up to date.
+
+These utilities separate synchronization logic from application business logic and provide consistent handling of paginated API responses, local persistence, synchronization metadata, and periodic background synchronization.
+
+Synchronization utilities are implemented in:
+
+`src/services/database/sync/`
+
+### 6.1 Available Utilities
+
+| Function | Description |
+|---|---|
+| `syncPaginated(fetcher, repository, options?)` | Retrieves paginated API responses, saves each page locally, and reconciles stale cached records after successful synchronization. Supports synchronization across multiple scope values, such as groups or SmartPacks. |
+| `syncSingle(fetcher, repository)` | Retrieves a single resource from the backend and saves it to the corresponding local repository. |
+| `syncModule(module)` | Synchronizes a specific module, updates its synchronization metadata, and prevents duplicate concurrent synchronization of the same module. |
+| `syncAll()` | Synchronizes all supported modules sequentially, respecting their dependency order. |
+| `startSyncScheduler(options?)` | Starts periodic synchronization with configurable intervals, optional immediate synchronization, and error handling. |
+| `stopSyncScheduler()` | Stops the periodic synchronization scheduler. |
+| `triggerSync()` | Manually triggers synchronization using the scheduler's synchronization operation. |
+| `isSyncSchedulerRunning()` | Checks whether the periodic synchronization scheduler is running. |
+
+### 6.2 Synchronizing a Single Module
+
+The `syncModule()` utility synchronizes an individual module without requiring the application to manage API requests, repository persistence, or synchronization metadata.
+
+**Behaviour**
+
+1. Checks whether the module is already being synchronized.
+2. Returns the existing synchronization promise if an operation is already in progress.
+3. Updates the module's synchronization status to `syncing`.
+4. Executes the corresponding synchronization function.
+5. Updates the synchronization status to `success` when synchronization completes.
+6. Records the last successful synchronization timestamp.
+7. Records synchronization errors and marks the module as `failed` when synchronization fails.
+
+**Usage**
+
+```typescript
+import { syncModule } from '@/services/database/sync'
+
+// Synchronize notifications.
+const count = await syncModule('notifications')
+
+// Synchronize SmartPacks.
+await syncModule('smartpacks')
+
+// Synchronize notification preferences.
+await syncModule('notification_preferences')
+```
+
+The supported modules are:
+
+| Module | Description |
+|---|---|
+| `users` | Synchronizes the authenticated user's information. |
+| `groups` | Synchronizes the user's groups. |
+| `group_members` | Synchronizes members belonging to locally cached groups. |
+| `smartpacks` | Synchronizes assigned SmartPacks. |
+| `smartpack_sensor_measurements` | Synchronizes sensor measurements belonging to locally cached SmartPacks. |
+| `notifications` | Synchronizes notifications. |
+| `notification_preferences` | Synchronizes notification preferences. |
+
+Bluetooth sensor measurements are excluded because they are collected and stored locally.
+
+### 6.3 Synchronizing All Modules
+
+The `syncAll()` utility synchronizes all supported modules sequentially.
+
+It ensures that dependent resources are synchronized after their parent resources have been retrieved.
+
+**Synchronization order**
+
+1. Users
+2. Groups
+3. Group members
+4. SmartPacks
+5. SmartPack sensor measurements
+6. Notifications
+7. Notification preferences
+
+**Behaviour**
+
+1. Iterates through all supported synchronization modules.
+2. Synchronizes each module using `syncModule()`.
+3. Waits for the current module to complete before proceeding.
+4. Stops synchronization when a module fails.
+
+**Usage**
+
+```typescript
+import { syncAll } from '@/services/database/sync'
+
+// Synchronize all supported modules.
+await syncAll()
+```
+
+This utility is suitable for initial synchronization after authentication and manual full synchronization requests.
+
+### 6.4 Periodic Synchronization
+
+The synchronization scheduler provides periodic synchronization without requiring individual components to manage timers or repeatedly invoke synchronization functions.
+
+It is implemented in:
+
+`src/services/database/sync/syncScheduler.ts`
+
+**Behaviour**
+
+1. Starts a periodic timer using the configured synchronization interval.
+2. Optionally triggers synchronization immediately when started.
+3. Invokes `syncAll()` at each scheduled interval.
+4. Prevents overlapping synchronization operations.
+5. Passes synchronization errors to the configured error handler.
+6. Continues scheduling subsequent synchronization attempts after failures.
+7. Allows the scheduler to be stopped and restarted.
+
+**Usage**
+
+```typescript
+import {
+    startSyncScheduler,
+    stopSyncScheduler,
+} from '@/services/database/sync'
+
+// Start periodic synchronization.
+startSyncScheduler({
+    intervalMs: 5 * 60 * 1000,
+    syncOnStart: true,
+    onError: (error) => {
+        console.error('Background synchronization failed:', error)
+    },
+})
+
+// Stop periodic synchronization.
+stopSyncScheduler()
+```
+
+The scheduler accepts the following configuration:
+
+| Option | Description | Default |
+|---|---|---|
+| `intervalMs` | Time between synchronization attempts, in milliseconds. | `300000` (5 minutes) |
+| `syncOnStart` | Whether to synchronize immediately after starting the scheduler. | `true` |
+| `onError` | Callback invoked when a scheduled synchronization fails. | No callback |
+
+### 6.5 Manually Triggering Synchronization
+
+The `triggerSync()` utility allows synchronization to be initiated independently of the scheduler's timer.
+
+This is useful when the user manually requests a refresh or when the application regains network connectivity.
+
+**Usage**
+
+```typescript
+import { triggerSync } from '@/services/database/sync'
+
+// Trigger synchronization immediately.
+await triggerSync()
+```
+
+The scheduler's synchronization operation prevents overlapping executions, including when synchronization is triggered manually while another operation is in progress.
+
+### 6.6 Synchronization Metadata
+
+Synchronization metadata tracks the synchronization state of individual modules.
+
+It is stored in the local SQLite database using the `sync_metadata` table.
+
+| Field | Description |
+|---|---|
+| `module` | Identifies the synchronized module. |
+| `last_synced_at` | Timestamp of the last successful synchronization. |
+| `sync_status` | Current synchronization status: `idle`, `syncing`, `success`, or `failed`. |
+| `last_attempted_at` | Timestamp of the most recent synchronization attempt. |
+| `last_error` | Error message from the most recent failed synchronization. |
+
+When synchronization fails, the previous successful synchronization timestamp is preserved.
+
+This allows the application to distinguish between modules that have never synchronized successfully and modules that previously synchronized but encountered a subsequent failure.
+
+### 6.7 Application Integration
+
+The scheduler should be initialized after successful authentication and database initialization.
+
+For example:
+
+```typescript
+import {
+    startSyncScheduler,
+    stopSyncScheduler,
+} from '@/services/database/sync'
+
+async function initializeAuthenticatedApp() {
+    await initializeDatabase()
+
+    startSyncScheduler({
+        intervalMs: 5 * 60 * 1000,
+        syncOnStart: true,
+        onError: (error) => {
+            console.error('Synchronization failed:', error)
+        },
+    })
+}
+
+function handleLogout() {
+    stopSyncScheduler()
+}
+```
+
+`initializeDatabase()` represents the application's existing database initialization function.
+
+The scheduler should be stopped when the authenticated session ends to prevent synchronization from continuing after logout.
+
+### 6.8 Error Handling
+
+Synchronization utilities propagate errors to their callers while recording module synchronization failures through synchronization metadata.
+
+- **API errors:** Propagated when a backend request fails.
+- **Persistence errors:** Propagated when saving or reconciling local records fails.
+- **Synchronization failures:** Recorded with a `failed` status and the corresponding error message.
+- **Concurrent synchronization:** Duplicate requests for the same module reuse the existing synchronization promise.
+- **Scheduled synchronization errors:** Forwarded to the configured `onError` callback.
+- **Subsequent attempts:** The scheduler continues attempting synchronization after a failed scheduled operation.
+
+### 6.9 Testing
+
+Synchronization utilities are tested using Vitest with mocked API functions, repositories, synchronization metadata, and fake timers.
+
+The test suites cover:
+
+- Paginated synchronization and page-by-page persistence.
+- Scoped synchronization across groups and SmartPacks.
+- Removal of stale cached records.
+- Single-resource synchronization.
+- Synchronization metadata updates and error handling.
+- Concurrent synchronization prevention.
+- Sequential synchronization and dependency ordering.
+- Scheduler initialization, stopping, and restarting.
+- Configurable synchronization intervals.
+- Manual synchronization triggers.
+- Prevention of overlapping scheduled and manual operations.
+- Scheduler error handling and subsequent synchronization attempts.
+
+Run the synchronization tests individually:
+
+```bash
+pnpm vitest --run src/services/database/sync/__tests__/utils.spec.ts
+
+pnpm vitest --run src/services/database/sync/__tests__/modules.spec.ts
+
+pnpm vitest --run src/services/database/sync/__tests__/syncManager.spec.ts
+
+pnpm vitest --run src/services/database/sync/__tests__/syncScheduler.spec.ts
+```
+
+Run all synchronization tests together:
+
+```bash
+pnpm vitest --run src/services/database/sync
+```
+
+**Current test results:** All four test suites pass, with **65 tests passing** (16 utility tests, 18 module tests, 13 manager tests, and 18 scheduler tests).
+
 ## Logging and Troubleshooting
 
 The database service provides console messages for initialization events.
