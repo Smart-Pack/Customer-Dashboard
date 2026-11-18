@@ -1069,6 +1069,8 @@ Synchronization utilities are implemented in:
 | `isSyncing` | Indicates whether any module synchronization is currently in progress. |
 | `triggerSync()` | Manually triggers synchronization using the scheduler's synchronization operation. |
 | `isSyncSchedulerRunning()` | Checks whether the periodic synchronization scheduler is running. |
+| `lastSyncedAt` | Reactive timestamp of the most recent successful synchronization across all modules. Returns `null` if no module has synchronized successfully. |
+| `refreshLastSyncedAt()` | Refreshes `lastSyncedAt` by retrieving the most recent successful synchronization timestamp from the local synchronization metadata repository. |
 
 ### 6.2 Synchronizing a Single Module
 

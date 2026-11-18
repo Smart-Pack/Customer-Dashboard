@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import repositories from '../../repositories'
-import { isSyncing, syncAll, syncModule } from '../syncManager'
+import { isSyncing, lastSyncedAt, refreshLastSyncedAt, syncAll, syncModule } from '../syncManager'
 import {
   syncGroups,
   syncGroupMembers,
@@ -16,6 +16,8 @@ vi.mock('../../repositories', () => ({
   default: {
     syncMetadata: {
       save: vi.fn<typeof import('../../repositories').default.syncMetadata.save>(),
+      getLastSyncedAt:
+        vi.fn<typeof import('../../repositories').default.syncMetadata.getLastSyncedAt>(),
     },
   },
 }))
@@ -35,6 +37,8 @@ describe('syncManager', () => {
   beforeEach(() => {
     vi.resetAllMocks()
 
+    lastSyncedAt.value = null
+
     vi.mocked(syncUser).mockResolvedValue(undefined)
     vi.mocked(syncGroups).mockResolvedValue(0)
     vi.mocked(syncGroupMembers).mockResolvedValue(0)
@@ -44,6 +48,7 @@ describe('syncManager', () => {
     vi.mocked(syncNotificationPreferences).mockResolvedValue(undefined)
 
     vi.mocked(repositories.syncMetadata.save).mockResolvedValue(undefined)
+    vi.mocked(repositories.syncMetadata.getLastSyncedAt).mockResolvedValue(null)
   })
 
   describe('syncModule', () => {
@@ -392,6 +397,41 @@ describe('syncManager', () => {
       await expect(syncModule('notifications')).rejects.toThrow('Network unavailable')
 
       expect(isSyncing.value).toBe(false)
+    })
+  })
+  describe('lastSyncedAt', () => {
+    it('returns null when no module has synchronized successfully', () => {
+      expect(lastSyncedAt.value).toBeNull()
+    })
+
+    it('refreshes the timestamp from the repository', async () => {
+      const timestamp = '2026-11-18T10:30:00.000Z'
+
+      vi.mocked(repositories.syncMetadata.getLastSyncedAt).mockResolvedValue(timestamp)
+
+      await refreshLastSyncedAt()
+
+      expect(repositories.syncMetadata.getLastSyncedAt).toHaveBeenCalledOnce()
+      expect(lastSyncedAt.value).toBe(timestamp)
+    })
+
+    it('updates the timestamp after successful module synchronization', async () => {
+      const timestamp = '2026-11-18T11:00:00.000Z'
+
+      vi.mocked(repositories.syncMetadata.getLastSyncedAt).mockResolvedValue(timestamp)
+
+      await syncModule('notifications')
+
+      expect(repositories.syncMetadata.getLastSyncedAt).toHaveBeenCalledOnce()
+      expect(lastSyncedAt.value).toBe(timestamp)
+    })
+
+    it('does not refresh the timestamp after failed synchronization', async () => {
+      vi.mocked(syncNotifications).mockRejectedValue(new Error('Network unavailable'))
+
+      await expect(syncModule('notifications')).rejects.toThrow('Network unavailable')
+
+      expect(repositories.syncMetadata.getLastSyncedAt).not.toHaveBeenCalled()
     })
   })
 })

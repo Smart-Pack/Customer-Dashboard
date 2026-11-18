@@ -46,6 +46,18 @@ const inFlight = new Map<SyncableModule, Promise<number | void>>()
  * Indicates whether any module synchronization is currently running.
  */
 const isSyncing = ref(false)
+
+/**
+ * Most recent successful synchronization timestamp across all modules.
+ */
+const lastSyncedAt = ref<string | null>(null)
+
+/**
+ * Refreshes the most recent successful synchronization timestamp.
+ */
+async function refreshLastSyncedAt(): Promise<void> {
+  lastSyncedAt.value = await repositories.syncMetadata.getLastSyncedAt()
+}
 /**
  * Executes synchronization for a single module and updates
  * its synchronization metadata.
@@ -54,12 +66,12 @@ const isSyncing = ref(false)
  * @returns Number of synchronized records, when applicable.
  */
 async function executeSync(module: SyncableModule): Promise<number | void> {
-  const now = new Date().toISOString()
+  const attemptedAt = new Date().toISOString()
 
   await repositories.syncMetadata.save({
     module,
     sync_status: 'syncing',
-    last_attempted_at: now,
+    last_attempted_at: attemptedAt,
     last_error: null,
   })
 
@@ -70,8 +82,11 @@ async function executeSync(module: SyncableModule): Promise<number | void> {
       module,
       sync_status: 'success',
       last_synced_at: new Date().toISOString(),
+      last_attempted_at: attemptedAt,
       last_error: null,
     })
+
+    await refreshLastSyncedAt()
 
     return result
   } catch (error) {
@@ -129,4 +144,4 @@ async function syncAll(): Promise<void> {
   }
 }
 
-export { syncModule, syncAll, isSyncing }
+export { syncModule, syncAll, isSyncing, lastSyncedAt, refreshLastSyncedAt }
