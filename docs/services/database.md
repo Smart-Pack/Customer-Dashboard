@@ -99,6 +99,7 @@ The initial schema includes the following tables:
 | `cached_group_members`                 | Stores group membership and member details.                               |
 | `cached_smartpacks`                    | Stores SmartPack device information, assignments, and group associations. |
 | `cached_smartpack_sensor_measurements` | Stores cached device sensor measurements.                                 |
+| `cached_bluetooth_sensor_measurements` | Stores locally received Bluetooth sensor measurements, including weight, steps, timestamp, and associated SmartPack ID. |
 | `cached_notifications`                 | Stores notification history and notification states.                      |
 | `cached_notification_preferences`      | Stores notification delivery preferences.                                 |
 | `cached_admin_general_analysis`        | Stores cached administrative dashboard statistics.                        |
@@ -124,6 +125,7 @@ Migration files are located in:
 The migration infrastructure consists of:
 
 - `001_initial_schema.ts`: Creates the initial database tables and indexes.
+- `002_bluetooth_sensor_measurements.ts`: Creates the Bluetooth sensor measurements table and its index.
 - `index.ts`: Registers migrations, validates their versions, and executes pending migrations.
 
 **Migration strategy**

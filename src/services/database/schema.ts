@@ -217,6 +217,23 @@ export const DATABASE_SCHEMA = [
       cached_at TEXT NOT NULL
     );
   `,
+  // ---------------------------------------------------------
+  // Cached Bluetooth sensor measurements
+  // ---------------------------------------------------------
+  `
+    CREATE TABLE IF NOT EXISTS cached_bluetooth_sensor_measurements (
+      smartpack_id INTEGER NOT NULL,
+      timestamp TEXT NOT NULL,
+      weight INTEGER NOT NULL,
+      steps INTEGER NOT NULL,
+
+      PRIMARY KEY (smartpack_id, timestamp),
+
+      FOREIGN KEY (smartpack_id)
+        REFERENCES cached_smartpacks(id)
+        ON DELETE CASCADE
+    );
+  `,
 
   // ---------------------------------------------------------
   // Indexes
@@ -243,6 +260,10 @@ export const DATABASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_cached_measurements_smartpack_timestamp
     ON cached_smartpack_sensor_measurements(smartpack_id, timestamp);
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_bluetooth_measurements_smartpack_timestamp
+    ON cached_bluetooth_sensor_measurements(smartpack_id, timestamp DESC);
   `,
 
   // Notifications
