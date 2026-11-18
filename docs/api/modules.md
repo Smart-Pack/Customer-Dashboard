@@ -141,6 +141,7 @@ The notifications module manages notifications available to the authenticated us
 | Function            | Purpose                                                                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list(params?)`     | Retrieves a paginated list of notifications, with optional filtering by creation date, read status, dismissal status, notification type, status, or recipient. |
+| `listWithCache(params?)` | Retrieves a paginated list of notifications with optional filtering by creation date, read status, dismissal status, notification type, status, or recipient. In mobile mode, successfully fetched notifications replace the local SQLite cache; if the API request fails, the method retrieves matching notifications from the local cache. |
 | `getById({ id })`   | Retrieves an individual notification using its ID.                                                                                                             |
 | `edit(id, payload)` | Updates a notification's read or dismissed timestamp.                                                                                                          |
 
