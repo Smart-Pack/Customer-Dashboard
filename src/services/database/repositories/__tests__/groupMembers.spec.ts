@@ -658,12 +658,12 @@ describe('Group Members Repository', () => {
   })
 
   describe('deleteById', () => {
-    it('deletes a cached group member by group ID and member ID', async () => {
-      await deleteById(1, mockGroupMember.id)
+    it('deletes a cached group member by member ID', async () => {
+      await deleteById(mockGroupMember.id)
 
       expect(mocks.db.run).toHaveBeenCalledExactlyOnceWith(
-        'DELETE FROM cached_group_members WHERE group_id = ? AND id = ?',
-        [1, mockGroupMember.id],
+        'DELETE FROM cached_group_members WHERE id = ?',
+        [mockGroupMember.id],
       )
     })
 
@@ -672,7 +672,7 @@ describe('Group Members Repository', () => {
 
       mocks.db.run.mockRejectedValue(error)
 
-      await expect(deleteById(1, mockGroupMember.id)).rejects.toThrow(error)
+      await expect(deleteById(mockGroupMember.id)).rejects.toThrow(error)
     })
   })
 })

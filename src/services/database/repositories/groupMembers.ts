@@ -264,15 +264,14 @@ async function deleteByGroupId(groupId: number): Promise<void> {
 }
 
 /**
- * Deletes a cached group member by its group ID and member ID.
+ * Deletes a cached group member by its ID.
  *
- * @param groupId - ID of the group.
  * @param id - ID of the member to delete.
  */
-async function deleteById(groupId: number, id: number): Promise<void> {
+async function deleteById(id: number): Promise<void> {
   const db = await getDatabase()
 
-  await db.run('DELETE FROM cached_group_members WHERE group_id = ? AND id = ?', [groupId, id])
+  await db.run('DELETE FROM cached_group_members WHERE id = ?', [id])
 }
 
 export {

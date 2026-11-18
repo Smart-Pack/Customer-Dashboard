@@ -531,7 +531,7 @@ Group members are cached to support offline access to group membership informati
 | `getByGroupId(groupId)`         | Retrieves all cached members belonging to a specific group.                                                                                            |
 | `getPaginated(params)`          | Retrieves cached group members, applies group membership and role filters, and returns the results using local pagination.                             |
 | `deleteByGroupId(groupId)`      | Deletes all cached members belonging to a specific group.                                                                                              |
-| `deleteById(groupId, id)`       | Deletes a specific cached group member.                                                                                                                |
+| `deleteById(id)` | Deletes a specific cached group member by its ID. |
 | `clear()`                       | Deletes all cached group member records.                                                                                                               |
 
 **Data Handling**
