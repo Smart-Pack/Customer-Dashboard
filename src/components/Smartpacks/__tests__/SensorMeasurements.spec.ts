@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 
@@ -44,7 +44,8 @@ const mocks = vi.hoisted(() => {
 
   const connect = vi.fn<(...args: unknown[]) => typeof client>(() => client)
   const fetchConfig = vi.fn<() => Promise<void>>()
-  const listSensorMeasurements = vi.fn<(...args: unknown[]) => Promise<unknown>>()
+  const listSensorMeasurementsWithCache = vi.fn<(...args: unknown[]) => Promise<unknown>>()
+  const saveSensorMeasurement = vi.fn<(...args: unknown[]) => Promise<void>>()
 
   return {
     client,
@@ -52,7 +53,8 @@ const mocks = vi.hoisted(() => {
     fetchConfig,
     handlers,
     mqttConfig,
-    listSensorMeasurements,
+    listSensorMeasurementsWithCache,
+    saveSensorMeasurement,
     emit(event: string, ...args: unknown[]) {
       for (const handler of handlers[event] ?? []) {
         handler(...args)
@@ -77,7 +79,7 @@ vi.mock('@/api/modules/smartpacks', async (importOriginal) => {
 
   return {
     ...actual,
-    listSensorMeasurements: mocks.listSensorMeasurements,
+    listSensorMeasurementsWithCache: mocks.listSensorMeasurementsWithCache,
   }
 })
 
@@ -86,6 +88,14 @@ vi.mock('@/stores', () => ({
     config: mocks.mqttConfig,
     fetchConfig: mocks.fetchConfig,
   }),
+}))
+
+vi.mock('@/services/database/repositories', () => ({
+  default: {
+    smartpackSensorMeasurements: {
+      save: mocks.saveSensorMeasurement,
+    },
+  },
 }))
 
 const SMARTPACK_ID = 12
@@ -201,7 +211,9 @@ describe('SensorMeasurements', () => {
 
     mocks.fetchConfig.mockResolvedValue(undefined)
 
-    mocks.listSensorMeasurements.mockResolvedValue(createApiResponse())
+    mocks.listSensorMeasurementsWithCache.mockResolvedValue(createApiResponse())
+
+    mocks.saveSensorMeasurement.mockResolvedValue(undefined)
 
     mocks.connect.mockReturnValue(mocks.client)
 
@@ -233,13 +245,13 @@ describe('SensorMeasurements', () => {
     it('fetches sensor measurements for the selected SmartPack', async () => {
       const measurement = createMeasurement()
 
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([measurement], 1))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(createApiResponse([measurement], 1))
 
       const wrapper = mountComponent()
 
       await flushPromises()
 
-      expect(mocks.listSensorMeasurements).toHaveBeenCalledWith({
+      expect(mocks.listSensorMeasurementsWithCache).toHaveBeenCalledWith({
         smartpack: SMARTPACK_ID,
         page: 1,
         page_size: 100,
@@ -255,7 +267,7 @@ describe('SensorMeasurements', () => {
     it('shows the loading indicator while the API request is pending', async () => {
       let resolveRequest!: (result: SmartPackSensorMeasurementListResult) => void
 
-      mocks.listSensorMeasurements.mockReturnValue(
+      mocks.listSensorMeasurementsWithCache.mockReturnValue(
         new Promise<SmartPackSensorMeasurementListResult>((resolve) => {
           resolveRequest = resolve
         }),
@@ -285,7 +297,7 @@ describe('SensorMeasurements', () => {
     })
 
     it('displays an API error and allows retrying', async () => {
-      mocks.listSensorMeasurements
+      mocks.listSensorMeasurementsWithCache
         .mockRejectedValueOnce(new Error('Network unavailable'))
         .mockResolvedValueOnce(createApiResponse([createMeasurement()], 1))
 
@@ -300,14 +312,14 @@ describe('SensorMeasurements', () => {
 
       await flushPromises()
 
-      expect(mocks.listSensorMeasurements).toHaveBeenCalledTimes(2)
+      expect(mocks.listSensorMeasurementsWithCache).toHaveBeenCalledTimes(2)
       expect(wrapper.text()).toContain('Recent Measurements')
 
       wrapper.unmount()
     })
 
     it('displays summary cards and charts when measurements exist', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
         createApiResponse(
           [
             createMeasurement({
@@ -360,7 +372,9 @@ describe('SensorMeasurements', () => {
     })
 
     it('includes Bluetooth readings in the total measurement count', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([createMeasurement()], 10))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
+        createApiResponse([createMeasurement()], 10),
+      )
 
       const wrapper = mountComponent({
         sensorHistory: [
@@ -426,7 +440,7 @@ describe('SensorMeasurements', () => {
     })
 
     it('combines REST and Bluetooth measurements', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
         createApiResponse(
           [
             createMeasurement({
@@ -586,8 +600,11 @@ describe('SensorMeasurements', () => {
   })
 
   describe('incoming MQTT measurements', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
     it('adds a valid live measurement to the list', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
         createApiResponse(
           [
             createMeasurement({
@@ -771,7 +788,9 @@ describe('SensorMeasurements', () => {
         }),
       )
 
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse(initialMeasurements, 100))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
+        createApiResponse(initialMeasurements, 100),
+      )
 
       const wrapper = mountComponent()
 
@@ -792,11 +811,79 @@ describe('SensorMeasurements', () => {
 
       wrapper.unmount()
     })
+    it('caches incoming MQTT measurements in mobile mode', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      const measurement = createMqttMeasurement({
+        id: 20,
+        steps: 2500,
+        weight: 5200,
+        timestamp: '2026-10-27T11:00:00Z',
+      })
+
+      await publishMeasurement(measurement)
+
+      expect(mocks.saveSensorMeasurement).toHaveBeenCalledTimes(1)
+      expect(mocks.saveSensorMeasurement).toHaveBeenCalledWith(SMARTPACK_ID, measurement)
+
+      wrapper.unmount()
+    })
+    it('does not cache incoming MQTT measurements in web mode', async () => {
+      vi.stubEnv('MODE', 'web')
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      await publishMeasurement(
+        createMqttMeasurement({
+          id: 20,
+          weight: 5200,
+          timestamp: '2026-10-27T11:00:00Z',
+        }),
+      )
+
+      expect(mocks.saveSensorMeasurement).not.toHaveBeenCalled()
+
+      // The measurement should still be displayed.
+      expect(wrapper.text()).toContain('5,200')
+
+      wrapper.unmount()
+    })
+    it('does not cache duplicate MQTT measurements', async () => {
+      vi.stubEnv('MODE', 'mobile')
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      const measurement = createMqttMeasurement({
+        id: 20,
+        weight: 5200,
+        timestamp: '2026-10-27T11:00:00Z',
+      })
+
+      await publishMeasurement(measurement)
+      await publishMeasurement(measurement)
+
+      expect(mocks.saveSensorMeasurement).toHaveBeenCalledTimes(1)
+
+      wrapper.unmount()
+    })
   })
 
   describe('pagination', () => {
     it('displays pagination controls when there are multiple pages', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([createMeasurement()], 250))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
+        createApiResponse([createMeasurement()], 250),
+      )
 
       const wrapper = mountComponent()
 
@@ -810,7 +897,7 @@ describe('SensorMeasurements', () => {
     })
 
     it('loads the next page when Next is clicked', async () => {
-      mocks.listSensorMeasurements
+      mocks.listSensorMeasurementsWithCache
         .mockResolvedValueOnce(createApiResponse([createMeasurement()], 250))
         .mockResolvedValueOnce(
           createApiResponse(
@@ -835,7 +922,7 @@ describe('SensorMeasurements', () => {
       await nextButton!.trigger('click')
       await flushPromises()
 
-      expect(mocks.listSensorMeasurements).toHaveBeenLastCalledWith({
+      expect(mocks.listSensorMeasurementsWithCache).toHaveBeenLastCalledWith({
         smartpack: SMARTPACK_ID,
         page: 2,
         page_size: 100,
@@ -848,7 +935,7 @@ describe('SensorMeasurements', () => {
     })
 
     it('loads the previous page when Previous is clicked', async () => {
-      mocks.listSensorMeasurements
+      mocks.listSensorMeasurementsWithCache
         .mockResolvedValueOnce(createApiResponse([createMeasurement()], 250))
         .mockResolvedValueOnce(
           createApiResponse(
@@ -891,7 +978,7 @@ describe('SensorMeasurements', () => {
       await previousButton!.trigger('click')
       await flushPromises()
 
-      expect(mocks.listSensorMeasurements).toHaveBeenLastCalledWith({
+      expect(mocks.listSensorMeasurementsWithCache).toHaveBeenLastCalledWith({
         smartpack: SMARTPACK_ID,
         page: 1,
         page_size: 100,
@@ -903,7 +990,9 @@ describe('SensorMeasurements', () => {
     })
 
     it('updates the count for incoming measurements on a later page', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([createMeasurement()], 250))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
+        createApiResponse([createMeasurement()], 250),
+      )
 
       const wrapper = mountComponent()
 
@@ -933,7 +1022,9 @@ describe('SensorMeasurements', () => {
 
   describe('SmartPack changes', () => {
     it('fetches measurements and subscribes to the new SmartPack', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(createApiResponse([createMeasurement()], 1))
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
+        createApiResponse([createMeasurement()], 1),
+      )
 
       const wrapper = mountComponent()
 
@@ -946,7 +1037,7 @@ describe('SensorMeasurements', () => {
 
       await flushPromises()
 
-      expect(mocks.listSensorMeasurements).toHaveBeenLastCalledWith({
+      expect(mocks.listSensorMeasurementsWithCache).toHaveBeenLastCalledWith({
         smartpack: 25,
         page: 1,
         page_size: 100,
@@ -960,7 +1051,7 @@ describe('SensorMeasurements', () => {
 
   describe('formatting', () => {
     it('formats weight and step values using locale number formatting', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
         createApiResponse(
           [
             createMeasurement({
@@ -983,7 +1074,7 @@ describe('SensorMeasurements', () => {
     })
 
     it('formats measurement timestamps for display', async () => {
-      mocks.listSensorMeasurements.mockResolvedValue(
+      mocks.listSensorMeasurementsWithCache.mockResolvedValue(
         createApiResponse(
           [
             createMeasurement({

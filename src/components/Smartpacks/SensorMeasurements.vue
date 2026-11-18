@@ -1,3 +1,11 @@
+<!--
+  Displays a SmartPack's sensor measurement history by combining REST API,
+  MQTT, and Bluetooth readings.
+
+  Supports paginated measurement retrieval, real-time updates, duplicate
+  detection, and locally cached measurements for offline access in the
+  native mobile application.
+-->
 <template>
   <div class="main-card w-full">
     <header class="flex items-center justify-between gap-3 p-4">
@@ -201,13 +209,14 @@ import mqtt from 'mqtt'
 import type { MqttClient } from 'mqtt'
 import type { ApexOptions } from 'apexcharts'
 import AnalyticsIcon from '@/components/Icons/AnalyticsIcon.vue'
-import { listSensorMeasurements } from '@/api/modules/smartpacks'
+import type { PaginatedResponse } from '@/api/types'
+import { listSensorMeasurementsWithCache } from '@/api/modules/smartpacks'
 import type {
   SmartPackSensorMeasurement,
-  SmartPackSensorMeasurementListResult,
   SmartPackSensorMeasurementQueryParams,
 } from '@/api/modules/smartpacks'
 import type { SmartPackSensorRecord } from '@/types/bluetooth'
+import repositories from '@/services/database/repositories'
 import { useMqttStore } from '@/stores'
 
 defineOptions({
@@ -268,6 +277,10 @@ const hasMorePages = computed(() => totalPages.value > 1)
 const displayTotal = computed(
   () => totalCount.value + measurements.value.filter((m) => m.source === 'bluetooth').length,
 )
+
+function isMobileMode(): boolean {
+  return import.meta.env.MODE === 'mobile'
+}
 
 // ---------------------------------------------------------------------------
 // Merged measurement store
@@ -392,7 +405,8 @@ async function fetchMeasurements(): Promise<void> {
   }
 
   try {
-    const response: SmartPackSensorMeasurementListResult = await listSensorMeasurements(params)
+    const response: PaginatedResponse<SmartPackSensorMeasurement> =
+      await listSensorMeasurementsWithCache(params)
 
     if (isUnmounted || currentRequestId !== requestId) {
       return
@@ -500,6 +514,14 @@ function handleMqttMessage(payload: Uint8Array): void {
 
     if (key === null || knownKeys.has(key)) {
       return
+    }
+    // Cache MQTT measurements only in the native application.
+    if (isMobileMode()) {
+      void repositories.smartpackSensorMeasurements
+        .save(props.smartpackId, measurement)
+        .catch((err: unknown) => {
+          console.error('[MQTT] Failed to cache sensor measurement:', err)
+        })
     }
 
     // Only add live measurements to the displayed collection on the first page.
