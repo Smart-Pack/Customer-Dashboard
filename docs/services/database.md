@@ -1066,6 +1066,7 @@ Synchronization utilities are implemented in:
 | `syncAll()` | Synchronizes all supported modules sequentially, respecting their dependency order. |
 | `startSyncScheduler(options?)` | Starts periodic synchronization with configurable intervals, optional immediate synchronization, and error handling. |
 | `stopSyncScheduler()` | Stops the periodic synchronization scheduler. |
+| `isSyncing` | Indicates whether any module synchronization is currently in progress. |
 | `triggerSync()` | Manually triggers synchronization using the scheduler's synchronization operation. |
 | `isSyncSchedulerRunning()` | Checks whether the periodic synchronization scheduler is running. |
 

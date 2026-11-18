@@ -10,6 +10,7 @@ import {
   syncSmartPacks,
   syncUser,
 } from './modules'
+import { ref } from 'vue'
 
 /**
  * Represents a synchronization function for a module.
@@ -41,7 +42,10 @@ export type SyncableModule = keyof typeof syncFunctions
  * synchronization concurrently.
  */
 const inFlight = new Map<SyncableModule, Promise<number | void>>()
-
+/**
+ * Indicates whether any module synchronization is currently running.
+ */
+const isSyncing = ref(false)
 /**
  * Executes synchronization for a single module and updates
  * its synchronization metadata.
@@ -99,9 +103,11 @@ function syncModule(module: SyncableModule): Promise<number | void> {
 
   const operation = executeSync(module).finally(() => {
     inFlight.delete(module)
+    isSyncing.value = inFlight.size > 0
   })
 
   inFlight.set(module, operation)
+  isSyncing.value = true
 
   return operation
 }
@@ -123,4 +129,4 @@ async function syncAll(): Promise<void> {
   }
 }
 
-export { syncModule, syncAll }
+export { syncModule, syncAll, isSyncing }

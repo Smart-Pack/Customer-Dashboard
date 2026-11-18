@@ -1,4 +1,4 @@
-export { syncAll, syncModule, type SyncableModule } from './syncManager'
+export { isSyncing, syncAll, syncModule, type SyncableModule } from './syncManager'
 
 export {
   startSyncScheduler,

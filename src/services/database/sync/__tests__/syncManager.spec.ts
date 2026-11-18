@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import repositories from '../../repositories'
-import { syncAll, syncModule } from '../syncManager'
+import { isSyncing, syncAll, syncModule } from '../syncManager'
 import {
   syncGroups,
   syncGroupMembers,
@@ -33,7 +33,17 @@ vi.mock('../modules', () => ({
 
 describe('syncManager', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+
+    vi.mocked(syncUser).mockResolvedValue(undefined)
+    vi.mocked(syncGroups).mockResolvedValue(0)
+    vi.mocked(syncGroupMembers).mockResolvedValue(0)
+    vi.mocked(syncSmartPacks).mockResolvedValue(0)
+    vi.mocked(syncSmartPackSensorMeasurements).mockResolvedValue(0)
+    vi.mocked(syncNotifications).mockResolvedValue(0)
+    vi.mocked(syncNotificationPreferences).mockResolvedValue(undefined)
+
+    vi.mocked(repositories.syncMetadata.save).mockResolvedValue(undefined)
   })
 
   describe('syncModule', () => {
@@ -195,6 +205,31 @@ describe('syncManager', () => {
   })
 
   describe('syncAll', () => {
+    it('remains syncing throughout the entire synchronization process', async () => {
+      let resolveGroups!: (value: number) => void
+
+      vi.mocked(syncUser).mockResolvedValue(undefined)
+
+      vi.mocked(syncGroups).mockImplementation(
+        () =>
+          new Promise<number>((resolve) => {
+            resolveGroups = resolve
+          }),
+      )
+
+      const sync = syncAll()
+
+      await vi.waitFor(() => {
+        expect(syncGroups).toHaveBeenCalledOnce()
+      })
+
+      expect(isSyncing.value).toBe(true)
+
+      resolveGroups(2)
+      await sync
+
+      expect(isSyncing.value).toBe(false)
+    })
     it('synchronizes all supported modules', async () => {
       await syncAll()
 
@@ -272,6 +307,91 @@ describe('syncManager', () => {
       expect(syncSmartPackSensorMeasurements).not.toHaveBeenCalled()
       expect(syncNotifications).not.toHaveBeenCalled()
       expect(syncNotificationPreferences).not.toHaveBeenCalled()
+    })
+  })
+  describe('isSyncing', () => {
+    it('returns false when no synchronization is running', () => {
+      expect(isSyncing.value).toBe(false)
+    })
+
+    it('returns true while a module is synchronizing', async () => {
+      let resolveSync!: (value: number) => void
+
+      vi.mocked(syncNotifications).mockImplementation(
+        () =>
+          new Promise<number>((resolve) => {
+            resolveSync = resolve
+          }),
+      )
+
+      const sync = syncModule('notifications')
+
+      try {
+        await vi.waitFor(() => {
+          expect(syncNotifications).toHaveBeenCalledOnce()
+        })
+
+        expect(isSyncing.value).toBe(true)
+      } finally {
+        resolveSync(5)
+        await sync
+      }
+
+      expect(isSyncing.value).toBe(false)
+    })
+
+    it('remains true while other modules are still synchronizing', async () => {
+      let resolveGroups!: (value: number) => void
+      let resolveNotifications!: (value: number) => void
+
+      vi.mocked(syncGroups).mockImplementation(
+        () =>
+          new Promise<number>((resolve) => {
+            resolveGroups = resolve
+          }),
+      )
+
+      vi.mocked(syncNotifications).mockImplementation(
+        () =>
+          new Promise<number>((resolve) => {
+            resolveNotifications = resolve
+          }),
+      )
+
+      const groupsSync = syncModule('groups')
+      const notificationsSync = syncModule('notifications')
+
+      try {
+        await vi.waitFor(() => {
+          expect(syncGroups).toHaveBeenCalledOnce()
+          expect(syncNotifications).toHaveBeenCalledOnce()
+        })
+
+        expect(isSyncing.value).toBe(true)
+
+        resolveGroups(2)
+        await groupsSync
+
+        expect(isSyncing.value).toBe(true)
+
+        resolveNotifications(5)
+        await notificationsSync
+      } finally {
+        resolveGroups?.(2)
+        resolveNotifications?.(5)
+
+        await Promise.allSettled([groupsSync, notificationsSync])
+      }
+
+      expect(isSyncing.value).toBe(false)
+    })
+
+    it('returns false after a synchronization failure', async () => {
+      vi.mocked(syncNotifications).mockRejectedValue(new Error('Network unavailable'))
+
+      await expect(syncModule('notifications')).rejects.toThrow('Network unavailable')
+
+      expect(isSyncing.value).toBe(false)
     })
   })
 })
