@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import SmartPackDetails from '@/views/Smartpacks/details.vue'
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
 import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
+import ConfigurationForm from '@/components/Smartpacks/ConfigurationForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
 import SensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
@@ -270,6 +271,17 @@ const mountView = () =>
             </div>
           `,
         },
+        ConfigurationForm: {
+          props: ['initialValues', 'isBluetoothConnected'],
+          emits: ['close'],
+          template: `
+    <div data-testid="configuration-form">
+      <button type="button" data-testid="close-configuration-form" @click="$emit('close')">
+        Close
+      </button>
+    </div>
+  `,
+        },
         RouterLink: {
           props: ['to'],
           template: '<a><slot /></a>',
@@ -277,6 +289,10 @@ const mountView = () =>
       },
     },
   })
+
+const isDetailsPageVisible = (wrapper: ReturnType<typeof mountView>) =>
+  (wrapper.find('[data-testid="smartpack-details-page"]').element as HTMLElement).style.display !==
+  'none'
 
 describe('SmartPackDetails', () => {
   beforeEach(() => {
@@ -1403,20 +1419,21 @@ describe('SmartPackDetails', () => {
 
       await flushPromises()
 
-      const button = wrapper
+      await wrapper
         .findAll('button')
-        .find((item) => item.text().trim() === 'Assign to Child')
+        .find((item) => item.text().trim() === 'Assign to Child')!
+        .trigger('click')
 
-      await button!.trigger('click')
-
-      expect(wrapper.text()).toContain('Cancel')
+      expect(isDetailsPageVisible(wrapper)).toBe(false)
+      expect(wrapper.find('[data-testid="assign-child-form"]').exists()).toBe(true)
 
       await wrapper
         .findAll('button')
         .find((item) => item.text().trim() === 'Cancel')!
         .trigger('click')
 
-      expect(wrapper.text()).toContain('Details')
+      expect(isDetailsPageVisible(wrapper)).toBe(true)
+      expect(wrapper.find('[data-testid="assign-child-form"]').exists()).toBe(false)
     })
 
     it('refreshes SmartPack details when the child form emits close with refresh enabled', async () => {
@@ -1435,7 +1452,8 @@ describe('SmartPackDetails', () => {
       await flushPromises()
 
       expect(mockGetById).toHaveBeenCalledTimes(2)
-      expect(wrapper.text()).toContain('Details')
+      expect(isDetailsPageVisible(wrapper)).toBe(true)
+      expect(wrapper.find('[data-testid="assign-child-form"]').exists()).toBe(false)
     })
 
     it('does not refresh SmartPack details when refresh is false', async () => {
@@ -1678,6 +1696,13 @@ describe('SmartPackDetails', () => {
     const getUpdateButton = (wrapper: ReturnType<typeof mountView>) =>
       wrapper.findAll('button').find((button) => button.text().trim() === 'Update')
 
+    const openEditor = async (wrapper: ReturnType<typeof mountView>) => {
+      await connect(wrapper)
+      await openSettings(wrapper)
+      await sendMessage(wrapper, mockConfiguration)
+      await getUpdateButton(wrapper)!.trigger('click')
+    }
+
     afterEach(() => {
       openWrappers.forEach((wrapper) => wrapper.unmount())
       openWrappers.length = 0
@@ -1768,7 +1793,120 @@ describe('SmartPackDetails', () => {
         expect(placements.filter((placement) => placement === 'right')).toHaveLength(1)
       })
     })
+    describe('editing the configuration', () => {
+      type PageVm = { activePage: string; smartPackConfiguration: unknown }
 
+      it('opens the configuration editor when Update is clicked', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+
+        expect(wrapper.text()).toContain('Update Configuration')
+        expect(wrapper.find('[data-testid="configuration-form"]').exists()).toBe(true)
+        expect(isDetailsPageVisible(wrapper)).toBe(false)
+      })
+
+      it('does not call the Bluetooth write placeholder when opening the editor', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+
+        expect(mockNotifyError).not.toHaveBeenCalled()
+      })
+
+      it('passes the configuration and connection state to the form', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+
+        const form = wrapper.findComponent(ConfigurationForm)
+
+        expect(form.props('initialValues')).toEqual(mockConfiguration)
+        expect(form.props('isBluetoothConnected')).toBe(true)
+      })
+
+      it('does not render the form when no configuration is available', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as PageVm
+
+        vm.activePage = 'editConfiguration'
+        await nextTick()
+
+        expect(wrapper.text()).toContain('Update Configuration')
+        expect(wrapper.find('[data-testid="configuration-form"]').exists()).toBe(false)
+      })
+
+      it('returns to the details page when Cancel is clicked', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+        await wrapper
+          .findAll('button')
+          .find((button) => button.text().trim() === 'Cancel')!
+          .trigger('click')
+
+        expect(isDetailsPageVisible(wrapper)).toBe(true)
+        expect(wrapper.find('[data-testid="configuration-form"]').exists()).toBe(false)
+      })
+
+      it('returns to the details page when the form emits close', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+        await wrapper.find('[data-testid="close-configuration-form"]').trigger('click')
+
+        expect(isDetailsPageVisible(wrapper)).toBe(true)
+        expect((wrapper.vm as unknown as PageVm).activePage).toBe('showDetails')
+      })
+
+      it('keeps the received configuration after closing the editor', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+        await wrapper.find('[data-testid="close-configuration-form"]').trigger('click')
+
+        expect((wrapper.vm as unknown as PageVm).smartPackConfiguration).toEqual(mockConfiguration)
+      })
+
+      it('returns to the details page when Bluetooth disconnects while editing', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as PageVm & { isBluetoothConnected: boolean }
+
+        await openEditor(wrapper)
+
+        vm.isBluetoothConnected = false
+        await flushPromises()
+
+        expect(vm.activePage).toBe('showDetails')
+        expect(vm.smartPackConfiguration).toBeNull()
+        expect(isDetailsPageVisible(wrapper)).toBe(true)
+        expect(wrapper.find('[data-testid="configuration-form"]').exists()).toBe(false)
+      })
+
+      it('does not change the page on disconnect when the editor is not open', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as PageVm & { isBluetoothConnected: boolean }
+
+        await connect(wrapper)
+        await wrapper
+          .findAll('button')
+          .find((button) => button.text().trim() === 'Assign to Child')!
+          .trigger('click')
+
+        vm.isBluetoothConnected = false
+        await flushPromises()
+
+        expect(vm.activePage).toBe('assignChild')
+      })
+
+      it('hides sensor measurements while the editor is open', async () => {
+        const wrapper = await mountMobile()
+
+        await openEditor(wrapper)
+
+        expect(wrapper.findComponent(SensorMeasurements).exists()).toBe(false)
+      })
+    })
     describe('configuration message handling', () => {
       it('stores a copy of the received configuration', async () => {
         const wrapper = await mountMobile()
@@ -1910,19 +2048,6 @@ describe('SmartPackDetails', () => {
         await sendMessage(wrapper, mockConfiguration)
 
         expect(getUpdateButton(wrapper)?.attributes('disabled')).toBeUndefined()
-      })
-
-      it('reports that writing is not implemented yet when Update is clicked', async () => {
-        const wrapper = await mountMobile()
-
-        await connect(wrapper)
-        await openSettings(wrapper)
-        await sendMessage(wrapper, mockConfiguration)
-        await getUpdateButton(wrapper)!.trigger('click')
-
-        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
-          'Bluetooth configuration writing has not been implemented yet.',
-        )
       })
 
       it('rejects updates outside mobile mode', async () => {

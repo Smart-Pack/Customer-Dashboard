@@ -1,7 +1,9 @@
 <template>
   <div class="w-full px-4 py-10">
+    <!-- SmartPack Details -->
     <div
-      v-if="activePage === 'showDetails'"
+      v-show="activePage === 'showDetails'"
+      data-testid="smartpack-details-page"
       class="grid gap-6 lg:grid-cols-[28%_72%] mx-auto max-w-6xl"
     >
       <!-- Summary Card -->
@@ -20,10 +22,7 @@
 
           <div class="flex secondary-text justify-start w-full" title="Child">
             <UserIcon class="secondary-text text-left mr-2" />
-
-            <span>
-              {{ smartPack.child_name || '—' }}
-            </span>
+            <span> {{ smartPack.child_name || '—' }} </span>
           </div>
 
           <div class="flex secondary-text justify-start w-full" title="Group">
@@ -212,7 +211,8 @@
                   />
                 </dt>
                 <dd class="mt-1 secondary-text">
-                  {{ smartPackConfiguration.weight_limit.toLocaleString() }} grams
+                  {{ smartPackConfiguration.weight_limit.toLocaleString() }}
+                  grams
                 </dd>
               </div>
 
@@ -285,7 +285,7 @@
             <button
               type="button"
               class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
-              @click="updateSmartPackConfiguration"
+              @click="handlePageChange('editConfiguration')"
               :disabled="!isBluetoothConnected || !smartPackConfiguration || submitting"
             >
               Update
@@ -296,7 +296,7 @@
     </div>
 
     <!-- Assign Child Card -->
-    <div v-else class="main-card">
+    <div v-if="activePage === 'assignChild'" class="main-card">
       <header class="flex gap-3 items-center justify-between p-4">
         <h2 class="main-heading text-2xl lg:text-3xl">Assign to Child</h2>
 
@@ -310,6 +310,28 @@
       </header>
 
       <AssignChildForm :initial-values="{ ...smartPack }" @close="handlePageChange" />
+    </div>
+
+    <!-- Edit Configuration Card -->
+    <div v-if="activePage === 'editConfiguration'" class="main-card">
+      <header class="flex gap-3 items-center justify-between p-4">
+        <h2 class="main-heading text-2xl lg:text-3xl">Update Configuration</h2>
+
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
+          @click="activePage = 'showDetails'"
+        >
+          Cancel
+        </button>
+      </header>
+
+      <ConfigurationForm
+        v-if="smartPackConfiguration"
+        :initial-values="smartPackConfiguration"
+        :is-bluetooth-connected="isBluetoothConnected"
+        @close="handleConfigurationPageChange"
+      />
     </div>
 
     <!-- Sensor Measurements -->
@@ -354,6 +376,7 @@ import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
 import UserGroupIcon from '@/components/Icons/UserGroupIcon.vue'
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
+import ConfigurationForm from '@/components/Smartpacks/ConfigurationForm.vue'
 import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
@@ -452,6 +475,7 @@ export default defineComponent({
 
   components: {
     AssignChildForm,
+    ConfigurationForm,
     BackPackIcon,
     BluetoothButton,
     InfoTooltip,
@@ -503,7 +527,7 @@ export default defineComponent({
       // null means the device has not sent its configuration yet.
       smartPackConfiguration: null as SmartPackConfiguration | null,
 
-      activePage: 'showDetails' as 'showDetails' | 'assignChild',
+      activePage: 'showDetails' as 'showDetails' | 'assignChild' | 'editConfiguration',
 
       // Controls the Details / Settings tabs.
       activeDetailsTab: 'details' as 'details' | 'settings',
@@ -652,7 +676,10 @@ export default defineComponent({
      * @param refresh - Whether to reload the SmartPack details.
      * @returns Nothing.
      */
-    handlePageChange(value: 'showDetails' | 'assignChild', refresh = false): void {
+    handlePageChange(
+      value: 'showDetails' | 'assignChild' | 'editConfiguration',
+      refresh = false,
+    ): void {
       this.activePage = value
 
       if (refresh) {
@@ -907,6 +934,12 @@ export default defineComponent({
 
       this.$notifyError('Bluetooth configuration writing has not been implemented yet.')
     },
+    /**
+     * Handles closing the configuration editor.
+     */
+    handleConfigurationPageChange(): void {
+      this.activePage = 'showDetails'
+    },
   },
   watch: {
     /**
@@ -915,7 +948,8 @@ export default defineComponent({
      *
      * Starts the Bluetooth persistence timer when the device connects
      * and stops the timer while flushing pending measurements when
-     * the device disconnects.
+     * the device disconnects. If the connection is lost while editing
+     * the configuration, returns to the SmartPack details page.
      *
      * @param {boolean} connected - Whether the SmartPack device is connected over Bluetooth.
      * @returns {void}
@@ -929,6 +963,11 @@ export default defineComponent({
       } else {
         this.smartPackConfiguration = null
         this.activeDetailsTab = 'details'
+
+        // Return to details if Bluetooth disconnects during configuration editing.
+        if (this.activePage === 'editConfiguration') {
+          this.activePage = 'showDetails'
+        }
 
         this.stopBluetoothPersistence()
       }
