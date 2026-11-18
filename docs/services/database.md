@@ -768,6 +768,80 @@ The service provides operations for removing cached Bluetooth measurement record
 
 These operations support targeted cache cleanup and complete removal of locally stored Bluetooth measurement data.
 
+### 4.6.9 Notifications Service
+
+The Notifications service is implemented in:
+
+`src/services/database/notifications.ts`
+
+It provides a higher-level interface for retrieving and managing notifications stored in the local SQLite database.
+
+The service supports persistent storage of notifications received from the backend, allowing the application to retain notification history and access previously cached notifications even when offline.
+
+**Available Operations**
+
+| Function | Description |
+|---|---|
+| `save(notification)` | Saves a notification to the local database. |
+| `saveList(notifications)` | Saves multiple notifications within a database transaction. |
+| `replaceList(notifications)` | Replaces all cached notifications with the supplied notification list within a database transaction. |
+| `getById(id)` | Retrieves a cached notification using its ID. |
+| `getAll(params)` | Retrieves cached notifications, optionally applying filters. |
+| `getPaginated(params)` | Retrieves and locally paginates cached notifications. |
+| `markAsRead(id)` | Marks a notification as read. |
+| `markAsUnread(id)` | Marks a notification as unread. |
+| `dismiss(id)` | Marks a notification as dismissed. |
+| `deleteById(id)` | Deletes a specific notification using its ID. |
+| `clear()` | Removes all cached notifications. |
+
+**Data Retrieval**
+
+The `getById()` operation retrieves a notification using its unique identifier.
+
+The `getAll()` operation retrieves cached notifications and supports filtering by notification creation date, read status, dismissed status, notification type, and combined notification status.
+
+The `getPaginated()` operation retrieves notifications matching the supplied filters and applies local pagination.
+
+Notifications are ordered by creation timestamp in descending order, with their IDs used as a secondary ordering criterion to ensure consistent ordering when timestamps are identical.
+
+**Data Handling**
+
+- **Notification identification:** Uses the notification ID as the primary key.
+- **Notification details:** Stores notification type, title, body, URL, and associated data.
+- **Read status:** Maintains whether a notification has been read, including its `read_at` timestamp.
+- **Dismissal status:** Maintains whether a notification has been dismissed, including its `dismissed_at` timestamp.
+- **Separate storage:** Maintains notifications independently of other cached application data.
+- **Data serialization:** Serializes notification data into JSON before storing it in SQLite and deserializes it when retrieving records.
+- **Cache tracking:** Maintains a `cached_at` timestamp indicating when a notification was last saved locally.
+
+**Data Persistence**
+
+The `save()` operation inserts a notification into the local database. If a notification with the same ID already exists, its stored information is updated.
+
+The `saveList()` operation saves multiple notifications within a database transaction. This ensures that the batch is committed together or rolled back if an error occurs.
+
+The `replaceList()` operation removes existing cached notifications and saves the supplied notification list within a single database transaction. This allows the local notification cache to be refreshed consistently.
+
+The persistence operations preserve notification details, read status, dismissal status, and associated data.
+
+**Notification Status Management**
+
+The service provides operations for managing notification states:
+
+1. `markAsRead()` marks a notification as read and updates its read timestamp.
+2. `markAsUnread()` marks a notification as unread and clears its read timestamp.
+3. `dismiss()` marks a notification as dismissed and updates its dismissal timestamp.
+
+These operations allow notification state changes to be maintained locally, supporting notification management while the application is offline.
+
+**Data Deletion**
+
+The service provides operations for removing cached notification records:
+
+1. `deleteById()` removes an individual notification identified by its ID.
+2. `clear()` removes all cached notifications.
+
+These operations support targeted cache cleanup and complete removal of locally stored notification data.
 
 ## 5. Cache Utilities
 
