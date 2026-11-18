@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
-
+import { isSyncing, lastSyncedAt } from '@/services/database/sync'
 import SideNav from '../SideNav.vue'
 import { auth } from '@/api'
 import type { ApiDetailResponse } from '@/api/types'
@@ -10,7 +10,6 @@ import { mockUser } from '@/tests/constants'
 
 const mocks = vi.hoisted(() => ({
   isMobile: false,
-
   startSyncScheduler:
     vi.fn<(options: { intervalMs: number; onError: (error: unknown) => void }) => void>(),
 
@@ -33,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   removeAppListener: vi.fn<() => Promise<void>>(),
 
   appStateCallback: null as ((state: { isActive: boolean }) => void) | null,
+  refreshLastSyncedAt: vi.fn<() => Promise<void>>(),
 }))
 
 const routerPush = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
@@ -81,11 +81,18 @@ vi.mock('@/utils/platform', () => ({
   isMobile: () => mocks.isMobile,
 }))
 
-vi.mock('@/services/database/sync', () => ({
-  startSyncScheduler: mocks.startSyncScheduler,
-  stopSyncScheduler: mocks.stopSyncScheduler,
-  triggerSync: mocks.triggerSync,
-}))
+vi.mock('@/services/database/sync', async () => {
+  const { ref } = await import('vue')
+
+  return {
+    startSyncScheduler: mocks.startSyncScheduler,
+    stopSyncScheduler: mocks.stopSyncScheduler,
+    triggerSync: mocks.triggerSync,
+    isSyncing: ref(false),
+    lastSyncedAt: ref<string | null>(null),
+    refreshLastSyncedAt: mocks.refreshLastSyncedAt,
+  }
+})
 
 vi.mock('@/composables/useGlobals', () => ({
   useGlobals: () => ({
@@ -182,6 +189,7 @@ describe('SideNav', () => {
 
     mocks.startSyncScheduler.mockReset()
     mocks.stopSyncScheduler.mockReset()
+
     mocks.triggerSync.mockReset()
     mocks.triggerSync.mockResolvedValue(undefined)
 
@@ -189,20 +197,22 @@ describe('SideNav', () => {
     mocks.notifyError.mockReset()
 
     mocks.removeAppListener.mockReset()
-
     mocks.appStateCallback = null
 
-    mocks.addAppListener
-      .mockReset()
-      .mockImplementation(
-        async (_event: string, callback: (state: { isActive: boolean }) => void) => {
-          mocks.appStateCallback = callback
+    mocks.addAppListener.mockReset()
+    mocks.addAppListener.mockImplementation((_event, callback) => {
+      mocks.appStateCallback = callback
 
-          return {
-            remove: mocks.removeAppListener,
-          }
-        },
-      )
+      return Promise.resolve({
+        remove: mocks.removeAppListener,
+      })
+    })
+
+    isSyncing.value = false
+    lastSyncedAt.value = null
+
+    mocks.refreshLastSyncedAt.mockReset()
+    mocks.refreshLastSyncedAt.mockResolvedValue(undefined)
   })
 
   describe('rendering', () => {
@@ -644,6 +654,36 @@ describe('SideNav', () => {
 
       consoleSpy.mockRestore()
     })
+    it('refreshes the last synchronization timestamp on mobile mount', () => {
+      mountSideNav()
+
+      expect(mocks.refreshLastSyncedAt).toHaveBeenCalledExactlyOnceWith()
+    })
+
+    it('does not refresh the last synchronization timestamp on desktop', () => {
+      mocks.isMobile = false
+
+      mountSideNav()
+
+      expect(mocks.refreshLastSyncedAt).not.toHaveBeenCalled()
+    })
+
+    it('displays the last successful synchronization timestamp', () => {
+      lastSyncedAt.value = '2026-11-18T11:50:00.000Z'
+
+      const wrapper = mountSideNav()
+
+      expect(wrapper.text()).toContain('Last synced')
+      expect(wrapper.text()).not.toContain('Never')
+    })
+
+    it('displays Never when no successful synchronization exists', () => {
+      lastSyncedAt.value = null
+
+      const wrapper = mountSideNav()
+
+      expect(wrapper.text()).toContain('Never')
+    })
   })
 
   describe('manual synchronization', () => {
@@ -704,13 +744,17 @@ describe('SideNav', () => {
       mocks.triggerSync.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
-            resolveSync = resolve
+            isSyncing.value = true
+
+            resolveSync = () => {
+              isSyncing.value = false
+              resolve()
+            }
           }),
       )
 
       const wrapper = mountSideNav()
-
-      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+      const syncButton = wrapper.find('button[aria-label="Synchronize data now"]')
 
       await syncButton.trigger('click')
 
@@ -718,13 +762,9 @@ describe('SideNav', () => {
       expect(wrapper.find('.submit-spinner').exists()).toBe(true)
 
       resolveSync()
-
       await flushPromises()
 
-      expect(
-        wrapper.find('button[aria-label="Synchronize data now"]').attributes('disabled'),
-      ).toBeUndefined()
-
+      expect(syncButton.attributes('disabled')).toBeUndefined()
       expect(wrapper.find('.submit-spinner').exists()).toBe(false)
     })
 
@@ -734,22 +774,30 @@ describe('SideNav', () => {
       mocks.triggerSync.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
-            resolveSync = resolve
+            isSyncing.value = true
+
+            resolveSync = () => {
+              isSyncing.value = false
+              resolve()
+            }
           }),
       )
 
       const wrapper = mountSideNav()
-
-      const syncButton = wrapper.get('button[aria-label="Synchronize data now"]')
+      const syncButton = wrapper.find('button[aria-label="Synchronize data now"]')
 
       await syncButton.trigger('click')
+
+      expect(mocks.triggerSync).toHaveBeenCalledTimes(1)
+
       await syncButton.trigger('click')
 
       expect(mocks.triggerSync).toHaveBeenCalledTimes(1)
 
       resolveSync()
-
       await flushPromises()
+
+      expect(isSyncing.value).toBe(false)
     })
   })
 })

@@ -71,20 +71,32 @@
     </div>
 
     <!-- Manual Synchronization (Mobile Only) -->
-    <button
-      v-if="isMobileDevice"
-      type="button"
-      class="primary-text center-flex-col gap-1 mb-4 py-2 px-4 text-center disabled:opacity-50"
-      :disabled="isSyncing"
-      :aria-label="isSyncing ? 'Synchronizing data' : 'Synchronize data now'"
-      @click="handleManualSync"
-    >
-      <RefreshIcon class="w-6 h-6" />
+    <div v-if="isMobileDevice" class="center-flex-col gap-2 mb-4">
+      <button
+        type="button"
+        class="primary-text center-flex-col gap-1 py-2 px-4 text-center disabled:opacity-50"
+        :disabled="isSyncing"
+        :aria-label="isSyncing ? 'Synchronizing data' : 'Synchronize data now'"
+        @click="handleManualSync"
+      >
+        <RefreshIcon class="w-6 h-6" />
 
-      <span class="text-xs font-poppins font-semibold"> Sync Now </span>
+        <span class="text-xs font-poppins font-semibold"> Sync Now </span>
 
-      <div v-if="isSyncing" class="submit-spinner"></div>
-    </button>
+        <div v-if="isSyncing" class="submit-spinner"></div>
+      </button>
+
+      <!-- Last Synchronization Information -->
+      <div v-if="!isManualSyncing" class="center-flex-col gap-1 text-center px-2">
+        <span class="text-xs secondary-text">Last synced</span>
+
+        <span class="text-xs font-semibold secondary-text">
+          {{ formatLastSynced(lastSyncedAt) }}
+        </span>
+      </div>
+
+      <span v-else class="text-xs secondary-text"> Synchronizing... </span>
+    </div>
   </nav>
 </template>
 
@@ -120,7 +132,14 @@ import { useAuthStore, useUiStore } from '@/stores'
 import { useGlobals } from '@/composables/useGlobals'
 import { isMobile } from '@/utils/platform'
 import { withCacheBust } from '@/utils/urlSecurity'
-import { startSyncScheduler, stopSyncScheduler, triggerSync } from '@/services/database/sync'
+import {
+  startSyncScheduler,
+  stopSyncScheduler,
+  triggerSync,
+  isSyncing,
+  lastSyncedAt,
+  refreshLastSyncedAt,
+} from '@/services/database/sync'
 
 defineOptions({
   name: 'DashboardSideNav',
@@ -143,7 +162,7 @@ const uiStore = useUiStore()
 const { $notifySuccess, $notifyError } = useGlobals()
 
 const isMobileDevice = isMobile()
-const isSyncing = ref(false)
+const isManualSyncing = ref(false)
 
 let appStateListener: Awaited<ReturnType<typeof App.addListener>> | null = null
 let isUnmounted = false
@@ -186,7 +205,7 @@ async function handleManualSync(): Promise<void> {
     return
   }
 
-  isSyncing.value = true
+  isManualSyncing.value = true
 
   try {
     await triggerSync()
@@ -199,7 +218,7 @@ async function handleManualSync(): Promise<void> {
 
     await $notifyError(message)
   } finally {
-    isSyncing.value = false
+    isManualSyncing.value = false
   }
 }
 
@@ -246,6 +265,49 @@ function splitLabel(label: string): string[] {
   return words.length >= 2 ? words : [label]
 }
 
+/**
+ * Formats the last successful synchronization timestamp for display.
+ *
+ * - Returns the time (e.g. "2:50 PM") if synchronization occurred today.
+ * - Returns "Yesterday" if synchronization occurred the previous day.
+ * - Returns a formatted date (e.g. "Nov 16, 2026") for older timestamps.
+ * - Returns "Never" if no successful synchronization has occurred.
+ *
+ * Uses the device's local timezone and locale.
+ *
+ * @param timestamp - ISO timestamp of the last successful synchronization.
+ * @returns Human-readable synchronization timestamp.
+ */
+function formatLastSynced(timestamp: string | null): string {
+  if (!timestamp) {
+    return 'Never'
+  }
+
+  const date = new Date(timestamp)
+  const now = new Date()
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.toDateString() === today.toDateString()) {
+    return date.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday'
+  }
+
+  return date.toLocaleDateString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 const menuItems: MenuItem[] = [
   {
     name: 'dashboard',
@@ -278,6 +340,9 @@ const menuItems: MenuItem[] = [
 
 onMounted(() => {
   if (isMobileDevice) {
+    void refreshLastSyncedAt().catch((error) => {
+      console.error('Failed to load last synchronization time:', error)
+    })
     startMobileSync()
   }
 })
