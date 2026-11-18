@@ -207,6 +207,18 @@ pnpm lint
 
 Check `package.json` for the exact script names supported by the project.
 
+### 4.7 Bluetooth Classic SPP Testing
+
+The repository provides a setup script for installing and configuring the Bluetooth Classic dependencies required for local SPP testing.
+
+Run the following command from the project root:
+
+```bash
+sudo ./scripts/setup-bluetooth.sh
+```
+
+For instructions on pairing devices, starting the Bluetooth test server, and testing communication with the Android application, see [Bluetooth Classic SPP Testing](usage.md#bluetooth-classic-spp-testing).
+
 ## Environment Configuration
 
 The dashboard supports the following environments:

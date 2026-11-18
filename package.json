@@ -21,6 +21,7 @@
     "android:logs": "until PID=$(adb shell pidof -s com.razaoul.smartpack) && [ -n \"$PID\" ]; do sleep 1; done; adb logcat --pid=$PID",
     "android:logs:restart": "pnpm android:logs:clear && sleep 2 && pnpm android:logs",
     "android:logs:filter": "pnpm android:logs:restart | grep -F -e",
+    "bluetooth:server": "sudo python3 scripts/bluetooth_server.py",
     "preview": "vite preview",
     "test:unit": "vitest",
     "type-check": "vue-tsc --build",

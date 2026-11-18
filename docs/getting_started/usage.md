@@ -148,6 +148,33 @@ This script runs the following steps:
 
 The APK can then be transferred to an Android device or installed manually.
 
+### Bluetooth Classic SPP Testing
+
+The repository provides a Bluetooth Classic SPP test server that simulates a SmartPack device during development. It allows the Android application to test Bluetooth communication without requiring the physical ESP32 hardware.
+
+The server periodically sends simulated sensor measurements, including weight and step counts, and receives messages from the Android application. This helps validate Bluetooth connectivity and bidirectional communication during development.
+
+After completing the Bluetooth setup described in the [Setup Guide](setup.md), start the test server from the project root:
+
+```bash
+pnpm bluetooth:server
+```
+
+To use the test server as a SmartPack device:
+
+1. Pair your Android device with the Linux machine running the Bluetooth server.
+2. Obtain the Bluetooth MAC address of the Linux machine using:
+
+   ```bash
+   bluetoothctl show
+   ```
+
+3. Assign the Linux machine's Bluetooth MAC address to the SmartPack's `bluetooth_mac_address` field.
+4. Open the SmartPack in the Android application and connect to it.
+
+Ensure the Bluetooth server is running before attempting to connect.
+
+For detailed setup and troubleshooting instructions, see [Bluetooth Setup](docs/getting_started/setup.md#47-bluetooth-classic-spp-testing).
 
 ### Available Android Commands
 
