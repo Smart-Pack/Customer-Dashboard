@@ -1,16 +1,12 @@
-# SQLite Database
-
-SmartPack uses [`@capacitor-community/sqlite`](https://github.com/capacitor-community/sqlite) to provide native SQLite database functionality for its Android and iOS applications.
-
-The database layer is responsible for managing the local database connection and providing a foundation for persistent data storage and future offline-first functionality.
-
 ## 1. Database Initialization
 
 ### Overview
 
 The SQLite database is initialized during application startup in mobile mode. Initialization happens before the Vue application is mounted, ensuring that the database connection is available before database-dependent functionality is used.
 
-SQLite initialization is restricted to native platforms. Browser builds skip native database initialization.
+SQLite initialization is restricted to native platforms (Android/iOS). Browser builds skip native database initialization.
+
+The database uses **SQLCipher encryption** to protect locally cached application data. Its encryption passphrase is generated securely and stored using the Capacitor Secure Storage plugin.
 
 ### Configuration
 
@@ -18,13 +14,13 @@ The database configuration is defined in:
 
 `src/services/database/database.ts`
 
-| Constant             | Value           | Description                                                  |
-| -------------------- | --------------- | ------------------------------------------------------------ |
-| `DATABASE_NAME`      | `smartpack`     | Database identifier.                                         |
-| `DATABASE_VERSION`   | `1`             | Initial database version.                                    |
-| `DATABASE_ENCRYPTED` | `false`         | Disables database encryption for the initial implementation. |
-| `DATABASE_MODE`      | `no-encryption` | Specifies the database encryption mode.                      |
-| `DATABASE_READ_ONLY` | `false`         | Allows database modifications.                               |
+| Constant | Value | Description |
+|---|---|---|
+| `DATABASE_NAME` | `smartpack` | Database identifier. |
+| `DATABASE_VERSION` | `1` | Initial database version. |
+| `DATABASE_ENCRYPTED` | `true` | Enables database encryption. |
+| `DATABASE_MODE` | `secret` | Uses the SQLite plugin's stored encryption secret. |
+| `DATABASE_READ_ONLY` | `false` | Allows database modifications. |
 
 On Android, the database is stored in the application's private internal storage.
 
@@ -34,6 +30,39 @@ Database location:
 /data/user/0/com.razaoul.smartpack/databases/smartpackSQLite.db
 ```
 
+### Encryption and Passphrase Management
+
+The database encryption passphrase is managed through:
+
+`src/services/secureTokenStorage.ts`
+
+The application uses the Capacitor Secure Storage plugin to securely persist the passphrase on native platforms.
+
+The passphrase is generated using the Web Crypto API:
+
+```typescript
+function generateSqlitePassphrase(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+```
+
+This produces a cryptographically secure 256-bit passphrase represented as a 64-character hexadecimal string.
+
+The passphrase management process is:
+
+1. **Retrieve existing passphrase:** Attempts to retrieve the previously stored SQLite passphrase from secure storage.
+2. **Generate if missing:** Generates a new random passphrase when one does not exist.
+3. **Persist passphrase:** Stores the generated passphrase using the secure storage plugin.
+4. **Initialize SQLite secret:** Checks whether the SQLite plugin already has an encryption secret.
+5. **Register encryption secret:** Calls `sqlite.setEncryptionSecret()` when the plugin does not have an existing secret.
+6. **Validate encryption secret:** Calls `sqlite.checkEncryptionSecret()` to verify that the stored passphrase matches the plugin's existing encryption secret.
+
+The same passphrase is reused across application launches so that the encrypted database remains accessible.
+
 ### Initialization Process
 
 The `initializeDatabase()` function performs the following operations:
@@ -41,34 +70,49 @@ The `initializeDatabase()` function performs the following operations:
 1. **Platform detection:** Checks whether the application is running on a native platform using Capacitor. Initialization is skipped on web platforms.
 2. **Connection reuse:** Returns the existing database connection if it has already been initialized.
 3. **Concurrent initialization protection:** Uses a shared initialization promise to prevent multiple simultaneous initialization requests.
-4. **Connection consistency:** Calls `checkConnectionsConsistency()` to verify the state of existing database connections.
-5. **Connection retrieval or creation:** Retrieves an existing connection when available or creates a new database connection otherwise.
-6. **Database opening:** Checks whether the database is open and opens it when necessary.
-7. **Error handling:** Logs initialization errors and propagates them to the caller.
+4. **Encryption initialization:** Retrieves or generates the database passphrase, registers it with the SQLite plugin when necessary, and validates the existing secret.
+5. **Connection consistency:** Calls `checkConnectionsConsistency()` to verify the state of existing database connections.
+6. **Connection retrieval or creation:** Retrieves an existing connection when available or creates a new encrypted database connection otherwise.
+7. **Database opening:** Checks whether the database is open and opens it when necessary.
+8. **Foreign key enforcement:** Enables SQLite foreign key constraints using `PRAGMA foreign_keys = ON`.
+9. **Database migrations:** Executes `runMigrations()` to apply pending database schema migrations.
+10. **Error handling:** Resets the local database reference, logs initialization errors, and propagates failures to the caller.
 
 ### Database Service Structure
 
 ```text
 src/
 └── services/
+    ├── secureTokenStorage.ts
     └── database/
         ├── database.ts
         ├── transaction.ts
+        ├── migrations/
         └── index.ts
 ```
 
-- `database.ts`: Implements database initialization, connection retrieval, and connection closing.
+- `secureTokenStorage.ts`: Provides secure storage operations for authentication tokens, device IDs, and the SQLite encryption passphrase.
+- `database.ts`: Implements encrypted database initialization, encryption-secret management, connection retrieval, and connection closing.
 - `transaction.ts`: Provides `withTransaction()` for executing database operations within a transaction. Serializes transaction execution through a queue to prevent concurrent transactions on the shared SQLite connection.
+- `migrations/`: Contains database schema migrations.
 - `index.ts`: Exposes the database service functions and transaction utilities through a public module interface.
 
 ### Available Functions
 
-| Function               | Description                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initializeDatabase()` | Initializes the database and returns the database connection. Returns `null` on web platforms.                                                                |
-| `getDatabase()`        | Returns the initialized database connection. Throws an error if initialization has not occurred.                                                              |
-| `closeDatabase()`      | Closes the database connection and resets the local connection reference.                                                                                     |
-| `withTransaction()`    | Executes an asynchronous database operation within a transaction. Queues transaction operations to prevent overlapping transactions on the shared connection. |
+| Function | Description |
+|---|---|
+| `initializeDatabase()` | Initializes the encrypted database and returns the database connection. Returns `null` on web platforms. |
+| `getDatabase()` | Returns the initialized database connection. Throws an error if initialization has not occurred. |
+| `closeDatabase()` | Closes the database connection and resets the local connection reference. |
+| `withTransaction()` | Executes an asynchronous database operation within a transaction. Queues transaction operations to prevent overlapping transactions on the shared connection. |
+
+### Important Considerations
+
+- The encryption passphrase must remain available for the lifetime of the encrypted database.
+- The application must never generate a replacement passphrase for an existing encrypted database.
+- Secure storage failures must prevent database initialization rather than silently falling back to an unencrypted database.
+- Changing an existing plaintext database to an encrypted configuration requires an explicit database encryption migration. Changing the encryption configuration alone does not encrypt an existing database.
+- Clearing application data removes the locally stored database and its secure-storage credentials. A fresh installation consequently creates a new database with a newly generated passphrase.
 
 ### Application Startup Integration
 

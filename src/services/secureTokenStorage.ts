@@ -3,6 +3,7 @@ import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
 
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const DEVICE_ID_KEY = 'device_id'
+const SQLITE_PASSPHRASE_KEY = 'sqlite_passphrase'
 
 /**
  * Extracts a readable message from an unknown error value.
@@ -115,6 +116,38 @@ export const secureTokenStorage = {
     try {
       const { value } = await SecureStoragePlugin.get({
         key: DEVICE_ID_KEY,
+      })
+
+      return value || null
+    } catch {
+      return null
+    }
+  },
+  /**
+   * Securely stores the SQLite database encryption passphrase.
+   *
+   * @param passphrase - The passphrase used to encrypt the SQLite database.
+   */
+  async setSqlitePassphrase(passphrase: string): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return
+
+    await SecureStoragePlugin.set({
+      key: SQLITE_PASSPHRASE_KEY,
+      value: passphrase,
+    })
+  },
+
+  /**
+   * Retrieves the SQLite database encryption passphrase.
+   *
+   * @returns The stored passphrase, or null if unavailable.
+   */
+  async getSqlitePassphrase(): Promise<string | null> {
+    if (!Capacitor.isNativePlatform()) return null
+
+    try {
+      const { value } = await SecureStoragePlugin.get({
+        key: SQLITE_PASSPHRASE_KEY,
       })
 
       return value || null
