@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { nextTick } from 'vue'
 
 import SmartPackDetails from '@/views/Smartpacks/details.vue'
 import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
@@ -11,7 +12,7 @@ import SensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
-import type { SmartPackSensorMessage } from '@/types/bluetooth'
+import type { SmartPackConfiguration, SmartPackSensorMessage } from '@/types/bluetooth'
 
 const { mockFetchByIdWithCache, mockGetBluetoothMeasurements, mockSaveBluetoothMeasurements } =
   vi.hoisted(() => ({
@@ -174,6 +175,14 @@ const mockSmartPack: SmartPack = {
   updated: '2026-09-23T14:30:00Z',
 }
 
+const mockConfiguration: SmartPackConfiguration = {
+  weight_limit: 5000,
+  delay: 30,
+  com_mode: 1,
+  wifi_settings: { ssid: 'HomeNetwork', password: 'secret123' },
+  bluetooth_name: 'SmartPack-0001',
+}
+
 const mockAssignedSmartPack: SmartPack = {
   ...mockSmartPack,
   group: mockGroup,
@@ -212,7 +221,7 @@ const mountView = () =>
       },
       stubs: {
         AssignGroup: {
-          props: ['submitting'],
+          props: ['submitting', 'smartPack'],
           emits: ['close', 'assign'],
           template: `
             <div data-testid="assign-group-modal">
@@ -225,6 +234,11 @@ const mountView = () =>
               </button>
             </div>
           `,
+        },
+        InfoTooltip: {
+          name: 'InfoTooltip',
+          props: ['text', 'placement', 'label'],
+          template: '<span data-testid="info-tooltip" />',
         },
         AssignChildForm: {
           props: ['initialValues'],
@@ -1553,6 +1567,411 @@ describe('SmartPackDetails', () => {
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('[data-testid="smartpack-qr"]').exists()).toBe(false)
+    })
+  })
+  describe('Details / Settings tabs', () => {
+    const openWrappers: ReturnType<typeof mountView>[] = []
+
+    const mountMobile = async () => {
+      vi.stubEnv('MODE', 'mobile')
+      const wrapper = mountView()
+      openWrappers.push(wrapper)
+      await flushPromises()
+      return wrapper
+    }
+
+    const findTab = (wrapper: ReturnType<typeof mountView>, label: string) =>
+      wrapper.findAll('button').find((button) => button.text().trim() === label)
+
+    afterEach(() => {
+      openWrappers.forEach((wrapper) => wrapper.unmount())
+      openWrappers.length = 0
+    })
+
+    it('shows the Details tab by default', async () => {
+      const wrapper = await mountMobile()
+
+      expect(wrapper.text()).toContain('490154203237518')
+      expect(findTab(wrapper, 'Details')?.attributes('disabled')).toBeDefined()
+    })
+
+    it('does not render the Settings tab outside mobile mode', async () => {
+      const wrapper = mountView()
+      openWrappers.push(wrapper)
+
+      await flushPromises()
+
+      expect(findTab(wrapper, 'Settings')).toBeUndefined()
+    })
+
+    it('renders the Settings tab in mobile mode', async () => {
+      const wrapper = await mountMobile()
+
+      expect(findTab(wrapper, 'Settings')).toBeDefined()
+    })
+
+    it('switches to the Settings tab and hides the details content', async () => {
+      const wrapper = await mountMobile()
+
+      await findTab(wrapper, 'Settings')!.trigger('click')
+
+      expect(findTab(wrapper, 'Settings')?.attributes('disabled')).toBeDefined()
+      expect(wrapper.text()).not.toContain('490154203237518')
+      expect(findTab(wrapper, 'Print QR')).toBeUndefined()
+    })
+
+    it('switches back to the Details tab', async () => {
+      const wrapper = await mountMobile()
+
+      await findTab(wrapper, 'Settings')!.trigger('click')
+      await findTab(wrapper, 'Details')!.trigger('click')
+
+      expect(wrapper.text()).toContain('490154203237518')
+      expect(findTab(wrapper, 'Print QR')).toBeDefined()
+    })
+  })
+
+  describe('SmartPack configuration', () => {
+    const openWrappers: ReturnType<typeof mountView>[] = []
+
+    type ConfigVm = {
+      isBluetoothConnected: boolean
+      smartPackConfiguration: unknown
+      activeDetailsTab: 'details' | 'settings'
+      updateSmartPackConfiguration: () => Promise<void>
+    }
+
+    const mountMobile = async () => {
+      vi.stubEnv('MODE', 'mobile')
+      const wrapper = mountView()
+      openWrappers.push(wrapper)
+      await flushPromises()
+      return wrapper
+    }
+
+    const connect = async (wrapper: ReturnType<typeof mountView>) => {
+      await wrapper
+        .findComponent(BluetoothButton)
+        .find('[data-testid="bluetooth-connect"]')
+        .trigger('click')
+    }
+
+    const sendMessage = async (wrapper: ReturnType<typeof mountView>, payload: unknown) => {
+      wrapper.findComponent(BluetoothButton).vm.$emit('message', payload)
+      await nextTick()
+    }
+
+    const openSettings = async (wrapper: ReturnType<typeof mountView>) => {
+      await wrapper
+        .findAll('button')
+        .find((button) => button.text().trim() === 'Settings')!
+        .trigger('click')
+    }
+
+    /** Returns the text of the <dd> that follows the <dt> with the given label. */
+    const getValue = (wrapper: ReturnType<typeof mountView>, label: string) =>
+      wrapper
+        .findAll('dt')
+        .find((dt) => dt.text().includes(label))
+        ?.element.nextElementSibling?.textContent?.trim()
+
+    const getUpdateButton = (wrapper: ReturnType<typeof mountView>) =>
+      wrapper.findAll('button').find((button) => button.text().trim() === 'Update')
+
+    afterEach(() => {
+      openWrappers.forEach((wrapper) => wrapper.unmount())
+      openWrappers.length = 0
+    })
+
+    describe('settings tab states', () => {
+      it('shows the disconnected state when Bluetooth is not connected', async () => {
+        const wrapper = await mountMobile()
+
+        await openSettings(wrapper)
+
+        expect(wrapper.text()).toContain('SmartPack Disconnected')
+        expect(wrapper.text()).not.toContain('Waiting for Configuration')
+      })
+
+      it('shows the waiting state when connected but no configuration has arrived', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+
+        expect(wrapper.text()).toContain('Waiting for Configuration')
+        expect(wrapper.text()).not.toContain('SmartPack Disconnected')
+      })
+
+      it('shows the configuration once it is received', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        expect(wrapper.text()).not.toContain('Waiting for Configuration')
+        expect(getValue(wrapper, 'Weight Limit')).toBe(`${(5000).toLocaleString()} grams`)
+        expect(getValue(wrapper, 'Delay')).toBe('30 seconds')
+        expect(getValue(wrapper, 'Bluetooth Name')).toBe('SmartPack-0001')
+        expect(getValue(wrapper, 'Communication Mode')).toBe('Wi-Fi')
+        expect(getValue(wrapper, 'Wi-Fi SSID')).toBe('HomeNetwork')
+        expect(getValue(wrapper, 'Wi-Fi Password')).toBe('secret123')
+      })
+
+      it('displays GSM when com_mode is 0', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, { ...mockConfiguration, com_mode: 0 })
+
+        expect(getValue(wrapper, 'Communication Mode')).toBe('GSM')
+      })
+
+      it('displays em dashes for empty text settings', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, {
+          ...mockConfiguration,
+          bluetooth_name: '',
+          wifi_settings: { ssid: '', password: '' },
+        })
+
+        expect(getValue(wrapper, 'Bluetooth Name')).toBe('—')
+        expect(getValue(wrapper, 'Wi-Fi SSID')).toBe('—')
+        expect(getValue(wrapper, 'Wi-Fi Password')).toBe('—')
+      })
+
+      it('renders an info tooltip for each setting', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        expect(wrapper.findAll('[data-testid="info-tooltip"]')).toHaveLength(6)
+      })
+
+      it('passes right placement to the communication mode tooltip', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        const tooltips = wrapper.findAllComponents({ name: 'InfoTooltip' })
+        const placements = tooltips.map((tooltip) => tooltip.props('placement'))
+
+        expect(placements.filter((placement) => placement === 'right')).toHaveLength(1)
+      })
+    })
+
+    describe('configuration message handling', () => {
+      it('stores a copy of the received configuration', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        expect(vm.smartPackConfiguration).toEqual(mockConfiguration)
+        expect(vm.smartPackConfiguration).not.toBe(mockConfiguration)
+        expect((vm.smartPackConfiguration as SmartPackConfiguration).wifi_settings).not.toBe(
+          mockConfiguration.wifi_settings,
+        )
+      })
+
+      it('updates the configuration when a newer one arrives', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+        await sendMessage(wrapper, { ...mockConfiguration, delay: 60 })
+
+        expect((vm.smartPackConfiguration as SmartPackConfiguration).delay).toBe(60)
+      })
+
+      it('does not treat a configuration message as a sensor reading', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as { sensorHistory: unknown[] }
+
+        await connect(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        expect(vm.sensorHistory).toHaveLength(0)
+      })
+
+      it('still records sensor messages after the routing change', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as { sensorHistory: unknown[] }
+
+        await sendMessage(wrapper, { type: 'sensors', data: { weight: 4250, steps: 1250 } })
+
+        expect(vm.sensorHistory).toHaveLength(1)
+      })
+
+      it.each([
+        ['negative weight_limit', { ...mockConfiguration, weight_limit: -1 }],
+        ['non-numeric weight_limit', { ...mockConfiguration, weight_limit: '5000' }],
+        ['NaN weight_limit', { ...mockConfiguration, weight_limit: Number.NaN }],
+        ['negative delay', { ...mockConfiguration, delay: -5 }],
+        ['non-numeric delay', { ...mockConfiguration, delay: '30' }],
+        ['unsupported com_mode', { ...mockConfiguration, com_mode: 2 }],
+        ['missing wifi_settings', { ...mockConfiguration, wifi_settings: undefined }],
+        ['null wifi_settings', { ...mockConfiguration, wifi_settings: null }],
+        ['non-string ssid', { ...mockConfiguration, wifi_settings: { ssid: 1, password: 'x' } }],
+        ['missing password', { ...mockConfiguration, wifi_settings: { ssid: 'x' } }],
+        ['missing bluetooth_name', { ...mockConfiguration, bluetooth_name: undefined }],
+        ['non-object payload', 'configuration'],
+        ['null payload', null],
+      ])('ignores a configuration with %s', async (_name, payload) => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        await sendMessage(wrapper, payload)
+
+        expect(vm.smartPackConfiguration).toBeNull()
+      })
+    })
+
+    describe('connection lifecycle', () => {
+      it('clears the configuration when Bluetooth connects', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        vm.smartPackConfiguration = { ...mockConfiguration }
+
+        await connect(wrapper)
+
+        expect(vm.smartPackConfiguration).toBeNull()
+      })
+
+      it('clears the configuration and returns to Details when Bluetooth disconnects', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+        await openSettings(wrapper)
+
+        vm.isBluetoothConnected = false
+        await flushPromises()
+
+        expect(vm.smartPackConfiguration).toBeNull()
+        expect(vm.activeDetailsTab).toBe('details')
+        expect(wrapper.text()).toContain('490154203237518')
+      })
+
+      it('waits for a fresh configuration after reconnecting', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        vm.isBluetoothConnected = false
+        await flushPromises()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+
+        expect(wrapper.text()).toContain('Waiting for Configuration')
+      })
+    })
+
+    describe('updating the configuration', () => {
+      it('disables Update when Bluetooth is disconnected', async () => {
+        const wrapper = await mountMobile()
+
+        await openSettings(wrapper)
+
+        expect(getUpdateButton(wrapper)?.attributes('disabled')).toBeDefined()
+      })
+
+      it('disables Update while waiting for the configuration', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+
+        expect(getUpdateButton(wrapper)?.attributes('disabled')).toBeDefined()
+      })
+
+      it('enables Update once connected with a configuration', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+
+        expect(getUpdateButton(wrapper)?.attributes('disabled')).toBeUndefined()
+      })
+
+      it('reports that writing is not implemented yet when Update is clicked', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await openSettings(wrapper)
+        await sendMessage(wrapper, mockConfiguration)
+        await getUpdateButton(wrapper)!.trigger('click')
+
+        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
+          'Bluetooth configuration writing has not been implemented yet.',
+        )
+      })
+
+      it('rejects updates outside mobile mode', async () => {
+        const wrapper = mountView()
+        openWrappers.push(wrapper)
+
+        await flushPromises()
+
+        await (wrapper.vm as unknown as ConfigVm).updateSmartPackConfiguration()
+
+        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
+          'Configuration updates are only available on mobile.',
+        )
+      })
+
+      it('rejects updates when Bluetooth is not connected', async () => {
+        const wrapper = await mountMobile()
+
+        await (wrapper.vm as unknown as ConfigVm).updateSmartPackConfiguration()
+
+        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
+          'Connect to your SmartPack before updating its configuration.',
+        )
+      })
+
+      it('rejects updates when no configuration has been received', async () => {
+        const wrapper = await mountMobile()
+
+        await connect(wrapper)
+        await (wrapper.vm as unknown as ConfigVm).updateSmartPackConfiguration()
+
+        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
+          'SmartPack configuration has not been received.',
+        )
+      })
+
+      it('rejects updates when the configuration is invalid', async () => {
+        const wrapper = await mountMobile()
+        const vm = wrapper.vm as unknown as ConfigVm
+
+        await connect(wrapper)
+        vm.smartPackConfiguration = { ...mockConfiguration, com_mode: 5 }
+
+        await vm.updateSmartPackConfiguration()
+
+        expect(mockNotifyError).toHaveBeenCalledExactlyOnceWith(
+          'Please provide valid configuration settings.',
+        )
+      })
     })
   })
 })

@@ -62,81 +62,236 @@
 
       <!-- Details Card -->
       <section class="main-card grid gap-6 p-6">
-        <h3 class="sub-heading text-xl text-left">Details</h3>
-
-        <div
-          class="card-base bg-page dark:bg-page-dark grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 lg:text-lg break-words"
-        >
-          <!-- Left -->
-          <div>
-            <div>
-              <dt class="mt-1 primary-text">IMEI</dt>
-              <dd class="mt-1 secondary-text">
-                {{ smartPack.imei || '—' }}
-              </dd>
-            </div>
-
-            <div>
-              <dt class="mt-1 primary-text">Firmware Version</dt>
-              <dd class="mt-1 secondary-text">
-                {{ smartPack.firmware_version || '—' }}
-              </dd>
-            </div>
-          </div>
-
-          <!-- Right -->
-          <div>
-            <div>
-              <dt class="mt-1 primary-text">Last Seen</dt>
-              <dd class="mt-1 secondary-text">
-                {{ formatLastSeen(smartPack.last_seen) }}
-              </dd>
-            </div>
-
-            <div>
-              <dt class="mt-1 primary-text">Added</dt>
-              <dd class="mt-1 secondary-text">
-                {{ $filters.dateTime(smartPack.created) || '—' }}
-              </dd>
-            </div>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4">
+        <!-- Tab Switcher -->
+        <div class="flex gap-2 border-b border-white/10">
           <button
-            v-if="!smartPack.group || authStore.isGroupAdmin(smartPack.group.id)"
             type="button"
+            class="px-4 py-2 text-sm font-semibold"
             :class="
-              smartPack.group
-                ? 'px-4 py-2 rounded-full text-sm font-semibold error-btn'
-                : 'px-4 py-2 rounded-full text-sm font-semibold form-submit'
+              activeDetailsTab === 'details'
+                ? 'text-primary border-b-2 border-primary'
+                : 'secondary-text'
             "
-            @click="handleGroupAction"
-            :disabled="submitting"
+            :disabled="activeDetailsTab === 'details'"
+            @click="activeDetailsTab = 'details'"
           >
-            {{ smartPack.group ? 'Unassign from Group' : 'Assign to Group' }}
+            Details
           </button>
 
           <button
-            v-if="!smartPack.group || authStore.isGroupAdmin(smartPack.group.id)"
+            v-if="isMobile"
             type="button"
-            class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
-            @click="handlePageChange('assignChild')"
-            :disabled="submitting"
+            class="px-4 py-2 text-sm font-semibold"
+            :class="
+              activeDetailsTab === 'settings'
+                ? 'text-primary border-b-2 border-primary'
+                : 'secondary-text'
+            "
+            :disabled="activeDetailsTab === 'settings'"
+            @click="activeDetailsTab = 'settings'"
           >
-            Assign to Child
-          </button>
-
-          <button
-            type="button"
-            :disabled="printingQr"
-            class="px-4 py-2 rounded-full text-sm font-semibold form-submit-secondary"
-            @click="handlePrintQr(true)"
-          >
-            Print QR
+            Settings
           </button>
         </div>
+
+        <!-- Details Tab -->
+        <template v-if="activeDetailsTab === 'details'">
+          <div
+            class="card-base bg-page dark:bg-page-dark grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 lg:text-lg break-words"
+          >
+            <!-- Left -->
+            <div>
+              <div>
+                <dt class="mt-1 primary-text">IMEI</dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPack.imei || '—' }}
+                </dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text">Firmware Version</dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPack.firmware_version || '—' }}
+                </dd>
+              </div>
+            </div>
+
+            <!-- Right -->
+            <div>
+              <div>
+                <dt class="mt-1 primary-text">Last Seen</dt>
+                <dd class="mt-1 secondary-text">
+                  {{ formatLastSeen(smartPack.last_seen) }}
+                </dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text">Added</dt>
+                <dd class="mt-1 secondary-text">
+                  {{ $filters.dateTime(smartPack.created) || '—' }}
+                </dd>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4">
+            <button
+              v-if="!smartPack.group || authStore.isGroupAdmin(smartPack.group.id)"
+              type="button"
+              :class="
+                smartPack.group
+                  ? 'px-4 py-2 rounded-full text-sm font-semibold error-btn'
+                  : 'px-4 py-2 rounded-full text-sm font-semibold form-submit'
+              "
+              @click="handleGroupAction"
+              :disabled="submitting"
+            >
+              {{ smartPack.group ? 'Unassign from Group' : 'Assign to Group' }}
+            </button>
+
+            <button
+              v-if="!smartPack.group || authStore.isGroupAdmin(smartPack.group.id)"
+              type="button"
+              class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
+              @click="handlePageChange('assignChild')"
+              :disabled="submitting"
+            >
+              Assign to Child
+            </button>
+
+            <button
+              type="button"
+              :disabled="printingQr"
+              class="px-4 py-2 rounded-full text-sm font-semibold form-submit-secondary"
+              @click="handlePrintQr(true)"
+            >
+              Print QR
+            </button>
+          </div>
+        </template>
+
+        <!-- Settings Tab (Mobile Only) -->
+        <template v-else-if="activeDetailsTab === 'settings' && isMobile">
+          <!-- Bluetooth Disconnected -->
+          <div
+            v-if="!isBluetoothConnected"
+            class="card-base bg-page dark:bg-page-dark flex flex-col items-center justify-center text-center p-8 gap-2"
+          >
+            <h3 class="primary-text font-semibold">SmartPack Disconnected</h3>
+
+            <p class="secondary-text text-sm max-w-md">
+              Connect to your SmartPack via Bluetooth to view its configuration settings.
+            </p>
+          </div>
+
+          <!-- Configuration Not Received -->
+          <div
+            v-else-if="!smartPackConfiguration"
+            class="card-base bg-page dark:bg-page-dark flex flex-col items-center justify-center text-center p-8 gap-2"
+          >
+            <h3 class="primary-text font-semibold">Waiting for Configuration</h3>
+
+            <p class="secondary-text text-sm max-w-md">
+              Connected successfully. Waiting to receive configuration settings from your SmartPack.
+            </p>
+          </div>
+
+          <!-- Configuration Details -->
+          <div
+            v-else
+            class="card-base bg-page dark:bg-page-dark grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 lg:text-lg break-words"
+          >
+            <!-- Left Column -->
+            <div>
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Weight Limit
+                  <InfoTooltip
+                    text="Maximum permitted weight of the SmartPack's contents. The buzzer alerts the child when this limit is exceeded."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPackConfiguration.weight_limit.toLocaleString() }} grams
+                </dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Delay
+                  <InfoTooltip
+                    text="Time interval, in seconds, between sensor measurement updates."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">{{ smartPackConfiguration.delay }} seconds</dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Bluetooth Name
+                  <InfoTooltip
+                    text="Bluetooth device name advertised by the SmartPack when discoverable."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPackConfiguration.bluetooth_name || '—' }}
+                </dd>
+              </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Communication Mode
+                  <InfoTooltip
+                    placement="right"
+                    text="Communication method used by the SmartPack to transmit data: GSM or Wi-Fi. Bluetooth is used for local configuration and communication with the mobile app."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPackConfiguration.com_mode === 0 ? 'GSM' : 'Wi-Fi' }}
+                </dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Wi-Fi SSID
+                  <InfoTooltip
+                    text="Name of the Wi-Fi network the SmartPack connects to when Wi-Fi communication mode is selected."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPackConfiguration.wifi_settings.ssid || '—' }}
+                </dd>
+              </div>
+
+              <div>
+                <dt class="mt-1 primary-text flex items-center gap-2">
+                  Wi-Fi Password
+                  <InfoTooltip
+                    text="Password used to authenticate with the configured Wi-Fi network."
+                  />
+                </dt>
+                <dd class="mt-1 secondary-text">
+                  {{ smartPackConfiguration.wifi_settings.password || '—' }}
+                </dd>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-4 items-center justify-start lg:justify-between flex-wrap p-4">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-full text-sm font-semibold form-submit"
+              @click="updateSmartPackConfiguration"
+              :disabled="!isBluetoothConnected || !smartPackConfiguration || submitting"
+            >
+              Update
+            </button>
+          </div>
+        </template>
       </section>
     </div>
 
@@ -156,6 +311,7 @@
 
       <AssignChildForm :initial-values="{ ...smartPack }" @close="handlePageChange" />
     </div>
+
     <!-- Sensor Measurements -->
     <SmartPackSensorMeasurements
       v-if="smartPack.id && smartPack.device_uid && activePage === 'showDetails'"
@@ -165,9 +321,11 @@
       :is-bluetooth-connected="isBluetoothConnected"
       :sensor-history="sensorHistory"
     />
+
     <!-- Assign Group Modal -->
     <AssignGroup
       v-if="showAssignGroupTable"
+      :smart-pack="smartPack"
       :submitting="submitting"
       @close="handleShowAssignGroupTable"
       @assign="handleAssignGroup"
@@ -181,15 +339,16 @@
 <script lang="ts">
 /**
  * @module views/SmartPacks/Details
- * @description Displays SmartPack details with offline caching support.
- * Allows authorized users to assign or unassign groups, assign a child,
- * view sensor measurements, connect via Bluetooth, and print the SmartPack QR code.
+ * @description Displays SmartPack details and configuration settings with offline caching support.
+ * Allows authorized users to manage group and child assignments, view sensor measurements,
+ * configure the SmartPack via Bluetooth on mobile devices, and print its QR code.
  */
 
 import { defineComponent } from 'vue'
 import type { SmartPack } from '@/api/modules/smartpacks'
 import type { Group } from '@/api/modules/groups'
 import type { ItemNotFoundError } from '@/api/types'
+import InfoTooltip from '@/components/Base/InfoTooltip.vue'
 import SmartPackSensorMeasurements from '@/components/Smartpacks/SensorMeasurements.vue'
 import BackPackIcon from '@/components/Icons/BackPackIcon.vue'
 import UserIcon from '@/components/Icons/UserIcon.vue'
@@ -198,7 +357,11 @@ import AssignGroup from '@/components/Smartpacks/AssignGroup.vue'
 import AssignChildForm from '@/components/Smartpacks/UpdateForm.vue'
 import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
-import type { SmartPackSensorMessage, SmartPackSensorRecord } from '@/types/bluetooth'
+import type {
+  SmartPackSensorMessage,
+  SmartPackSensorRecord,
+  SmartPackConfiguration,
+} from '@/types/bluetooth'
 import { useAuthStore } from '@/stores/modules/auth'
 import { fetchByIdWithCache, repositories } from '@/services/database'
 
@@ -236,6 +399,54 @@ function isSmartPackSensorMessage(payload: unknown): payload is SmartPackSensorM
   )
 }
 
+/**
+ * Validates whether a value is a valid SmartPack configuration.
+ *
+ * @param {unknown} payload - Incoming Bluetooth message.
+ * @returns {boolean} Whether the payload matches SmartPackConfiguration.
+ */
+function isSmartPackConfiguration(payload: unknown): payload is SmartPackConfiguration {
+  if (typeof payload !== 'object' || payload === null) {
+    return false
+  }
+
+  if (
+    !('weight_limit' in payload) ||
+    typeof payload.weight_limit !== 'number' ||
+    !Number.isFinite(payload.weight_limit) ||
+    payload.weight_limit < 0
+  ) {
+    return false
+  }
+
+  if (
+    !('delay' in payload) ||
+    typeof payload.delay !== 'number' ||
+    !Number.isFinite(payload.delay) ||
+    payload.delay < 0
+  ) {
+    return false
+  }
+
+  if (!('com_mode' in payload) || (payload.com_mode !== 0 && payload.com_mode !== 1)) {
+    return false
+  }
+
+  if (
+    !('wifi_settings' in payload) ||
+    typeof payload.wifi_settings !== 'object' ||
+    payload.wifi_settings === null ||
+    !('ssid' in payload.wifi_settings) ||
+    typeof payload.wifi_settings.ssid !== 'string' ||
+    !('password' in payload.wifi_settings) ||
+    typeof payload.wifi_settings.password !== 'string'
+  ) {
+    return false
+  }
+
+  return 'bluetooth_name' in payload && typeof payload.bluetooth_name === 'string'
+}
+
 export default defineComponent({
   name: 'SmartPackDetails',
 
@@ -243,6 +454,7 @@ export default defineComponent({
     AssignChildForm,
     BackPackIcon,
     BluetoothButton,
+    InfoTooltip,
     UserIcon,
     UserGroupIcon,
     AssignGroup,
@@ -287,14 +499,26 @@ export default defineComponent({
   data() {
     return {
       smartPack: {} as SmartPack,
+
+      // null means the device has not sent its configuration yet.
+      smartPackConfiguration: null as SmartPackConfiguration | null,
+
       activePage: 'showDetails' as 'showDetails' | 'assignChild',
+
+      // Controls the Details / Settings tabs.
+      activeDetailsTab: 'details' as 'details' | 'settings',
+
       showAssignGroupTable: false,
       submitting: false,
       isBluetoothConnected: false,
+
       sensorHistory: [] as SmartPackSensorRecord[],
       bluetoothMeasurementBuffer: [] as SmartPackSensorRecord[],
       isFlushingBluetoothMeasurements: false,
       bluetoothSaveTimer: null as ReturnType<typeof setInterval> | null,
+
+      // Indicates whether a configuration update is in progress.
+      updatingConfiguration: false,
 
       /**
        * Indicates whether the hidden QR helper should render and download.
@@ -319,21 +543,18 @@ export default defineComponent({
 
   methods: {
     /**
-     * Handles incoming Bluetooth messages from the SmartPack device.
+     * Handles incoming SmartPack sensor messages.
      *
-     * Validates incoming sensor messages, records weight, steps, and the
-     * timestamp when the readings are received, and updates the in-memory
-     * sensor history.
+     * Validates sensor readings, records their values and reception timestamp,
+     * and updates the in-memory sensor history.
      *
-     * Valid readings are also queued for periodic batch persistence to the
-     * local SQLite database when running on mobile and Bluetooth is connected.
+     * Valid readings are queued for periodic batch persistence when running
+     * on mobile and Bluetooth is connected.
      *
-     * Invalid messages and messages with unsupported types are ignored.
-     *
-     * @param {unknown} payload - Parsed message received over Bluetooth.
+     * @param {unknown} payload - Incoming Bluetooth message.
      * @returns {void}
      */
-    onBluetoothMessage(payload: unknown): void {
+    handleSensorMessage(payload: unknown): void {
       if (!isSmartPackSensorMessage(payload)) {
         return
       }
@@ -351,6 +572,46 @@ export default defineComponent({
 
       if (this.isMobile && this.isBluetoothConnected) {
         this.queueBluetoothMeasurement(reading)
+      }
+    },
+
+    /**
+     * Handles incoming SmartPack configuration messages.
+     *
+     * Validates the configuration payload and updates the in-memory
+     * SmartPack configuration.
+     *
+     * @param {unknown} payload - Incoming Bluetooth message.
+     * @returns {void}
+     */
+    handleConfigurationMessage(payload: unknown): void {
+      if (!isSmartPackConfiguration(payload)) {
+        return
+      }
+
+      this.smartPackConfiguration = {
+        ...payload,
+        wifi_settings: { ...payload.wifi_settings },
+      }
+    },
+
+    /**
+     * Handles incoming Bluetooth messages from the SmartPack device.
+     *
+     * Identifies supported message types and delegates processing to
+     * their respective handlers.
+     *
+     * @param {unknown} payload - Parsed message received over Bluetooth.
+     * @returns {void}
+     */
+    onBluetoothMessage(payload: unknown): void {
+      if (isSmartPackSensorMessage(payload)) {
+        this.handleSensorMessage(payload)
+        return
+      }
+
+      if (isSmartPackConfiguration(payload)) {
+        this.handleConfigurationMessage(payload)
       }
     },
     /**
@@ -612,6 +873,40 @@ export default defineComponent({
 
       this.flushBluetoothMeasurements()
     },
+    /**
+     * Validates the current configuration before sending it to the SmartPack.
+     *
+     * The Bluetooth write operation will be added once the service's
+     * write API is confirmed.
+     *
+     * @returns A promise that resolves when the operation completes.
+     */
+    async updateSmartPackConfiguration(): Promise<void> {
+      if (!this.isMobile) {
+        this.$notifyError('Configuration updates are only available on mobile.')
+        return
+      }
+
+      if (!this.isBluetoothConnected) {
+        this.$notifyError('Connect to your SmartPack before updating its configuration.')
+        return
+      }
+
+      if (!this.smartPackConfiguration) {
+        this.$notifyError('SmartPack configuration has not been received.')
+        return
+      }
+
+      if (!isSmartPackConfiguration(this.smartPackConfiguration)) {
+        this.$notifyError('Please provide valid configuration settings.')
+        return
+      }
+
+      // TODO: Send the configuration to the device using the Bluetooth
+      // service's confirmed write API.
+
+      this.$notifyError('Bluetooth configuration writing has not been implemented yet.')
+    },
   },
   watch: {
     /**
@@ -627,8 +922,14 @@ export default defineComponent({
      */
     isBluetoothConnected(connected: boolean): void {
       if (connected) {
+        // Wait for the device to send its configuration.
+        this.smartPackConfiguration = null
+
         this.startBluetoothPersistence()
       } else {
+        this.smartPackConfiguration = null
+        this.activeDetailsTab = 'details'
+
         this.stopBluetoothPersistence()
       }
     },
