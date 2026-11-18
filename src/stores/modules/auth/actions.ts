@@ -11,6 +11,9 @@ import { getMe } from '@/api/modules/users'
 import type { AuthState } from './state'
 import { ALLOWED_ACCOUNT_TYPES } from './constants'
 import { secureTokenStorage } from '@/services/secureTokenStorage'
+import { isAxiosError } from 'axios'
+import { repositories } from '@/services/database'
+import { Capacitor } from '@capacitor/core'
 
 export interface AuthActions {
   clearStore(): void
@@ -71,18 +74,22 @@ export const actions: AuthActions = {
    * Refreshes the authentication token using the securely stored
    * refresh token on native platforms or the authentication cookie on web.
    *
-   * 1. Clears the current access token.
-   * 2. Retrieves the refresh token from native secure storage.
-   * 3. Sends the refresh token when available; otherwise uses cookie authentication.
-   * 4. Updates the access token.
+   * 1. Retrieves the refresh token from native secure storage.
+   * 2. Sends the refresh token when available; otherwise uses cookie authentication.
+   * 3. Updates the access token.
+   * 4. Persists rotated refresh tokens on native platforms.
+   * 5. Preserves the existing authentication state when the refresh request
+   *    fails without an API response and a refresh token exists in secure storage.
+   * 6. Clears the local authentication state and removes the stored refresh token
+   *    when authentication is invalidated.
+   * 7. Clears cached account-specific SQLite data on native platforms
+   *    when authentication is invalidated.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    * @param {boolean} skipAuthRedirect - Whether to skip redirecting to login if the refresh fails.
-   * @throws The error returned by the refresh request.
+   * @throws The error returned by the refresh request, except for network failures when a refresh token exists.
    */
   async refreshToken(this: AuthStoreContext, skipAuthRedirect = false) {
-    this.accessToken = null
-
     try {
       const refreshToken = await secureTokenStorage.getRefreshToken()
 
@@ -95,25 +102,77 @@ export const actions: AuthActions = {
       // Persist rotated refresh tokens on native platforms.
       await secureTokenStorage.setRefreshToken(refresh)
     } catch (error) {
+      // Preserve authentication state only when a refresh token exists.
+      if (isAxiosError(error) && !error.response) {
+        const refreshToken = await secureTokenStorage.getRefreshToken()
+
+        if (refreshToken) {
+          return
+        }
+      }
+
       this.clearStore()
 
-      await secureTokenStorage.removeRefreshToken()
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await secureTokenStorage.removeRefreshToken()
+          await repositories.clearAll()
+        } catch {
+          // Preserve the original authentication error.
+        }
+      }
 
       throw error
     }
   },
+
   /**
    * Fetches the currently logged-in user's details using the API service.
-   * On success, updates the user data in the store.
    *
+   * On success, updates the store and asynchronously caches the user
+   * on native platforms.
+   *
+   * If the API request fails due to a network error, preserves the
+   * existing user or falls back to the locally cached user on native platforms.
+   *
+   * @param {AuthStoreContext} this - The authentication store context.
    * @returns {Promise<void>}
    */
   async fetchUser(this: AuthStoreContext) {
     try {
       const loggedInUser = await getMe()
+
       this.loggedInUser = loggedInUser
+
+      // Cache the user on native platforms without blocking the API response.
+      if (Capacitor.isNativePlatform()) {
+        void repositories.users.save(loggedInUser).catch(() => {})
+      }
     } catch (error) {
+      // Only fall back to cached data for network errors.
+      if (isAxiosError(error) && !error.response) {
+        // Preserve the existing user if already loaded.
+        if (this.loggedInUser) {
+          return
+        }
+
+        // Fall back to SQLite only on native platforms.
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const cachedUser = await repositories.users.get()
+
+            if (cachedUser) {
+              this.loggedInUser = cachedUser
+              return
+            }
+          } catch {
+            // Continue with the original API error.
+          }
+        }
+      }
+
       this.clearStore()
+
       throw error
     }
   },
@@ -264,7 +323,8 @@ export const actions: AuthActions = {
    * 1. Retrieves the native refresh token if available.
    * 2. Attempts to invalidate the server-side authentication session.
    * 3. Removes the locally stored refresh token.
-   * 4. Clears the local authentication state.
+   * 4. Clears cached account-specific data from SQLite on native platforms.
+   * 5. Clears the local authentication state.
    *
    * @param {AuthStoreContext} this - The authentication store context.
    */
@@ -279,7 +339,13 @@ export const actions: AuthActions = {
       try {
         await secureTokenStorage.removeRefreshToken()
       } finally {
-        this.clearStore()
+        try {
+          if (Capacitor.isNativePlatform()) {
+            await repositories.clearAll()
+          }
+        } finally {
+          this.clearStore()
+        }
       }
     }
   },

@@ -17,6 +17,9 @@ const config: CapacitorConfig = {
     BluetoothSerial: {
       neverScanForLocation: true,
     },
+    CapacitorSQLite: {
+      androidIsEncryption: true,
+    },
   },
 }
 

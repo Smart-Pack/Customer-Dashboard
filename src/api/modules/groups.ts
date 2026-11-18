@@ -1,11 +1,14 @@
 import apiClient from '@/api/client'
 import { GROUPS } from '../endpoints'
+import type { UserGroup } from './users'
 import type {
   ApiDetailResponse,
   PaginatedResponse,
   PaginationQueryParams,
   ItemNotFoundError,
 } from '@/api/types'
+
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 
 export interface CreateGroupPayload {
   name: string
@@ -162,4 +165,26 @@ export const edit = async (
 
     throw axiosError
   }
+}
+
+/**
+ * Fetches paginated groups from the API and caches successful responses.
+ *
+ * Falls back to locally cached, filtered, and paginated groups when the
+ * native application cannot reach the API.
+ *
+ * @param params - Group filters and pagination parameters.
+ * @param userGroups - Groups associated with the authenticated user.
+ * @returns Paginated groups from the API or local cache.
+ */
+export const listWithCache = async (
+  params: GroupQueryParams,
+  userGroups: UserGroup[],
+): Promise<PaginatedResponse<Group>> => {
+  return fetchPaginatedWithCache({
+    fetcher: (query: GroupQueryParams) => list(query),
+    params,
+    save: (data: Group[]) => repositories.groups.saveList(data),
+    getCached: (query: GroupQueryParams) => repositories.groups.getPaginated(query, userGroups),
+  })
 }

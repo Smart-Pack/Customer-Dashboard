@@ -22,7 +22,7 @@
 
       <div class="overflow-auto">
         <TablePageLayout
-          :getter="$api.groups.list"
+          :getter="getGroupsList"
           :tabs="groupTabs"
           name="Groups"
           :item-headings="groupHeadings"
@@ -38,27 +38,40 @@
 
 <script setup lang="ts">
 /**
- * AssignGroup Component
+ * @module components/SmartPacks/AssignGroup
+ * @description Displays a modal for selecting and assigning a group to a
+ * SmartPack. Lists groups where the authenticated user has owner or admin
+ * access, with pagination, searching, and offline data caching support.
  *
- * Displays a modal containing groups where the authenticated user has
- * owner or admin access and allows selecting a single group to assign
- * to a SmartPack.
- *
- * The component uses the shared TablePageLayout for group retrieval,
- * pagination, searching, and selection. The selected group is emitted
- * to the parent component when the assignment is submitted.
- *
- * @component
+ * Uses the shared TablePageLayout for group retrieval and selection.
+ * Emits the selected group to the parent component when assignment is
+ * submitted.
  */
 
 import { ref } from 'vue'
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { Group, GroupQueryParams } from '@/api/modules/groups'
+import { listWithCache, type Group, type GroupQueryParams } from '@/api/modules/groups'
+import { useAuthStore } from '@/stores/modules/auth'
 import Filters from '@/helpers/filters'
 
 defineOptions({
   name: 'AssignGroup',
 })
+
+const authStore = useAuthStore()
+
+/**
+ * Fetches groups using the API with local caching support.
+ *
+ * Passes the authenticated user's groups to support role-based filtering
+ * when retrieving cached data offline.
+ *
+ * @param params - Group filters and pagination parameters.
+ * @returns Paginated groups from the API or local cache.
+ */
+function getGroupsList(params: GroupQueryParams) {
+  return listWithCache(params, authStore.loggedInUser?.groups ?? [])
+}
 
 /**
  * Component props.

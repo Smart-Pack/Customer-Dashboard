@@ -14,6 +14,14 @@
     "android:assemble": "pnpm exec cap sync android && cd android && ./gradlew assembleDebug && cd .. && mkdir -p build && cp android/app/build/outputs/apk/debug/app-debug.apk build/",
     "android:sha1": "cd android && ./gradlew signingReport | grep -E 'Variant: debug|SHA1:' | head -n 2 | tail -n 1 | cut -d ' ' -f 2",
     "android:sync": "cap sync android",
+    "android:stop": "adb shell am force-stop com.razaoul.smartpack",
+    "android:start": "adb shell monkey -p com.razaoul.smartpack 1",
+    "android:restart": "adb shell am force-stop com.razaoul.smartpack && sleep 2 && adb shell monkey -p com.razaoul.smartpack 1",
+    "android:logs:clear": "adb logcat -c && pnpm android:restart",
+    "android:logs": "until PID=$(adb shell pidof -s com.razaoul.smartpack) && [ -n \"$PID\" ]; do sleep 1; done; adb logcat --pid=$PID",
+    "android:logs:restart": "pnpm android:logs:clear && sleep 2 && pnpm android:logs",
+    "android:logs:filter": "pnpm android:logs:restart | grep -F -e",
+    "bluetooth:server": "sudo python3 scripts/bluetooth_server.py",
     "preview": "vite preview",
     "test:unit": "vitest",
     "type-check": "vue-tsc --build",
@@ -28,6 +36,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.1",
     "@capacitor-firebase/messaging": "^8.6.0",
     "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",

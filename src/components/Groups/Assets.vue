@@ -27,7 +27,7 @@
     <!-- Group Users -->
     <TablePageLayout
       v-if="activePage === 'users' && groupId !== 0"
-      :getter="$api.groupMembers.list"
+      :getter="getGroupMembersList"
       :page-description="usersDescription"
       :tabs="userTabs"
       name="Users"
@@ -40,7 +40,7 @@
     <!-- Group SmartPacks -->
     <TablePageLayout
       v-else-if="activePage === 'smartpacks' && groupId !== 0"
-      :getter="$api.smartpacks.list"
+      :getter="getSmartPacksList"
       :page-description="smartPacksDescription"
       :tabs="smartPackTabs"
       name="SmartPacks"
@@ -55,13 +55,21 @@
 <script setup lang="ts">
 /**
  * @module components/Groups/Assets
- * @description Displays a group's members and SmartPacks, allowing users to switch between the two tables.
+ * @description Displays a group's members and SmartPacks using API-backed data with local caching support.
+ * Allows users to switch between the members and SmartPacks tables.
  */
 import { computed } from 'vue'
 
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import type { GroupMemberQueryParams } from '@/api/modules/groupMembers'
-import type { SmartPackQueryParams } from '@/api/modules/smartpacks'
+import {
+  listWithCache as listSmartPacksWithCache,
+  type SmartPackQueryParams,
+} from '@/api/modules/smartpacks'
+
+import {
+  listWithCache as listGroupMembersWithCache,
+  type GroupMemberQueryParams,
+} from '@/api/modules/groupMembers'
 import Filters from '@/helpers/filters'
 import GroupMembersActions from './MembersActions.vue'
 import { markRaw } from 'vue'
@@ -69,7 +77,22 @@ import { markRaw } from 'vue'
 defineOptions({
   name: 'GroupAssets',
 })
-
+/**
+ * Fetches SmartPacks using the API with local caching support.
+ *
+ * @param params - SmartPack filters and pagination parameters.
+ */
+function getSmartPacksList(params: SmartPackQueryParams) {
+  return listSmartPacksWithCache(params)
+}
+/**
+ * Fetches group members using the API with local caching support.
+ *
+ * @param params - Group member filters and pagination parameters.
+ */
+function getGroupMembersList(params: GroupMemberQueryParams) {
+  return listGroupMembersWithCache(params)
+}
 const props = withDefaults(
   defineProps<{
     groupId: number

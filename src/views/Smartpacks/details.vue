@@ -181,8 +181,9 @@
 <script lang="ts">
 /**
  * @module views/SmartPacks/Details
- * @description Displays SmartPack details and allows authorized users
- * to assign or unassign groups, assign a child, and print the SmartPack QR code.
+ * @description Displays SmartPack details with offline caching support.
+ * Allows authorized users to assign or unassign groups, assign a child,
+ * view sensor measurements, connect via Bluetooth, and print the SmartPack QR code.
  */
 
 import { defineComponent } from 'vue'
@@ -199,9 +200,11 @@ import SmartPackQrComponent from '@/components/Smartpacks/QrCode.vue'
 import BluetoothButton from '@/components/Smartpacks/BluetoothButton.vue'
 import type { SmartPackSensorMessage, SmartPackSensorRecord } from '@/types/bluetooth'
 import { useAuthStore } from '@/stores/modules/auth'
+import { fetchByIdWithCache, repositories } from '@/services/database'
 
 /** Maximum number of Bluetooth sensor readings to retain. */
 const MAX_SENSOR_HISTORY = 1000
+const BLUETOOTH_SAVE_INTERVAL = 5000 // 5 seconds
 /**
  * Validates whether a value is a valid SmartPack sensor message.
  *
@@ -289,6 +292,9 @@ export default defineComponent({
       submitting: false,
       isBluetoothConnected: false,
       sensorHistory: [] as SmartPackSensorRecord[],
+      bluetoothMeasurementBuffer: [] as SmartPackSensorRecord[],
+      isFlushingBluetoothMeasurements: false,
+      bluetoothSaveTimer: null as ReturnType<typeof setInterval> | null,
 
       /**
        * Indicates whether the hidden QR helper should render and download.
@@ -315,8 +321,12 @@ export default defineComponent({
     /**
      * Handles incoming Bluetooth messages from the SmartPack device.
      *
-     * Validates sensor messages and records weight, steps, and the timestamp
-     * when the readings are received.
+     * Validates incoming sensor messages, records weight, steps, and the
+     * timestamp when the readings are received, and updates the in-memory
+     * sensor history.
+     *
+     * Valid readings are also queued for periodic batch persistence to the
+     * local SQLite database when running on mobile and Bluetooth is connected.
      *
      * Invalid messages and messages with unsupported types are ignored.
      *
@@ -338,6 +348,10 @@ export default defineComponent({
       if (this.sensorHistory.length > MAX_SENSOR_HISTORY) {
         this.sensorHistory.shift()
       }
+
+      if (this.isMobile && this.isBluetoothConnected) {
+        this.queueBluetoothMeasurement(reading)
+      }
     },
     /**
      * Fetches the SmartPack details using the ID from the current route.
@@ -348,7 +362,17 @@ export default defineComponent({
      */
     async getSmartPack(): Promise<void> {
       try {
-        this.smartPack = await this.$api.smartpacks.getById(this.smartPackId)
+        const smartpack = await fetchByIdWithCache(
+          () => this.$api.smartpacks.getById(this.smartPackId),
+          repositories.smartpacks,
+          Number(this.smartPackId.id),
+        )
+
+        this.smartPack = smartpack
+
+        if (this.isMobile) {
+          this.loadBluetoothHistory()
+        }
       } catch (error) {
         const itemError = error as ItemNotFoundError
 
@@ -494,6 +518,123 @@ export default defineComponent({
     handlePrintQr(value: boolean): void {
       this.printingQr = value
     },
+    /**
+     * Loads previously cached Bluetooth sensor measurements for the current
+     * SmartPack from the local SQLite database.
+     *
+     * Only runs in mobile mode. Loads the most recent readings while preserving
+     * chronological order for subsequent real-time updates.
+     *
+     * @returns A promise that resolves when the history has been loaded.
+     */
+    async loadBluetoothHistory(): Promise<void> {
+      if (!this.isMobile || !this.smartPack.id) {
+        return
+      }
+
+      try {
+        const measurements = await repositories.bluetoothSensorMeasurements.getBySmartPackId(
+          this.smartPack.id,
+        )
+
+        this.sensorHistory = measurements
+          .slice(0, MAX_SENSOR_HISTORY)
+          .reverse()
+          .map(({ weight, steps, timestamp }) => ({
+            weight,
+            steps,
+            timestamp,
+          }))
+      } catch (error) {
+        console.error('[SmartPack] Failed to load Bluetooth sensor history:', error)
+      }
+    },
+    /**
+     * Adds a Bluetooth sensor reading to the persistence buffer.
+     *
+     * @param reading - The sensor reading to cache.
+     */
+    queueBluetoothMeasurement(reading: SmartPackSensorRecord): void {
+      this.bluetoothMeasurementBuffer.push(reading)
+    },
+
+    /**
+     * Persists buffered Bluetooth sensor measurements to SQLite.
+     *
+     * Uses batch saving to reduce database transactions and prevents
+     * concurrent flush operations.
+     */
+    async flushBluetoothMeasurements(): Promise<void> {
+      if (
+        !this.smartPack.id ||
+        this.bluetoothMeasurementBuffer.length === 0 ||
+        this.isFlushingBluetoothMeasurements
+      ) {
+        return
+      }
+
+      this.isFlushingBluetoothMeasurements = true
+
+      const measurements = this.bluetoothMeasurementBuffer
+      this.bluetoothMeasurementBuffer = []
+
+      try {
+        await repositories.bluetoothSensorMeasurements.saveList(this.smartPack.id, measurements)
+      } catch (error) {
+        this.bluetoothMeasurementBuffer.unshift(...measurements)
+
+        console.error('[SmartPack] Failed to cache Bluetooth measurements:', error)
+      } finally {
+        this.isFlushingBluetoothMeasurements = false
+      }
+    },
+    /**
+     * Starts periodic persistence of buffered Bluetooth measurements.
+     */
+    startBluetoothPersistence(): void {
+      if (this.bluetoothSaveTimer !== null) {
+        return
+      }
+
+      this.bluetoothSaveTimer = setInterval(() => {
+        this.flushBluetoothMeasurements()
+      }, BLUETOOTH_SAVE_INTERVAL)
+    },
+
+    /**
+     * Stops periodic persistence and saves any remaining measurements.
+     */
+    stopBluetoothPersistence(): void {
+      if (this.bluetoothSaveTimer !== null) {
+        clearInterval(this.bluetoothSaveTimer)
+        this.bluetoothSaveTimer = null
+      }
+
+      this.flushBluetoothMeasurements()
+    },
+  },
+  watch: {
+    /**
+     * Watches the Bluetooth connection state and manages periodic
+     * persistence of buffered sensor measurements.
+     *
+     * Starts the Bluetooth persistence timer when the device connects
+     * and stops the timer while flushing pending measurements when
+     * the device disconnects.
+     *
+     * @param {boolean} connected - Whether the SmartPack device is connected over Bluetooth.
+     * @returns {void}
+     */
+    isBluetoothConnected(connected: boolean): void {
+      if (connected) {
+        this.startBluetoothPersistence()
+      } else {
+        this.stopBluetoothPersistence()
+      }
+    },
+  },
+  beforeUnmount() {
+    this.stopBluetoothPersistence()
   },
 })
 </script>

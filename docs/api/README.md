@@ -37,6 +37,6 @@ The API module exports two functions: `get()` and `patch(payload)`. These use th
 
 * [Authentication API](authentication.md) — provides a high-level overview of authentication and two-factor authentication endpoints and their respective flows.
 * [API Interceptors](interceptors.md) — provides a high-level overview of request and response interception and authentication handling.
-* [Users API](users.md) — provides a high-level overview of requests related to user information and account management.
+* [API Modules](modules.md) — provides a high-level overview of the available API modules and their responsibilities.
 
 

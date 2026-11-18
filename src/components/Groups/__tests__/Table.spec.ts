@@ -1,35 +1,28 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { groups } from '@/api/modules'
+import { listWithCache } from '@/api/modules/groups'
+import type { GroupQueryParams } from '@/api/modules/groups'
 import GroupsTable from '@/components/Groups/Table.vue'
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
+import type { User } from '@/api/modules/users'
+import { mockUser } from '@/tests/constants'
 
-const mockAuthStore = {
-  userId: 42,
-}
+const mockAuthStore = vi.hoisted(() => ({
+  loggedInUser: null as User | null,
+}))
 
 vi.mock('@/stores/modules/auth', () => ({
   useAuthStore: () => mockAuthStore,
 }))
 
+vi.mock('@/api/modules/groups', () => ({
+  listWithCache: vi.fn<typeof import('@/api/modules/groups').listWithCache>(),
+}))
+
 const mountGroupsTable = () =>
   mount(GroupsTable, {
     global: {
-      mocks: {
-        $api: {
-          groups: {
-            list: vi.fn<typeof groups.list>(() =>
-              Promise.resolve({
-                count: 0,
-                next: null,
-                previous: null,
-                results: [],
-              }),
-            ),
-          },
-        },
-      },
       stubs: {
         TablePageLayout: true,
       },
@@ -38,7 +31,12 @@ const mountGroupsTable = () =>
 
 describe('GroupsTable', () => {
   beforeEach(() => {
-    mockAuthStore.userId = 42
+    mockAuthStore.loggedInUser = {
+      ...mockUser,
+      groups: [...mockUser.groups, { id: 2, name: 'School Group', role: 'member' }],
+    }
+
+    vi.mocked(listWithCache).mockReset()
   })
 
   describe('rendering', () => {
@@ -48,12 +46,34 @@ describe('GroupsTable', () => {
       expect(wrapper.findComponent(TablePageLayout).exists()).toBe(true)
     })
 
-    it('passes the groups API getter and table name', () => {
+    it('passes the groups getter and table name', () => {
       const wrapper = mountGroupsTable()
       const layout = wrapper.findComponent(TablePageLayout)
 
-      expect(layout.props('getter')).toBeDefined()
+      expect(layout.props('getter')).toBeTypeOf('function')
       expect(layout.props('name')).toBe('Groups')
+    })
+
+    it('fetches groups using listWithCache with the query parameters and authenticated user groups', async () => {
+      const wrapper = mountGroupsTable()
+      const layout = wrapper.findComponent(TablePageLayout)
+
+      const getter = layout.props('getter') as (
+        params: GroupQueryParams,
+      ) => ReturnType<typeof listWithCache>
+
+      const params: GroupQueryParams = {
+        page: 1,
+        page_size: 10,
+        has_admin_access: true,
+      }
+
+      await getter(params)
+
+      expect(listWithCache).toHaveBeenCalledExactlyOnceWith(
+        params,
+        mockAuthStore.loggedInUser?.groups,
+      )
     })
 
     it('passes the page description', () => {

@@ -28,6 +28,7 @@ import { secureTokenStorage } from '../secureTokenStorage'
 
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const DEVICE_ID_KEY = 'device_id'
+const SQLITE_PASSPHRASE_KEY = 'sqlite_passphrase'
 
 describe('secureTokenStorage', () => {
   beforeEach(() => {
@@ -225,6 +226,79 @@ describe('secureTokenStorage', () => {
       vi.mocked(SecureStoragePlugin.get).mockRejectedValue(new Error('Storage unavailable'))
 
       const result = await secureTokenStorage.getDeviceId()
+
+      expect(result).toBeNull()
+    })
+  })
+  describe('setSqlitePassphrase', () => {
+    it('stores the SQLite passphrase securely on native platforms', async () => {
+      const passphrase = 'test-sqlite-passphrase'
+
+      await secureTokenStorage.setSqlitePassphrase(passphrase)
+
+      expect(SecureStoragePlugin.set).toHaveBeenCalledExactlyOnceWith({
+        key: SQLITE_PASSPHRASE_KEY,
+        value: passphrase,
+      })
+    })
+
+    it('does not store the SQLite passphrase on web platforms', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      await secureTokenStorage.setSqlitePassphrase('test-sqlite-passphrase')
+
+      expect(SecureStoragePlugin.set).not.toHaveBeenCalled()
+    })
+
+    it('propagates secure storage errors', async () => {
+      const error = new Error('Storage unavailable')
+
+      vi.mocked(SecureStoragePlugin.set).mockRejectedValue(error)
+
+      await expect(
+        secureTokenStorage.setSqlitePassphrase('test-sqlite-passphrase'),
+      ).rejects.toThrow(error)
+    })
+  })
+  describe('getSqlitePassphrase', () => {
+    it('retrieves the SQLite passphrase from native secure storage', async () => {
+      const passphrase = 'test-sqlite-passphrase'
+
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: passphrase,
+      })
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(SecureStoragePlugin.get).toHaveBeenCalledExactlyOnceWith({
+        key: SQLITE_PASSPHRASE_KEY,
+      })
+      expect(result).toBe(passphrase)
+    })
+
+    it('returns null when no SQLite passphrase is stored', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockResolvedValue({
+        value: '',
+      })
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on web platforms without accessing secure storage', async () => {
+      isNativePlatform.mockReturnValue(false)
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
+
+      expect(result).toBeNull()
+      expect(SecureStoragePlugin.get).not.toHaveBeenCalled()
+    })
+
+    it('returns null when secure storage retrieval fails', async () => {
+      vi.mocked(SecureStoragePlugin.get).mockRejectedValue(new Error('Storage unavailable'))
+
+      const result = await secureTokenStorage.getSqlitePassphrase()
 
       expect(result).toBeNull()
     })

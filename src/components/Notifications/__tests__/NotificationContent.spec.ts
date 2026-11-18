@@ -6,8 +6,9 @@ import { notifications as notificationsApi } from '@/api/modules'
 import { useMqttStore } from '@/stores'
 import { useGlobals } from '@/composables/useGlobals'
 import { useRouter } from 'vue-router'
+import { repositories } from '@/services/database'
 
-type NotificationListResult = Awaited<ReturnType<typeof notificationsApi.list>>
+type NotificationListResult = Awaited<ReturnType<typeof notificationsApi.listWithCache>>
 type TestNotification = NotificationListResult['results'][number]
 type UpdateNotificationPayload = Parameters<typeof notificationsApi.edit>[1]
 type UpdatedNotification = Awaited<ReturnType<typeof notificationsApi.edit>>
@@ -81,7 +82,9 @@ const mocks = vi.hoisted(() => {
 
     connect: vi.fn<(...args: unknown[]) => MockMqttClient>(() => client),
 
-    listNotifications: vi.fn<typeof notificationsApi.list>(),
+    listNotifications: vi.fn<typeof notificationsApi.listWithCache>(),
+    saveNotification: vi.fn<typeof repositories.notifications.save>(),
+    isMobile: vi.fn<() => boolean>(),
     editNotification: vi.fn<typeof notificationsApi.edit>(),
 
     fetchConfig: vi.fn<ReturnType<typeof useMqttStore>['fetchConfig']>(),
@@ -109,7 +112,7 @@ vi.mock('mqtt', () => ({
 
 vi.mock('@/api/modules', () => ({
   notifications: {
-    list: mocks.listNotifications,
+    listWithCache: mocks.listNotifications,
     edit: mocks.editNotification,
   },
 }))
@@ -144,6 +147,18 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mocks.routerPush,
   }),
+}))
+
+vi.mock('@/services/database', () => ({
+  repositories: {
+    notifications: {
+      save: mocks.saveNotification,
+    },
+  },
+}))
+
+vi.mock('@/utils/platform', () => ({
+  isMobile: mocks.isMobile,
 }))
 
 const createNotification = (overrides: Partial<TestNotification> = {}): TestNotification =>
@@ -260,6 +275,11 @@ describe('NotificationContent', () => {
 
       return mocks.client
     })
+    mocks.listNotifications.mockResolvedValue(createApiResponse())
+
+    mocks.saveNotification.mockResolvedValue(undefined)
+
+    mocks.isMobile.mockReturnValue(false)
   })
 
   describe('initial loading', () => {
@@ -480,6 +500,62 @@ describe('NotificationContent', () => {
   })
 
   describe('incoming MQTT notifications', () => {
+    it('caches new MQTT notifications in mobile mode', async () => {
+      mocks.isMobile.mockReturnValue(true)
+
+      const notification = createNotification({ id: 20 })
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      await publishNotification(notification)
+      await flushPromises()
+
+      expect(mocks.isMobile).toHaveBeenCalled()
+      expect(mocks.saveNotification).toHaveBeenCalledWith(notification)
+
+      wrapper.unmount()
+    })
+
+    it('does not cache MQTT notifications in web mode', async () => {
+      mocks.isMobile.mockReturnValue(false)
+
+      const notification = createNotification({ id: 20 })
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      await publishNotification(notification)
+      await flushPromises()
+
+      expect(mocks.isMobile).toHaveBeenCalled()
+      expect(mocks.saveNotification).not.toHaveBeenCalled()
+
+      wrapper.unmount()
+    })
+
+    it('does not prevent displaying a notification when caching fails', async () => {
+      mocks.isMobile.mockReturnValue(true)
+
+      mocks.saveNotification.mockRejectedValueOnce(new Error('Database unavailable'))
+
+      const wrapper = mountComponent()
+
+      await flushPromises()
+      await connectMqtt()
+
+      await publishNotification(createNotification({ id: 20 }))
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('SmartPack SOS Alert')
+      expect(mocks.saveNotification).toHaveBeenCalledTimes(1)
+
+      wrapper.unmount()
+    })
     it('adds a valid unread notification received over MQTT', async () => {
       const wrapper = mountComponent()
 

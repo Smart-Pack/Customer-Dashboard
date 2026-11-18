@@ -179,6 +179,7 @@ import WhatsAppIcon from '@/components/Icons/WhatsAppIcon.vue'
 import NotificationsModal from '@/components/Users/NotificationsModal.vue'
 import type { AxiosError } from 'axios'
 import { useGlobals } from '@/composables/useGlobals'
+import { fetchWithCache, updateCache, repositories } from '@/services/database'
 
 defineOptions({
   name: 'NotificationsView',
@@ -262,12 +263,21 @@ function applyPreferences(response: NotificationPreferences): void {
 
 /**
  * Fetches the authenticated user's notification preferences.
+ *
+ * Uses the API to retrieve the latest preferences and caches the response
+ * locally on native platforms. If the request fails due to a network error,
+ * falls back to the locally cached preferences when available.
+ *
+ * Updates the notification form with the retrieved preferences and manages
+ * the loading state throughout the operation.
+ *
+ * @returns {Promise<void>}
  */
 async function getPreferences(): Promise<void> {
   isActive.value = true
 
   try {
-    const response = await get()
+    const response = await fetchWithCache(get, repositories.notificationPreferences)
 
     applyPreferences(response)
   } catch (error: unknown) {
@@ -282,7 +292,13 @@ async function getPreferences(): Promise<void> {
 
 /**
  * Updates the authenticated user's notification preferences.
- * Uses VeeValidate to handle submission and API field errors.
+ *
+ * Uses VeeValidate to validate and handle form submission, sends the
+ * updated channel preferences to the API, and maps returned API field
+ * errors to the corresponding form fields.
+ *
+ * On success, updates the form and refreshes the locally cached preferences
+ * on mobile platforms to support offline access.
  */
 const updatePreferences = handleSubmit(async (values) => {
   if (isActive.value || submitting.value || !hasChanges.value) {
@@ -299,7 +315,7 @@ const updatePreferences = handleSubmit(async (values) => {
     const response = await patch(payload)
 
     applyPreferences(response)
-
+    void updateCache(response, repositories.notificationPreferences)
     $notifySuccess('Notification preferences successfully updated.')
   } catch (error: unknown) {
     const axiosError = error as AxiosError<Record<string, string[]>>

@@ -1,6 +1,7 @@
 import apiClient from '@/api/client'
 import { NOTIFICATIONS } from '../endpoints'
 import type { PaginatedResponse, PaginationQueryParams, ItemNotFoundError } from '@/api/types'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 
 export interface Notification {
   id: number
@@ -105,4 +106,25 @@ export const edit = async (
 
     throw axiosError
   }
+}
+
+/**
+ * Fetches paginated notifications from the API and replaces the local notification cache
+ * with the successfully retrieved results.
+ *
+ * Falls back to locally cached, filtered, and paginated notifications when
+ * the native application cannot reach the API.
+ *
+ * @param params - Notification filters and pagination parameters.
+ * @returns Paginated notifications from the API or local cache.
+ */
+export const listWithCache = async (
+  params: NotificationQueryParams = {},
+): Promise<NotificationListResult> => {
+  return fetchPaginatedWithCache({
+    fetcher: (query: NotificationQueryParams) => list(query),
+    params,
+    save: (data: Notification[]) => repositories.notifications.replaceList(data),
+    getCached: (query: NotificationQueryParams) => repositories.notifications.getPaginated(query),
+  })
 }

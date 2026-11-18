@@ -24,6 +24,22 @@ type RouterLocation = {
 // Mocks
 // -----------------------------------------------------------------------------
 
+const { mockFetchByIdWithCache } = vi.hoisted(() => ({
+  mockFetchByIdWithCache:
+    vi.fn<
+      (
+        fetcher: () => Promise<import('@/api/modules/groups').GroupDetail>,
+        repository: object,
+        id: number,
+      ) => Promise<import('@/api/modules/groups').GroupDetail>
+    >(),
+}))
+
+vi.mock('@/services/database', () => ({
+  fetchByIdWithCache: mockFetchByIdWithCache,
+  groupDetails: {},
+}))
+
 const mocks = vi.hoisted(() => ({
   getById: vi.fn<(params: GroupIdParams) => Promise<GroupDetail>>(),
   remove: vi.fn<(groupId: number) => Promise<string>>(),
@@ -157,6 +173,7 @@ const clickButton = async (wrapper: VueWrapper, label: string): Promise<void> =>
 describe('GroupDetails', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetchByIdWithCache.mockImplementation((fetcher: () => Promise<GroupDetail>) => fetcher())
 
     mocks.getById.mockResolvedValue(mockGroup)
     mocks.leaveGroup.mockResolvedValue('You have left the group "Family Group" successfully.')
@@ -266,12 +283,25 @@ describe('GroupDetails', () => {
   // ---------------------------------------------------------------------------
 
   describe('getGroup', () => {
-    it('fetches group details using the route ID', async () => {
+    it('fetches group details using the route ID through the cache service', async () => {
       await mountGroupDetails('25')
+
+      expect(mockFetchByIdWithCache).toHaveBeenCalledExactlyOnceWith(
+        expect.any(Function),
+        expect.any(Object),
+        25,
+      )
 
       expect(mocks.getById).toHaveBeenCalledExactlyOnceWith({
         id: '25',
       })
+    })
+
+    it('displays group details returned by the cache service', async () => {
+      const wrapper = await mountGroupDetails()
+
+      expect(wrapper.text()).toContain('Family Group')
+      expect(wrapper.text()).toContain('Trevor Muriuki')
     })
 
     it('shows an error notification when fetching fails', async () => {
@@ -295,6 +325,7 @@ describe('GroupDetails', () => {
         name: 'groups',
       })
     })
+
     it('continues loading group details when fetching the user fails', async () => {
       mocks.fetchUser.mockRejectedValueOnce(new Error('Failed to fetch user'))
 

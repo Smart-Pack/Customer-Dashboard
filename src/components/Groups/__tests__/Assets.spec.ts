@@ -3,12 +3,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import Assets from '@/components/Groups/Assets.vue'
 import TablePageLayout from '@/components/Base/TablePageLayout.vue'
-import api from '@/api'
+import { listWithCache as listSmartPacksWithCache } from '@/api/modules/smartpacks'
 
-const mocks = vi.hoisted(() => ({
-  groupMembersList: vi.fn<typeof api.groups.list>(),
-  smartpacksList: vi.fn<typeof api.smartpacks.list>(),
-}))
+import { listWithCache as listGroupMembersWithCache } from '@/api/modules/groupMembers'
+
+import type { Getter } from '@/components/Base/TablePageLayout.vue'
+
+vi.mock('@/api/modules/smartpacks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/modules/smartpacks')>()
+
+  return {
+    ...actual,
+    listWithCache: vi.fn<typeof actual.listWithCache>(),
+  }
+})
+
+vi.mock('@/api/modules/groupMembers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/modules/groupMembers')>()
+
+  return {
+    ...actual,
+    listWithCache: vi.fn<typeof actual.listWithCache>(),
+  }
+})
+
+const mockSmartPacksList = vi.mocked(listSmartPacksWithCache)
+const mockGroupMembersList = vi.mocked(listGroupMembersWithCache)
 
 describe('GroupAssets', () => {
   const defaultProps = {
@@ -22,18 +42,6 @@ describe('GroupAssets', () => {
       props: {
         ...defaultProps,
         ...props,
-      },
-      global: {
-        mocks: {
-          $api: {
-            groupMembers: {
-              list: mocks.groupMembersList,
-            },
-            smartpacks: {
-              list: mocks.smartpacksList,
-            },
-          },
-        },
       },
     })
 
@@ -60,7 +68,25 @@ describe('GroupAssets', () => {
 
       expect(table.exists()).toBe(true)
       expect(table.props('name')).toBe('Users')
-      expect(table.props('getter')).toBe(mocks.groupMembersList)
+      expect(table.props('getter')).toEqual(expect.any(Function))
+    })
+    it('passes a getter that fetches group members using listWithCache', async () => {
+      const wrapper = await mountAssets()
+      const table = wrapper.findComponent(TablePageLayout)
+
+      const getter = table.props('getter') as Getter
+
+      expect(getter).toEqual(expect.any(Function))
+
+      const params = {
+        group: 3,
+        page: 2,
+        page_size: 10,
+      }
+
+      await getter(params)
+
+      expect(mockGroupMembersList).toHaveBeenCalledExactlyOnceWith(params)
     })
 
     it('displays the Show SmartPacks button by default', async () => {
@@ -187,7 +213,7 @@ describe('GroupAssets', () => {
       const table = wrapper.findComponent(TablePageLayout)
 
       expect(table.props('name')).toBe('SmartPacks')
-      expect(table.props('getter')).toBe(mocks.smartpacksList)
+      expect(table.props('getter')).toEqual(expect.any(Function))
     })
 
     it('displays the Show Users button on the SmartPacks page', async () => {
@@ -210,7 +236,7 @@ describe('GroupAssets', () => {
       const table = wrapper.findComponent(TablePageLayout)
 
       expect(table.props('name')).toBe('Users')
-      expect(table.props('getter')).toBe(mocks.groupMembersList)
+      expect(table.props('getter')).toEqual(expect.any(Function))
     })
   })
 
@@ -244,6 +270,26 @@ describe('GroupAssets', () => {
           },
         },
       ])
+    })
+    it('passes a getter that fetches SmartPacks using listWithCache', async () => {
+      const wrapper = await mountAssets()
+
+      await wrapper.find('button').trigger('click')
+
+      const table = wrapper.findComponent(TablePageLayout)
+      const getter = table.props('getter') as Getter
+
+      expect(getter).toEqual(expect.any(Function))
+
+      const params = {
+        group: 3,
+        page: 2,
+        page_size: 10,
+      }
+
+      await getter(params)
+
+      expect(mockSmartPacksList).toHaveBeenCalledExactlyOnceWith(params)
     })
 
     it('passes the SmartPacks column headings', async () => {
@@ -392,18 +438,6 @@ describe('GroupAssets', () => {
         props: {
           groupId: 0,
           groupName: 'Family Group',
-        },
-        global: {
-          mocks: {
-            $api: {
-              groupMembers: {
-                list: mocks.groupMembersList,
-              },
-              smartpacks: {
-                list: mocks.smartpacksList,
-              },
-            },
-          },
         },
       })
 

@@ -158,7 +158,8 @@
 <script lang="ts">
 /**
  * @module views/Groups/details
- * @description Displays group metadata, including its owner, members, and SmartPacks, in a two-pane layout and swaps in the edit form when updating the group.
+ * @description Displays group details, including its owner, members, and SmartPacks.
+ * Supports updating group information and uses cached data when the API is unavailable.
  */
 import { defineComponent } from 'vue'
 import type { GroupDetail } from '@/api/modules/groups'
@@ -170,6 +171,7 @@ import GroupUpdateForm from '@/components/Groups/UpdateForm.vue'
 import GroupAssets from '@/components/Groups/Assets.vue'
 import SendInviteModal from '@/components/Groups/SendInviteModal.vue'
 import { useAuthStore } from '@/stores/modules/auth'
+import { fetchByIdWithCache, groupDetails } from '@/services/database'
 
 export default defineComponent({
   name: 'GroupDetails',
@@ -230,7 +232,12 @@ export default defineComponent({
      */
     async getGroup(): Promise<void> {
       try {
-        this.group = await this.$api.groups.getById(this.groupId)
+        const group = await fetchByIdWithCache(
+          () => this.$api.groups.getById(this.groupId),
+          groupDetails,
+          Number(this.groupId.id),
+        )
+        this.group = group
       } catch (error) {
         const itemError = error as ItemNotFoundError
 

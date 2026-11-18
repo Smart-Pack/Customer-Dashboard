@@ -8,6 +8,7 @@ import type {
 } from '@/api/types'
 import type { GroupMember } from './groups'
 import type { AxiosError } from 'axios'
+import { fetchPaginatedWithCache, repositories } from '@/services/database'
 
 export type GroupMemberListResult = PaginatedResponse<GroupMember>
 
@@ -214,4 +215,29 @@ export const joinInvite = async (payload: VerifyInvitePayload): Promise<GroupMem
 
     throw error
   }
+}
+
+/**
+ * Fetches paginated group members from the API and caches successful responses.
+ *
+ * Falls back to locally cached, filtered, and paginated group members when the
+ * native application cannot reach the API.
+ *
+ * @param params - Group member filters and pagination parameters.
+ * @returns Paginated group members from the API or local cache.
+ * @throws {Error} If no group ID is provided.
+ */
+export const listWithCache = async (
+  params: GroupMemberQueryParams,
+): Promise<PaginatedResponse<GroupMember>> => {
+  if (!params?.group) {
+    throw new Error('A group ID is required to fetch group members with caching.')
+  }
+
+  return fetchPaginatedWithCache({
+    fetcher: (query: GroupMemberQueryParams) => list(query),
+    params,
+    save: (data: GroupMember[]) => repositories.groupMembers.saveList(params.group!, data),
+    getCached: (query: GroupMemberQueryParams) => repositories.groupMembers.getPaginated(query),
+  })
 }
