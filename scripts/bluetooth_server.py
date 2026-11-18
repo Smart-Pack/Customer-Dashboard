@@ -40,6 +40,18 @@ STEPS_STEP = 100
 INCREASING = 1
 DECREASING = -1
 
+# SmartPack configuration.
+WEIGHT_LIMIT = 20000
+CONFIGURATION_DELAY = 55
+COM_MODE = 0  # 0 = GSM, 1 = Wi-Fi
+
+WIFI_SETTINGS = {
+    "ssid": "Animus",
+    "password": "123",
+}
+
+BLUETOOTH_NAME = "SmartPack"
+
 
 def get_timestamp() -> str:
     """
@@ -66,11 +78,14 @@ def send_sensor_data(
     stop_event: threading.Event,
 ) -> None:
     """
-    Send simulated sensor measurements every SEND_INTERVAL seconds.
+    Send simulated sensor measurements and configuration every
+    SEND_INTERVAL seconds.
 
-    Weight and steps increase gradually until their maximum thresholds
-    are reached, then decrease gradually until their minimum thresholds
-    are reached. The cycle repeats continuously.
+    Each cycle sends:
+        1. Sensor measurements.
+        2. SmartPack configuration.
+
+    Both messages are newline-delimited JSON.
 
     Args:
         client: Connected native RFCOMM socket.
@@ -83,20 +98,24 @@ def send_sensor_data(
     steps_direction = INCREASING
 
     while not stop_event.is_set():
-
-        message = {
-            "type": "sensors",
-            "data": {
-                "weight": weight,
-                "steps": steps,
+        messages = [
+            {
+                "type": "sensors",
+                "data": {
+                    "weight": weight,
+                    "steps": steps,
+                },
             },
-        }
-
-        payload = (json.dumps(message) + "\n").encode("utf-8")
+            get_configuration_message(),
+        ]
 
         try:
-            client.sendall(payload)
-            log_message(f"SENT: {payload.decode('utf-8').strip()}")
+            for message in messages:
+                payload = (json.dumps(message) + "\n").encode("utf-8")
+
+                client.sendall(payload)
+
+                log_message(f"SENT: {payload.decode('utf-8').strip()}")
 
         except OSError as error:
             log_message(f"SEND ERROR: {error}")
@@ -126,6 +145,22 @@ def send_sensor_data(
             steps_direction = INCREASING
 
         stop_event.wait(SEND_INTERVAL)
+
+
+def get_configuration_message() -> dict:
+    """
+    Return the simulated SmartPack configuration.
+
+    Returns:
+        dict: SmartPack configuration payload.
+    """
+    return {
+        "weight_limit": WEIGHT_LIMIT,
+        "delay": CONFIGURATION_DELAY,
+        "com_mode": COM_MODE,
+        "wifi_settings": WIFI_SETTINGS,
+        "bluetooth_name": BLUETOOTH_NAME,
+    }
 
 
 def handle_client(py_client: bluetooth.BluetoothSocket, address: tuple) -> None:

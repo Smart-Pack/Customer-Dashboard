@@ -152,7 +152,17 @@ The APK can then be transferred to an Android device or installed manually.
 
 The repository provides a Bluetooth Classic SPP test server that simulates a SmartPack device during development. It allows the Android application to test Bluetooth communication without requiring the physical ESP32 hardware.
 
-The server periodically sends simulated sensor measurements, including weight and step counts, and receives messages from the Android application. This helps validate Bluetooth connectivity and bidirectional communication during development.
+The server periodically sends two newline-delimited JSON messages to connected Android devices:
+
+1. **Sensor measurements** – simulated weight and step-count readings.
+2. **SmartPack configuration** – device settings, including:
+   - Weight limit (grams).
+   - Measurement update delay (seconds).
+   - Communication mode (GSM or Wi-Fi).
+   - Wi-Fi network credentials (SSID and password).
+   - Bluetooth device name.
+
+The server also receives messages from the Android application and logs transmitted and received messages with timestamps. This helps validate Bluetooth connectivity, sensor processing, configuration reception, and bidirectional communication during development.
 
 After completing the Bluetooth setup described in the [Setup Guide](setup.md), start the test server from the project root:
 
@@ -171,8 +181,11 @@ To use the test server as a SmartPack device:
 
 3. Assign the Linux machine's Bluetooth MAC address to the SmartPack's `bluetooth_mac_address` field.
 4. Open the SmartPack in the Android application and connect to it.
+5. Navigate to the SmartPack's **Settings** tab to view the simulated configuration received over Bluetooth.
 
 Ensure the Bluetooth server is running before attempting to connect.
+
+The test server uses predefined configuration values for development and testing. These values can be modified in `scripts/bluetooth_server.py` to simulate different SmartPack configurations.
 
 For detailed setup and troubleshooting instructions, see [Bluetooth Setup](docs/getting_started/setup.md#47-bluetooth-classic-spp-testing).
 
