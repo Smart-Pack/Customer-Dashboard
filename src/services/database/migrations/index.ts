@@ -1,6 +1,7 @@
 import type { SQLiteDBConnection } from '@capacitor-community/sqlite'
 import { up as initialSchema } from './001_initial_schema'
 import { up as bluetoothSensorMeasurements } from './002_bluetooth_sensor_measurements'
+import { up as syncMetadata } from './003_sync_metadata'
 
 interface Migration {
   version: number
@@ -24,6 +25,11 @@ const MIGRATIONS: Migration[] = [
     version: 2,
     name: 'bluetooth_sensor_measurements',
     up: bluetoothSensorMeasurements,
+  },
+  {
+    version: 3,
+    name: 'sync_metadata',
+    up: syncMetadata,
   },
 ]
 

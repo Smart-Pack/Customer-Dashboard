@@ -234,6 +234,28 @@ export const DATABASE_SCHEMA = [
         ON DELETE CASCADE
     );
   `,
+  // ---------------------------------------------------------
+  // Module synchronization metadata
+  // ---------------------------------------------------------
+  `
+    CREATE TABLE IF NOT EXISTS sync_metadata (
+      module TEXT PRIMARY KEY NOT NULL,
+
+      -- Timestamp of the last successful synchronization
+      last_synced_at TEXT,
+
+      -- Current synchronization state
+      sync_status TEXT NOT NULL DEFAULT 'idle' CHECK (
+        sync_status IN ('idle', 'syncing', 'success', 'failed')
+      ),
+
+      -- Timestamp of the most recent synchronization attempt
+      last_attempted_at TEXT,
+
+      -- Error from the most recent failed synchronization
+      last_error TEXT
+    );
+  `,
 
   // ---------------------------------------------------------
   // Indexes

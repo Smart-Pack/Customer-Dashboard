@@ -103,6 +103,7 @@ The initial schema includes the following tables:
 | `cached_notifications`                 | Stores notification history and notification states.                      |
 | `cached_notification_preferences`      | Stores notification delivery preferences.                                 |
 | `cached_admin_general_analysis`        | Stores cached administrative dashboard statistics.                        |
+| `sync_metadata` | Tracks synchronization status, last successful synchronization time, and errors for each cached module. |
 
 **Schema design considerations:**
 
@@ -126,6 +127,7 @@ The migration infrastructure consists of:
 
 - `001_initial_schema.ts`: Creates the initial database tables and indexes.
 - `002_bluetooth_sensor_measurements.ts`: Creates the Bluetooth sensor measurements table and its index.
+- `003_sync_metadata.ts`: Creates the module synchronization metadata table for tracking synchronization status, timestamps, and errors.
 - `index.ts`: Registers migrations, validates their versions, and executes pending migrations.
 
 **Migration strategy**
