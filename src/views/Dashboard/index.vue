@@ -248,7 +248,7 @@ async function loadSmartPacks(): Promise<void> {
 
   try {
     smartpacks.value = await fetchAllPages(async (page) => {
-      const response = await api.smartpacks.list({
+      const response = await api.smartpacks.listWithCache({
         page,
       })
 
@@ -290,7 +290,7 @@ async function fetchMeasurementsForPack(
   end: string,
 ): Promise<TaggedMeasurement[]> {
   const items = await fetchAllPages(async (page) => {
-    const response = await api.smartpacks.listSensorMeasurements({
+    const response = await api.smartpacks.listSensorMeasurementsWithCache({
       page,
       smartpack: smartpackId,
       timestamp_gte: start,
