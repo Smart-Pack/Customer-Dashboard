@@ -4,6 +4,7 @@
  */
 
 import * as users from './users'
+import * as syncMetadata from './syncMetadata'
 import * as groups from './groups'
 import * as groupMembers from './groupMembers'
 import * as smartpacks from './smartpacks'
@@ -20,6 +21,7 @@ import * as notificationPreferences from './notificationPreferences'
  */
 async function clearAll(): Promise<void> {
   await users.clear()
+  await syncMetadata.clear()
   await notificationPreferences.clear()
   await notifications.clear()
   await smartpackSensorMeasurements.clear()
@@ -31,6 +33,7 @@ async function clearAll(): Promise<void> {
 
 const repositories = {
   users,
+  syncMetadata,
   notificationPreferences,
   notifications,
   groups,
@@ -43,6 +46,7 @@ const repositories = {
 
 export {
   users,
+  syncMetadata,
   notificationPreferences,
   notifications,
   groupMembers,

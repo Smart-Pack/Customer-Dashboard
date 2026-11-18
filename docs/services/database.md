@@ -845,6 +845,69 @@ The service provides operations for removing cached notification records:
 
 These operations support targeted cache cleanup and complete removal of locally stored notification data.
 
+### 4.6.10 Sync Metadata Repository
+
+The Sync Metadata repository is implemented in:
+
+`src/services/database/repositories/syncMetadata.ts`
+
+It provides an interface for tracking synchronization metadata for individual modules whose data is cached in the local SQLite database.
+
+The repository maintains synchronization state independently for each cached module, allowing the application to track when data was last synchronized, monitor synchronization attempts, and record errors encountered during synchronization.
+
+**Available Operations**
+
+| Function | Description |
+|---|---|
+| `get(module)` | Retrieves synchronization metadata for a specific module. |
+| `getAll()` | Retrieves synchronization metadata for all registered modules. |
+| `save(metadata)` | Creates or updates synchronization metadata for a module. |
+| `deleteByModule(module)` | Deletes synchronization metadata associated with a specific module. |
+| `clear()` | Removes all synchronization metadata records. |
+
+**Data Retrieval**
+
+The `get()` operation retrieves synchronization metadata using the module identifier. It returns the corresponding record or `null` if no metadata exists.
+
+The `getAll()` operation retrieves synchronization metadata for all modules, ordered alphabetically by module identifier.
+
+**Data Handling**
+
+- **Module identification:** Uses the module identifier as the primary key, ensuring that each module has its own synchronization record.
+- **Last successful synchronization:** Maintains `last_synced_at`, indicating when the module was last successfully synchronized.
+- **Synchronization status:** Maintains `sync_status`, which indicates whether synchronization is `idle`, `syncing`, `success`, or `failed`.
+- **Attempt tracking:** Maintains `last_attempted_at`, indicating when the most recent synchronization attempt occurred.
+- **Error tracking:** Maintains `last_error`, storing details of the most recent synchronization failure.
+- **Independent tracking:** Maintains synchronization metadata separately for each cached module.
+
+**Data Persistence**
+
+The `save()` operation creates or updates synchronization metadata for a module using an SQLite upsert operation. If a record with the same module identifier already exists, the supplied values are used to update it.
+
+Only fields explicitly provided in the update are changed. Omitted fields retain their existing values, while explicitly supplied `null` values clear the corresponding fields.
+
+This allows synchronization status and error information to be updated without unintentionally overwriting the timestamp of the last successful synchronization.
+
+**Synchronization Status Management**
+
+The repository supports four synchronization states:
+
+1. `idle` – No synchronization is currently in progress.
+2. `syncing` – A synchronization attempt is in progress.
+3. `success` – The most recent synchronization completed successfully.
+4. `failed` – The most recent synchronization attempt failed.
+
+The metadata fields can be updated independently to record synchronization progress and outcomes. For example, a synchronization attempt can update `sync_status` to `syncing` and set `last_attempted_at`. On successful completion, `sync_status` can be set to `success` and `last_synced_at` updated. If synchronization fails, `sync_status` can be set to `failed` and `last_error` populated while preserving the previous successful synchronization timestamp.
+
+**Data Deletion**
+
+The repository provides operations for removing synchronization metadata:
+
+1. `deleteByModule()` removes the synchronization record associated with a specific module.
+2. `clear()` removes all synchronization metadata records.
+
+These operations support targeted synchronization metadata cleanup and complete removal of locally maintained synchronization tracking information.
+
 ## 5. Cache Utilities
 
 The database service provides reusable cache utilities for synchronizing API responses with locally stored SQLite data.
