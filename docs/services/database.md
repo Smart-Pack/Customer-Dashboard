@@ -709,6 +709,65 @@ The service provides operations for removing cached measurement records:
 
 These operations support targeted cache cleanup and complete removal of locally stored measurement data.
 
+### 4.6.8 Bluetooth Sensor Measurements Service
+
+The Bluetooth Sensor Measurements service is implemented in:
+
+`src/services/database/bluetoothSensorMeasurements.ts`
+
+It provides a higher-level interface for retrieving and managing Bluetooth sensor measurements stored in the local SQLite database.
+
+The service supports persistent storage of sensor readings received directly from SmartPack devices over Bluetooth, allowing the application to retain Bluetooth measurement history independently of REST API measurements.
+
+**Available Operations**
+
+| Function | Description |
+|---|---|
+| `save(smartpackId, measurement)` | Saves a Bluetooth sensor measurement and associates it with the specified SmartPack. |
+| `saveList(smartpackId, measurements)` | Saves multiple Bluetooth sensor measurements for the specified SmartPack within a database transaction. |
+| `getAll()` | Retrieves all cached Bluetooth sensor measurements. |
+| `getBySmartPackId(smartpackId)` | Retrieves Bluetooth sensor measurements associated with a specific SmartPack. |
+| `getPaginated(smartpackId, params)` | Retrieves and locally paginates Bluetooth sensor measurements for a specific SmartPack. |
+| `deleteByTimestamp(smartpackId, timestamp)` | Deletes a Bluetooth sensor measurement using its SmartPack ID and timestamp. |
+| `deleteBySmartPackId(smartpackId)` | Deletes all Bluetooth sensor measurements associated with a specific SmartPack. |
+| `clear()` | Removes all cached Bluetooth sensor measurements. |
+
+**Data Retrieval**
+
+The `getAll()` operation retrieves all cached Bluetooth measurements, ordered by timestamp in descending order.
+
+The `getBySmartPackId()` operation retrieves measurements associated with a particular SmartPack.
+
+The `getPaginated()` operation retrieves measurements for the specified SmartPack and applies local pagination.
+
+Measurements are ordered by timestamp in descending order before pagination is applied.
+
+**Data Handling**
+
+- **SmartPack association:** Each Bluetooth measurement is associated with its parent SmartPack through `smartpack_id`.
+- **Measurement data:** Stores sensor readings, including weight, steps, and timestamp.
+- **Separate storage:** Maintains Bluetooth measurements independently of REST API sensor measurements.
+- **Record identification:** Uses a composite primary key consisting of `smartpack_id` and `timestamp` to uniquely identify each measurement.
+- **Duplicate handling:** Updates an existing record when a measurement with the same SmartPack ID and timestamp is saved again.
+
+**Data Persistence**
+
+The `save()` operation inserts a Bluetooth sensor measurement into the local database. If a record with the same SmartPack ID and timestamp already exists, its weight and steps values are updated.
+
+The `saveList()` operation saves multiple Bluetooth measurements within a database transaction. This ensures that the batch is committed together or rolled back if an error occurs.
+
+The persistence operations maintain the association between each measurement and its corresponding SmartPack.
+
+**Data Deletion**
+
+The service provides operations for removing cached Bluetooth measurement records:
+
+1. `deleteByTimestamp()` removes an individual measurement identified by its SmartPack ID and timestamp.
+2. `deleteBySmartPackId()` removes all Bluetooth measurements associated with a specified SmartPack.
+3. `clear()` removes all cached Bluetooth sensor measurements.
+
+These operations support targeted cache cleanup and complete removal of locally stored Bluetooth measurement data.
+
 
 ## 5. Cache Utilities
 

@@ -7,6 +7,7 @@ import * as users from './users'
 import * as groups from './groups'
 import * as groupMembers from './groupMembers'
 import * as smartpacks from './smartpacks'
+import * as bluetoothSensorMeasurements from './bluetoothSensorMeasurements'
 import * as smartpackSensorMeasurements from './smartpackSensorMeasurements'
 import * as notificationPreferences from './notificationPreferences'
 
@@ -20,6 +21,7 @@ async function clearAll(): Promise<void> {
   await users.clear()
   await notificationPreferences.clear()
   await smartpackSensorMeasurements.clear()
+  await bluetoothSensorMeasurements.clear()
   await smartpacks.clear()
   await groupMembers.clear()
   await groups.clear()
@@ -31,6 +33,7 @@ const repositories = {
   groups,
   groupMembers,
   smartpackSensorMeasurements,
+  bluetoothSensorMeasurements,
   smartpacks,
   clearAll,
 }
@@ -41,6 +44,7 @@ export {
   groupMembers,
   groups,
   smartpackSensorMeasurements,
+  bluetoothSensorMeasurements,
   smartpacks,
   clearAll,
 }
