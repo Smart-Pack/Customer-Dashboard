@@ -222,6 +222,92 @@ The Bluetooth component processes incoming serial data, handles message boundari
 
 The details page validates incoming messages before accepting sensor readings. Invalid payloads and unsupported message types are ignored.
 
+##### Bluetooth Configuration Management
+
+In addition to receiving sensor measurements, the SmartPack Customer Dashboard supports retrieving and updating SmartPack configuration settings over Bluetooth Classic SPP.
+
+The configuration interface is available from the SmartPack details page under the **Settings** tab.
+
+###### Receiving SmartPack Configuration
+
+When a Bluetooth connection is established, the SmartPack sends its current configuration as a newline-delimited JSON message.
+
+The configuration message contains the following settings:
+
+- `weight_limit`: Maximum permitted weight in grams.
+- `delay`: Measurement update interval in seconds.
+- `com_mode`: Communication mode (`0` = GSM, `1` = Wi-Fi).
+- `wifi_settings`: Wi-Fi network credentials, including SSID and password.
+- `bluetooth_name`: Bluetooth device name.
+
+Example configuration payload:
+
+```json
+{
+  "weight_limit": 20000,
+  "delay": 55,
+  "com_mode": 0,
+  "wifi_settings": {
+    "ssid": "Animus",
+    "password": "123"
+  },
+  "bluetooth_name": "SmartPack"
+}
+```
+
+The application parses incoming Bluetooth messages and identifies configuration messages separately from sensor measurement messages. The received configuration is used to populate the configuration form.
+
+###### Updating SmartPack Configuration
+
+Users can select **Update Configuration** from the SmartPack Settings tab to open the configuration form.
+
+The form allows users to modify:
+
+- Weight limit.
+- Measurement update delay.
+- Communication mode.
+- Wi-Fi SSID and password.
+- Bluetooth device name.
+
+When the form is submitted, the application compares the entered values against the initially received configuration and sends only the settings that have changed.
+
+Configuration updates are transmitted as newline-delimited CSV commands over the active Bluetooth connection.
+
+The command format is:
+
+```text
+parameter,value_1[,value_2]
+```
+
+Supported commands include:
+
+| Command | Description | Example |
+|---|---|---|
+| `weight_limit` | Updates the maximum weight limit in grams. | `weight_limit,25000` |
+| `delay` | Updates the measurement interval in seconds. | `delay,60` |
+| `com_mode` | Changes the communication mode (`0` = GSM, `1` = Wi-Fi). | `com_mode,1` |
+| `wifi_settings` | Updates the Wi-Fi SSID and password. | `wifi_settings,MyNetwork,MyPassword` |
+| `bluetooth_name` | Updates the Bluetooth device name. | `bluetooth_name,SmartPack-01` |
+
+When multiple settings have changed, their commands are transmitted sequentially over the Bluetooth connection.
+
+Wi-Fi credentials can be updated independently of the selected communication mode.
+
+The application checks the Bluetooth connection before sending configuration commands. If Bluetooth is disconnected, the update is rejected and an appropriate error notification is displayed.
+
+A successful submission indicates that all configuration commands were sent over Bluetooth. It does not independently confirm that the physical SmartPack has applied the changes.
+
+###### Configuration Testing
+
+Configuration reception and updates can be tested using either:
+
+- The repository's Bluetooth Classic SPP test server running on Linux.
+- Another Android phone running a Bluetooth Classic application configured to act as an SPP server.
+
+The Linux test server simulates a SmartPack by periodically sending sensor measurements and the current configuration. It also receives, validates, and applies incoming CSV configuration commands.
+
+For instructions on starting the Linux test server and testing configuration updates, see [Bluetooth Classic SPP Testing](../../getting_started/usage.md#bluetooth-classic-spp-testing).
+
 ##### Bluetooth Sensor History
 
 Valid Bluetooth sensor readings are converted into sensor records containing:

@@ -6,8 +6,20 @@ connections from Android devices.
 
 After a client connects, the server:
     - Sends simulated sensor measurements every 5 seconds.
-    - Receives and prints messages from the connected Android device.
+    - Sends the current SmartPack configuration.
+    - Receives CSV configuration commands from Android devices.
+    - Updates configuration values when valid commands are received.
     - Prints an ISO 8601 timestamp before every transmitted or received message.
+
+Configuration command format:
+    parameter,value_1[,value_2]
+
+Supported commands:
+    weight_limit,20000
+    delay,55
+    com_mode,0
+    wifi_settings,ssid,password
+    bluetooth_name,SmartPack
 
 Requirements:
     - Linux with BlueZ Bluetooth stack.
@@ -20,6 +32,8 @@ Run:
 """
 
 import bluetooth
+import csv
+import io
 import json
 import socket
 import threading
@@ -39,6 +53,21 @@ STEPS_STEP = 100
 
 INCREASING = 1
 DECREASING = -1
+
+# SmartPack configuration.
+WEIGHT_LIMIT = 20000
+CONFIGURATION_DELAY = 55
+COM_MODE = 0  # 0 = GSM, 1 = Wi-Fi
+
+WIFI_SETTINGS = {
+    "ssid": "Animus",
+    "password": "123",
+}
+
+BLUETOOTH_NAME = "SmartPack"
+
+# Protect configuration reads and updates across threads.
+CONFIGURATION_LOCK = threading.Lock()
 
 
 def get_timestamp() -> str:
@@ -61,16 +90,141 @@ def log_message(message: str) -> None:
     print(f"[{get_timestamp()}] {message}", flush=True)
 
 
+def get_configuration_message() -> dict:
+    """
+    Return a snapshot of the current SmartPack configuration.
+
+    Returns:
+        dict: SmartPack configuration payload.
+    """
+    with CONFIGURATION_LOCK:
+        return {
+            "weight_limit": WEIGHT_LIMIT,
+            "delay": CONFIGURATION_DELAY,
+            "com_mode": COM_MODE,
+            "wifi_settings": WIFI_SETTINGS.copy(),
+            "bluetooth_name": BLUETOOTH_NAME,
+        }
+
+
+def handle_configuration_command(command: str) -> None:
+    """
+    Parse and apply an incoming CSV configuration command.
+
+    Expected format:
+        parameter,value_1[,value_2]
+
+    Supported parameters:
+        weight_limit:
+            weight_limit,20000
+
+        delay:
+            delay,55
+
+        com_mode:
+            com_mode,0
+
+        wifi_settings:
+            wifi_settings,ssid,password
+
+        bluetooth_name:
+            bluetooth_name,SmartPack
+
+    Args:
+        command: CSV configuration command.
+    """
+    global WEIGHT_LIMIT
+    global CONFIGURATION_DELAY
+    global COM_MODE
+    global WIFI_SETTINGS
+    global BLUETOOTH_NAME
+
+    try:
+        reader = csv.reader(io.StringIO(command), strict=True)
+        parts = next(reader)
+
+        if len(parts) not in (2, 3):
+            raise ValueError(
+                "Expected two or three CSV fields: " "parameter,value_1[,value_2]."
+            )
+
+        parameter = parts[0].strip()
+        value_1 = parts[1].strip()
+        value_2 = parts[2].strip() if len(parts) == 3 else None
+
+        if not parameter:
+            raise ValueError("Configuration parameter cannot be empty.")
+
+        if not value_1:
+            raise ValueError(f"Value for {parameter} cannot be empty.")
+
+        with CONFIGURATION_LOCK:
+            if parameter == "weight_limit":
+                if value_2 is not None:
+                    raise ValueError("Unexpected second value for weight_limit.")
+
+                value = int(value_1)
+
+                if value <= 0:
+                    raise ValueError("Weight limit must be greater than zero.")
+
+                WEIGHT_LIMIT = value
+
+            elif parameter == "delay":
+                if value_2 is not None:
+                    raise ValueError("Unexpected second value for delay.")
+
+                value = int(value_1)
+
+                if value <= 0:
+                    raise ValueError("Delay must be greater than zero.")
+
+                CONFIGURATION_DELAY = value
+
+            elif parameter == "com_mode":
+                if value_2 is not None:
+                    raise ValueError("Unexpected second value for com_mode.")
+
+                value = int(value_1)
+
+                if value not in (0, 1):
+                    raise ValueError("Communication mode must be 0 (GSM) or 1 (Wi-Fi).")
+
+                COM_MODE = value
+
+            elif parameter == "wifi_settings":
+                WIFI_SETTINGS = {
+                    "ssid": value_1,
+                    "password": value_2 or "",
+                }
+
+            elif parameter == "bluetooth_name":
+                if value_2 is not None:
+                    raise ValueError("Unexpected second value for bluetooth_name.")
+
+                BLUETOOTH_NAME = value_1
+
+            else:
+                raise ValueError(f"Unknown configuration parameter: {parameter}")
+
+        log_message(f"CONFIGURATION UPDATED: {parameter}")
+
+    except (ValueError, csv.Error, StopIteration) as error:
+        log_message(f"INVALID CONFIGURATION COMMAND: {error}")
+
+
 def send_sensor_data(
     client: socket.socket,
     stop_event: threading.Event,
 ) -> None:
     """
-    Send simulated sensor measurements every SEND_INTERVAL seconds.
+    Send simulated sensor measurements and configuration periodically.
 
-    Weight and steps increase gradually until their maximum thresholds
-    are reached, then decrease gradually until their minimum thresholds
-    are reached. The cycle repeats continuously.
+    Each cycle sends:
+        1. Sensor measurements.
+        2. Current SmartPack configuration.
+
+    Both messages are newline-delimited JSON.
 
     Args:
         client: Connected native RFCOMM socket.
@@ -83,20 +237,24 @@ def send_sensor_data(
     steps_direction = INCREASING
 
     while not stop_event.is_set():
-
-        message = {
-            "type": "sensors",
-            "data": {
-                "weight": weight,
-                "steps": steps,
+        messages = [
+            {
+                "type": "sensors",
+                "data": {
+                    "weight": weight,
+                    "steps": steps,
+                },
             },
-        }
-
-        payload = (json.dumps(message) + "\n").encode("utf-8")
+            get_configuration_message(),
+        ]
 
         try:
-            client.sendall(payload)
-            log_message(f"SENT: {payload.decode('utf-8').strip()}")
+            for message in messages:
+                payload = (json.dumps(message) + "\n").encode("utf-8")
+
+                client.sendall(payload)
+
+                log_message(f"SENT: {payload.decode('utf-8').strip()}")
 
         except OSError as error:
             log_message(f"SEND ERROR: {error}")
@@ -128,13 +286,16 @@ def send_sensor_data(
         stop_event.wait(SEND_INTERVAL)
 
 
-def handle_client(py_client: bluetooth.BluetoothSocket, address: tuple) -> None:
+def handle_client(
+    py_client: bluetooth.BluetoothSocket,
+    address: tuple,
+) -> None:
     """
     Handle an individual Android Bluetooth connection.
 
     Converts the accepted PyBluez socket into a native Python socket,
     starts a background sensor-data sender, and continuously receives
-    messages from the Android device.
+    and processes CSV configuration commands.
 
     Args:
         py_client: Accepted PyBluez RFCOMM socket.
@@ -167,7 +328,9 @@ def handle_client(py_client: bluetooth.BluetoothSocket, address: tuple) -> None:
         )
         sender_thread.start()
 
-        # Receive messages from Android.
+        # Receive and process newline-delimited CSV commands.
+        receive_buffer = ""
+
         while not stop_event.is_set():
             data = client.recv(1024)
 
@@ -175,7 +338,24 @@ def handle_client(py_client: bluetooth.BluetoothSocket, address: tuple) -> None:
                 log_message("DISCONNECTED: Android closed the connection.")
                 break
 
-            log_message(f"RECEIVED: {data.decode('utf-8', errors='replace').strip()}")
+            received = data.decode("utf-8", errors="replace")
+
+            log_message(f"RECEIVED RAW: {received!r}")
+
+            receive_buffer += received
+
+            # Process every complete command in the receive buffer.
+            while "\n" in receive_buffer:
+                command, receive_buffer = receive_buffer.split("\n", 1)
+
+                command = command.strip()
+
+                if not command:
+                    continue
+
+                log_message(f"RECEIVED: {command}")
+
+                handle_configuration_command(command)
 
     except OSError as error:
         log_message(f"CLIENT SOCKET ERROR: {error}")
