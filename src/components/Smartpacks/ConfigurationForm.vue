@@ -15,7 +15,7 @@ import { defineComponent, type PropType, markRaw } from 'vue'
 
 import type { SmartPackConfiguration } from '@/types/bluetooth'
 import CreationFormLayout from '@/components/Base/CreationFormLayout.vue'
-import type { Adder, FormItem } from '@/components/Base/CreationFormLayout.vue'
+import type { AdderResult, FormItem } from '@/components/Base/CreationFormLayout.vue'
 
 import WifiIcon from '@/components/Icons/WifiIcon.vue'
 import KeyIcon from '@/components/Icons/KeyIcon.vue'
@@ -23,6 +23,7 @@ import BluetoothOnIcon from '@/components/Icons/BluetoothOnIcon.vue'
 import ClockIcon from '@/components/Icons/ClockIcon.vue'
 import ScaleIcon from '@/components/Icons/ScaleIcon.vue'
 import SignalIcon from '@/components/Icons/SignalIcon.vue'
+import { bluetoothSerialService } from '@/services/bluetoothSerial'
 
 /**
  * @module components/Smartpacks/ConfigurationForm
@@ -98,7 +99,7 @@ export default defineComponent({
               errorName: 'Measurement delay',
               placeholder: 'Enter measurement delay',
               type: 'number',
-              rules: 'required|integer|min_value:1',
+              rules: 'required|positive_integer|min_value:1',
               icon: markRaw(ClockIcon),
             },
             {
@@ -107,7 +108,7 @@ export default defineComponent({
               errorName: 'Weight limit',
               placeholder: 'Enter weight limit',
               type: 'number',
-              rules: 'required|integer|min_value:1',
+              rules: 'required|positive_integer|min_value:1',
               icon: markRaw(ScaleIcon),
             },
           ],
@@ -136,13 +137,6 @@ export default defineComponent({
 
   computed: {
     /**
-     * Empty configuration adder.
-     */
-    configurationAdder(): Adder {
-      return (() => {}) as unknown as Adder
-    },
-
-    /**
      * Maps the existing SmartPack configuration into form values.
      */
     initialValuesAsFormItem(): FormItem {
@@ -163,6 +157,76 @@ export default defineComponent({
      */
     handlePageChange(): void {
       this.$emit('close')
+    },
+    /**
+     * Sends the updated configuration to the SmartPack.
+     * Requires an active Bluetooth connection.
+     */
+    async configurationAdder(payload: Record<string, unknown>): Promise<AdderResult> {
+      if (!this.isBluetoothConnected) {
+        throw new Error(
+          'Bluetooth is disconnected. Please reconnect to the SmartPack and try again.',
+        )
+      }
+
+      await this.sendConfiguration(payload as FormItem)
+
+      return {
+        message: 'SmartPack configuration commands sent successfully.',
+        data: {
+          id: this.initialValues.bluetooth_name,
+        },
+      }
+    },
+    /**
+     * Sends only the configuration settings that have changed.
+     */
+    async sendConfiguration(values: FormItem): Promise<void> {
+      if (!this.isBluetoothConnected) {
+        throw new Error(
+          'Bluetooth is disconnected. Please reconnect to the SmartPack and try again.',
+        )
+      }
+
+      const initial = this.initialValues
+      const commands: string[] = []
+
+      // Sensor settings
+      if (Number(values.weight_limit) !== initial.weight_limit) {
+        commands.push(`weight_limit,${values.weight_limit}`)
+      }
+
+      if (Number(values.delay) !== initial.delay) {
+        commands.push(`delay,${values.delay}`)
+      }
+
+      // Communication mode
+      const communicationMode = Number(values.com_mode)
+
+      if (communicationMode !== initial.com_mode) {
+        commands.push(`com_mode,${communicationMode}`)
+      }
+
+      // Bluetooth name
+      if (values.bluetooth_name !== initial.bluetooth_name) {
+        commands.push(`bluetooth_name,${values.bluetooth_name}`)
+      }
+
+      // Wi-Fi settings
+      const wifiSettingsChanged =
+        values.wifi_ssid !== (initial.wifi_settings?.ssid ?? '') ||
+        values.wifi_password !== (initial.wifi_settings?.password ?? '')
+
+      if (wifiSettingsChanged) {
+        commands.push(`wifi_settings,${values.wifi_ssid},${values.wifi_password}`)
+      }
+
+      // Nothing to update
+      if (commands.length === 0) return
+
+      for (const command of commands) {
+        await bluetoothSerialService.write(command)
+      }
     },
   },
 })

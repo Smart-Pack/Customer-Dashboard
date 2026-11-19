@@ -1,9 +1,18 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ConfigurationForm from '@/components/Smartpacks/ConfigurationForm.vue'
 import CreationFormLayout from '@/components/Base/CreationFormLayout.vue'
+import type { AdderResult } from '@/components/Base/CreationFormLayout.vue'
 import type { SmartPackConfiguration } from '@/types/bluetooth'
+
+const { mockWrite } = vi.hoisted(() => ({
+  mockWrite: vi.fn<(command: string) => Promise<void>>(),
+}))
+
+vi.mock('@/services/bluetoothSerial', () => ({
+  bluetoothSerialService: { write: mockWrite },
+}))
 
 const mockSmartPackConfiguration: SmartPackConfiguration = {
   weight_limit: 20000,
@@ -31,8 +40,25 @@ const mountForm = (
       },
     },
   })
+type ConfigurationAdder = (payload: Record<string, unknown>) => Promise<AdderResult>
 
+const getAdder = (wrapper: ReturnType<typeof mountForm>) =>
+  wrapper.findComponent(CreationFormLayout).props('adder') as unknown as ConfigurationAdder
+
+/** Form values identical to mockSmartPackConfiguration, so nothing counts as changed. */
+const unchangedValues = {
+  weight_limit: 20000,
+  delay: 55,
+  com_mode: 0,
+  wifi_ssid: 'SmartPack-WiFi',
+  wifi_password: 'password123',
+  bluetooth_name: 'SmartPack',
+}
 describe('ConfigurationForm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockWrite.mockResolvedValue(undefined)
+  })
   describe('rendering', () => {
     it('renders a CreationFormLayout', () => {
       const wrapper = mountForm()
@@ -145,7 +171,7 @@ describe('ConfigurationForm', () => {
             errorName: 'Measurement delay',
             placeholder: 'Enter measurement delay',
             type: 'number',
-            rules: 'required|integer|min_value:1',
+            rules: 'required|positive_integer|min_value:1',
             icon: expect.anything(),
           },
           {
@@ -154,7 +180,7 @@ describe('ConfigurationForm', () => {
             errorName: 'Weight limit',
             placeholder: 'Enter weight limit',
             type: 'number',
-            rules: 'required|integer|min_value:1',
+            rules: 'required|positive_integer|min_value:1',
             icon: expect.anything(),
           },
         ],
@@ -251,6 +277,140 @@ describe('ConfigurationForm', () => {
 
       expect(wrapper.emitted('close')).toBeTruthy()
       expect(wrapper.emitted('close')).toEqual([[]])
+    })
+  })
+
+  describe('configurationAdder', () => {
+    it('rejects when Bluetooth is disconnected', async () => {
+      const wrapper = mountForm(mockSmartPackConfiguration, false)
+
+      await expect(getAdder(wrapper)(unchangedValues)).rejects.toThrow(
+        'Bluetooth is disconnected. Please reconnect to the SmartPack and try again.',
+      )
+      expect(mockWrite).not.toHaveBeenCalled()
+    })
+
+    it('resolves with a success message and the Bluetooth name as id', async () => {
+      const wrapper = mountForm(mockSmartPackConfiguration, true)
+
+      await expect(getAdder(wrapper)(unchangedValues)).resolves.toEqual({
+        message: 'SmartPack configuration commands sent successfully.',
+        data: { id: 'SmartPack' },
+      })
+    })
+
+    it('sends nothing when no values changed', async () => {
+      const wrapper = mountForm(mockSmartPackConfiguration, true)
+
+      await getAdder(wrapper)(unchangedValues)
+
+      expect(mockWrite).not.toHaveBeenCalled()
+    })
+
+    it('treats numeric strings equal to the current values as unchanged', async () => {
+      const wrapper = mountForm(mockSmartPackConfiguration, true)
+
+      await getAdder(wrapper)({
+        ...unchangedValues,
+        weight_limit: '20000',
+        delay: '55',
+        com_mode: '0',
+      })
+
+      expect(mockWrite).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('sending configuration commands', () => {
+    const submit = (changes: Record<string, unknown>) => {
+      const wrapper = mountForm(mockSmartPackConfiguration, true)
+      return getAdder(wrapper)({ ...unchangedValues, ...changes })
+    }
+
+    it('sends a weight_limit command when it changes', async () => {
+      await submit({ weight_limit: '25000' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('weight_limit,25000')
+    })
+
+    it('sends a delay command when it changes', async () => {
+      await submit({ delay: 60 })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('delay,60')
+    })
+
+    it('sends a com_mode command with a numeric value', async () => {
+      await submit({ com_mode: '1' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('com_mode,1')
+    })
+
+    it('sends a bluetooth_name command when it changes', async () => {
+      await submit({ bluetooth_name: 'SmartPack-02' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('bluetooth_name,SmartPack-02')
+    })
+
+    it('sends one wifi_settings command when only the SSID changes', async () => {
+      await submit({ wifi_ssid: 'NewNetwork' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('wifi_settings,NewNetwork,password123')
+    })
+
+    it('sends one wifi_settings command when only the password changes', async () => {
+      await submit({ wifi_password: 'newpass' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('wifi_settings,SmartPack-WiFi,newpass')
+    })
+
+    it('sends one wifi_settings command when both SSID and password change', async () => {
+      await submit({ wifi_ssid: 'A', wifi_password: 'B' })
+
+      expect(mockWrite).toHaveBeenCalledExactlyOnceWith('wifi_settings,A,B')
+    })
+
+    it('sends only the commands for changed settings, in a fixed order', async () => {
+      await submit({
+        wifi_ssid: 'A',
+        wifi_password: 'B',
+        bluetooth_name: 'SmartPack-02',
+        com_mode: 1,
+        delay: 60,
+        weight_limit: 25000,
+      })
+
+      expect(mockWrite.mock.calls.map(([command]) => command)).toEqual([
+        'weight_limit,25000',
+        'delay,60',
+        'com_mode,1',
+        'bluetooth_name,SmartPack-02',
+        'wifi_settings,A,B',
+      ])
+    })
+
+    it('writes commands one at a time', async () => {
+      let releaseFirst: () => void = () => {}
+      mockWrite.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (releaseFirst = resolve)),
+      )
+
+      const pending = submit({ weight_limit: 25000, delay: 60 })
+      await Promise.resolve()
+
+      expect(mockWrite).toHaveBeenCalledTimes(1)
+
+      releaseFirst()
+      await pending
+
+      expect(mockWrite).toHaveBeenCalledTimes(2)
+    })
+
+    it('stops sending and rejects when a write fails', async () => {
+      mockWrite.mockRejectedValueOnce(new Error('Write failed'))
+
+      await expect(submit({ weight_limit: 25000, delay: 60 })).rejects.toThrow('Write failed')
+
+      expect(mockWrite).toHaveBeenCalledTimes(1)
     })
   })
 })
